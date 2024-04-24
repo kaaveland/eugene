@@ -22,7 +22,7 @@ cargo build --release
 
 ## Usage
 
-`eugene` has a help command that should be up-to-date with the tools current capabilites.
+`eugene` has a help command that should be fairly intuitive and can show you how to use the tool:
 
 ```bash
 eugene help
@@ -32,15 +32,48 @@ eugene help
 
 `eugene` knows about the lock modes in postgres, for example `eugene explain ShareLock` will emit:
 
-```
-Lock mode: ShareLock
-Used for: CREATE INDEX
-Conflicts with: RowExclusiveLock, ShareUpdateExclusiveLock, ShareRowExclusiveLock, ExclusiveLock, AccessExclusiveLock
-Blocked query types: UPDATE, DELETE, INSERT, MERGE
-Blocked DDL operations: VACUUM, ANALYZE, CREATE INDEX CONCURRENTLY, CREATE STATISTICS, REINDEX CONCURRENTLY, ALTER INDEX, ALTER TABLE, CREATE TRIGGER, ALTER TABLE, REFRESH MATERIALIZED VIEW CONCURRENTLY, ALTER TABLE, DROP TABLE, TRUNCATE, REINDEX, CLUSTER, VACUUM FULL, REFRESH MATERIALIZED VIEW
+```json
+{
+  "lock_mode": "ShareLock",
+  "used_for": [
+    "CREATE INDEX"
+  ],
+  "conflicts_with": [
+    "RowExclusiveLock",
+    "ShareUpdateExclusiveLock",
+    "ShareRowExclusiveLock",
+    "ExclusiveLock",
+    "AccessExclusiveLock"
+  ],
+  "blocked_queries": [
+    "UPDATE",
+    "DELETE",
+    "INSERT",
+    "MERGE"
+  ],
+  "blocked_ddl_operations": [
+    "VACUUM",
+    "ANALYZE",
+    "CREATE INDEX CONCURRENTLY",
+    "CREATE STATISTICS",
+    "REINDEX CONCURRENTLY",
+    "ALTER INDEX",
+    "ALTER TABLE",
+    "CREATE TRIGGER",
+    "ALTER TABLE",
+    "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+    "ALTER TABLE",
+    "DROP TABLE",
+    "TRUNCATE",
+    "REINDEX",
+    "CLUSTER",
+    "VACUUM FULL",
+    "REFRESH MATERIALIZED VIEW"
+  ]
+}
 ```
 
-Use `eugene lock-modes` or refer to [the postgres documentation](https://www.postgresql.org/docs/current/explicit-locking.html) 
+Use `eugene modes` or refer to [the postgres documentation](https://www.postgresql.org/docs/current/explicit-locking.html) 
 to learn more about lock modes.
 
 ## Tracing locks taken by a transaction
@@ -52,26 +85,77 @@ connection information to a database. For example, for the local docker-compose 
 # Currently the only way to provide eugene with a password is through the PGPASS environment variable
 export PGPASS=postgres 
 createdb --host localhost -U postgres --port 5432 example-db
-echo 'create table books(id serial primary key, title text);' |
-  psql --host localhost -U postgres --port 5432 example-db
-echo 'create table author(name text not null); alter table books alter column title set not null;' |
-  eugene trace --host localhost -U postgres --port 5432 --database example-db -- -  
+# Populate the database with some data, then trace mig.sql
+eugene trace --host localhost -U postgres --port 5432 --database example-db mig.sql
 ```
 
 You should see some output that looks like this:
 
 ```
-# Statement 1: SQL: create table author(name text not null);
-# New locks taken: None
-# Duration: 5.686041ms
-Statement 2: SQL: alter table books alter column title set not null;
-New locks taken:
-  - AccessExclusiveLock on Table public.books blocks SELECT, FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE, FOR KEY SHARE, UPDATE, DELETE, INSERT, MERGE
-Duration: 2.178208ms
+{
+  "name": "mig.sql",
+  "sql_statements": [
+    {
+      "statement_number": 1,
+      "duration_millis": 5,
+      "sql": "create table author(name text not null);",
+      "locks_taken": [],
+      "locks_held": []
+    },
+    {
+      "statement_number": 2,
+      "duration_millis": 0,
+      "sql": "alter table books alter column title set not null;",
+      "locks_taken": [
+        {
+          "mode": "AccessExclusiveLock",
+          "schema": "public",
+          "object_name": "books",
+          "blocked_queries": [
+            "SELECT",
+            "FOR UPDATE",
+            "FOR NO KEY UPDATE",
+            "FOR SHARE",
+            "FOR KEY SHARE",
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ]
+        }
+      ],
+      "locks_held": []
+    },
+    {
+      "statement_number": 3,
+      "duration_millis": 0,
+      "sql": "select * from books",
+      "locks_taken": [],
+      "locks_held": [
+        {
+          "mode": "AccessExclusiveLock",
+          "schema": "public",
+          "object_name": "books",
+          "blocked_queries": [
+            "SELECT",
+            "FOR UPDATE",
+            "FOR NO KEY UPDATE",
+            "FOR SHARE",
+            "FOR KEY SHARE",
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ]
+        }
+      ]
+    }
+  ]
+}
 ```
 
 Note that `eugene` only logs locks that target relations visible to other transactions, so it does 
-log any lock for the `author` table in this instance. By default, `eugene trace` will roll back 
+not log any lock for the `author` table in this instance. By default, `eugene trace` will roll back 
 transactions, and you should pass `-c` or `--commit` if this is not what you want.
 
 
@@ -89,9 +173,10 @@ out to be useful.
 ### Output format
 
 Note that the output format is subject to change, in the near future `eugene` will be able to
-output json or markdown or something else that's suitable for use in CI/CD pipelines.
+output json or markdown or something else that's suitable for use in CI/CD pipelines and
+the fields and structure of the output is still unstable.
 
-# Combatibility
+# Compatibility
 
 `eugene` should work with most versions of postgres after 12, it isn't running any 
 particularly fancy queries or using any new features or types. If you find that 
@@ -102,25 +187,11 @@ it doesn't work with your version of postgres, feel free to open an issue.
 Contributions are welcome, but there's no roadmap for this project yet. Feel free to open an issue,
 ideas and discussion are very welcome.
 
-# Future work
+# Migration tool
 
-These are some goals for the future of `eugene`:
-
-- Support more output formats (globally, for all commands):
-    + JSON, to let people build their own tools or CI/CD rules on top of `eugene`
-    + Markdown and HTML, to make `eugene` more useful in CI/CD pipelines, such as by posting comments on pull requests
-- Automatically detect table rewrites so that `eugene` can report on locks that potentially held for a long time
-- Automatically check for queries that may get blocked in `pg_stat_statements`
-    + In a CI situation, this could be used to prevent merges that would cause downtime assuming most queries run 
-      as part of the CI pipeline.
-- Add output filtering, such as emitting only locks that certain kinds of queries
-- Exit codes that reflect the presence of dangerous locks, suitable for use in CI
-- Support more complex SQL scripts
-- Pick up certain dangerous patterns automatically and automatically suggest better ways to achieve the same result
-  + Inspired by [strong_migrations](https://github.com/ankane/strong_migrations) which has a similar goal for Rails migrations.
-- Investigate whether we could do some good by creating an extension with [pgrx](https://github.com/pgcentralfoundation/pgrx).
-- Trace locks across object renames, eg. if `book` is locked and then renamed to `books`, `eugene` should be able to 
-  understand that the `books` lock is the same as the `book` lock and not output a new lock.
+`eugene` is not a migration tool like flyway or liquibase, and isn't intended to be one. There are
+many excellent migration tools already, and the scope of `eugene` is only to help develop migrations
+that are less likely to cause problems in a database that is in use by application code.
 
 # License
 

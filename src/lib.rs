@@ -1,5 +1,5 @@
 //! This crate provides a library and a binary for tracing locks taken by SQL statements
-//! in a PostgreSQL database. It can be used to analyze the locking behavior of SQL scripts 
+//! in a PostgreSQL database. It can be used to analyze the locking behavior of SQL scripts
 //! and to review migration scripts that could potentially interfere with other operations,
 //! such as concurrent queries by application code.
 use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
@@ -60,8 +60,8 @@ impl<'a> TraceSettings<'a> {
     /// # Arguments
     /// * `path` - Path to the SQL script to trace, or "-" to read from stdin.
     /// * `commit` - Whether to commit the transaction at the end of the trace.
-    /// * `placeholders` - `${}`-Placeholders to replace in the SQL script, provided 
-    ///   as a slice of strings in the form of `"name=value"`. 
+    /// * `placeholders` - `${}`-Placeholders to replace in the SQL script, provided
+    ///   as a slice of strings in the form of `"name=value"`.
     pub fn new(
         path: String,
         commit: bool,

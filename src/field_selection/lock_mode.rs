@@ -41,7 +41,7 @@ impl<'a> From<&'a LockMode> for NormalLockMode<'a> {
 pub struct DetailedLockMode<'a> {
     #[serde(flatten)]
     normal: NormalLockMode<'a>,
-    blocked_olap_operations: Vec<&'a str>,
+    blocked_queries: Vec<&'a str>,
     blocked_ddl_operations: Vec<&'a str>,
 }
 
@@ -49,7 +49,7 @@ impl<'a> From<&'a LockMode> for DetailedLockMode<'a> {
     fn from(value: &'a LockMode) -> Self {
         DetailedLockMode {
             normal: value.into(),
-            blocked_olap_operations: value.blocked_queries(),
+            blocked_queries: value.blocked_queries(),
             blocked_ddl_operations: value.blocked_ddl(),
         }
     }

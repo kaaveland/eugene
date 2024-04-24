@@ -2,7 +2,9 @@ use serde::Serialize;
 
 use crate::field_selection::lock::{NormalLock, TerseLock, VerboseLock};
 use crate::field_selection::lock_mode::{DetailedLockMode, NormalLockMode, TerseLockMode};
-use crate::field_selection::sql_statement::{NormalSqlStatement, SqlStatementCtx, TerseSqlStatement, VerboseSqlStatement};
+use crate::field_selection::sql_statement::{
+    NormalSqlStatement, SqlStatementCtx, TerseSqlStatement, VerboseSqlStatement,
+};
 use crate::lock_modes::LockMode;
 use crate::locks::Lock;
 use crate::tracing::TxLockTracer;
@@ -26,15 +28,21 @@ pub trait Renderer<'a> {
         let obj: Self::Lock = lock.into();
         F::render(&obj)
     }
-    fn statement<F: Format<'a>>(&self, statement: &'a SqlStatementCtx<'a>) -> Result<String, anyhow::Error> {
+    fn statement<F: Format<'a>>(
+        &self,
+        statement: &'a SqlStatementCtx<'a>,
+    ) -> Result<String, anyhow::Error> {
         let obj: Self::SqlStatement = statement.into();
         F::render(&obj)
     }
-    fn trace<F: Format<'a>>(&self, trace: &'a TxTraceSerializable<'a>) -> Result<String, anyhow::Error> {
+    fn trace<F: Format<'a>>(
+        &self,
+        trace: &'a TxTraceSerializable<'a>,
+    ) -> Result<String, anyhow::Error> {
         let obj: Self::TxTrace = trace.into();
         F::render(&obj)
     }
-    fn lock_modes<F: Format<'a>>(&self, modes: &'a[LockMode]) -> Result<String, anyhow::Error> {
+    fn lock_modes<F: Format<'a>>(&self, modes: &'a [LockMode]) -> Result<String, anyhow::Error> {
         let obj: Vec<Self::LockMode> = modes.iter().map(|mode| mode.into()).collect();
         F::render(&obj)
     }
@@ -43,7 +51,7 @@ pub trait Renderer<'a> {
 /// Terse selects the bare minimum of fields to display in output
 pub struct Terse;
 
-impl <'a> Renderer<'a> for Terse {
+impl<'a> Renderer<'a> for Terse {
     type LockMode = TerseLockMode<'a>;
     type Lock = TerseLock<'a>;
     type SqlStatement = TerseSqlStatement<'a>;
@@ -52,7 +60,7 @@ impl <'a> Renderer<'a> for Terse {
 /// Normal selects more fields than Terse without being verbose
 pub struct Normal;
 
-impl <'a> Renderer<'a> for Normal {
+impl<'a> Renderer<'a> for Normal {
     type LockMode = NormalLockMode<'a>;
     type Lock = NormalLock<'a>;
     type SqlStatement = NormalSqlStatement<'a>;
@@ -60,9 +68,9 @@ impl <'a> Renderer<'a> for Normal {
 }
 
 /// Verbose selects all possible fields
-pub struct Verbose;
+pub struct Detailed;
 
-impl <'a> Renderer<'a> for Verbose {
+impl<'a> Renderer<'a> for Detailed {
     type LockMode = DetailedLockMode<'a>;
     type Lock = VerboseLock<'a>;
     type SqlStatement = VerboseSqlStatement<'a>;
@@ -76,12 +84,12 @@ pub struct JsonPretty;
 pub trait Format<'a> {
     fn render<I: Serialize>(input: I) -> Result<String, anyhow::Error>;
 }
-impl <'a> Format<'a> for Json {
+impl<'a> Format<'a> for Json {
     fn render<I: Serialize>(input: I) -> Result<String, anyhow::Error> {
         Ok(serde_json::to_string(&input)?)
     }
 }
-impl <'a> Format<'a> for JsonPretty {
+impl<'a> Format<'a> for JsonPretty {
     fn render<I: Serialize>(input: I) -> Result<String, anyhow::Error> {
         Ok(serde_json::to_string_pretty(&input)?)
     }
@@ -93,7 +101,7 @@ pub struct TxTraceSerializable<'a> {
 }
 
 impl<'a> TxTraceSerializable<'a> {
-    pub fn new(trace: &'a TxLockTracer, show_ddl: bool) -> Self {
+    pub fn new(trace: &'a TxLockTracer, extra: bool) -> Self {
         let mut sql_statements = vec![];
         let mut locks = vec![];
         for statement in &trace.statements {
@@ -101,9 +109,14 @@ impl<'a> TxTraceSerializable<'a> {
                 statement_number: sql_statements.len() + 1,
                 trace: statement,
                 locks_before: locks.clone(),
-                show_ddl,
+                extra,
             };
-            locks.extend(statement.locks_taken.iter().filter(|lock| show_ddl || lock.mode.dangerous()));
+            locks.extend(
+                statement
+                    .locks_taken
+                    .iter()
+                    .filter(|lock| extra || lock.mode.dangerous()),
+            );
             sql_statements.push(ctx);
         }
 
@@ -124,11 +137,7 @@ impl<'a> From<&'a TxTraceSerializable<'a>> for TerseTxTrace<'a> {
     fn from(value: &'a TxTraceSerializable) -> Self {
         TerseTxTrace {
             name: value.name,
-            sql_statements: value
-                .sql_statements
-                .iter()
-                .map(|ctx| ctx.into())
-                .collect(),
+            sql_statements: value.sql_statements.iter().map(|ctx| ctx.into()).collect(),
         }
     }
 }
@@ -141,11 +150,7 @@ impl<'a> From<&'a TxTraceSerializable<'a>> for NormalTxTrace<'a> {
     fn from(value: &'a TxTraceSerializable) -> Self {
         NormalTxTrace {
             name: value.name,
-            sql_statements: value
-                .sql_statements
-                .iter()
-                .map(|ctx| ctx.into())
-                .collect(),
+            sql_statements: value.sql_statements.iter().map(|ctx| ctx.into()).collect(),
         }
     }
 }
@@ -158,11 +163,7 @@ impl<'a> From<&'a TxTraceSerializable<'a>> for DetailedTxTrace<'a> {
     fn from(value: &'a TxTraceSerializable) -> Self {
         DetailedTxTrace {
             name: value.name,
-            sql_statements: value
-                .sql_statements
-                .iter()
-                .map(|ctx| ctx.into())
-                .collect(),
+            sql_statements: value.sql_statements.iter().map(|ctx| ctx.into()).collect(),
         }
     }
 }

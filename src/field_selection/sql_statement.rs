@@ -8,7 +8,7 @@ pub struct SqlStatementCtx<'a> {
     pub(crate) trace: &'a SqlStatementTrace,
     pub(crate) statement_number: usize,
     pub(crate) locks_before: Vec<&'a Lock>,
-    pub(crate) show_ddl: bool,
+    pub(crate) extra: bool,
 }
 
 #[derive(Serialize, Debug, Eq, PartialEq)]
@@ -40,7 +40,7 @@ impl<'a> From<&'a SqlStatementCtx<'a>> for TerseSqlStatement<'a> {
                 .trace
                 .locks_taken
                 .iter()
-                .filter(|lock| value.show_ddl || lock.mode.dangerous())
+                .filter(|lock| value.extra || lock.mode.dangerous())
                 .map(|lock| lock.into())
                 .collect(),
         }
@@ -65,7 +65,7 @@ impl<'a> From<&'a SqlStatementCtx<'a>> for NormalSqlStatement<'a> {
                 .trace
                 .locks_taken
                 .iter()
-                .filter(|lock| value.show_ddl || lock.mode.dangerous())
+                .filter(|lock| value.extra || lock.mode.dangerous())
                 .map(|lock| lock.into())
                 .collect(),
             locks_held: value
@@ -95,7 +95,7 @@ impl<'a> From<&'a SqlStatementCtx<'a>> for VerboseSqlStatement<'a> {
                 .trace
                 .locks_taken
                 .iter()
-                .filter(|lock| value.show_ddl || lock.mode.dangerous())
+                .filter(|lock| value.extra || lock.mode.dangerous())
                 .map(|lock| lock.into())
                 .collect(),
             locks_held: value

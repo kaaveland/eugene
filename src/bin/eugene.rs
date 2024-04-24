@@ -1,7 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
-use eugene::{ConnectionSettings, lock_modes, TraceSettings};
-use eugene::lock_modes::LockModeInfo;
+
+use eugene::{ConnectionSettings, lock_modes, perform_trace, TraceSettings};
+use eugene::field_selection::{JsonPretty, Normal, Renderer, Terse, TxTraceSerializable, Verbose};
 
 #[derive(Parser)]
 #[command(name = "eugene")]
@@ -21,6 +22,25 @@ struct Eugene {
     format: String,
     #[command(subcommand)]
     command: Option<Commands>,
+}
+
+enum Level {
+    Terse,
+    Normal,
+    Detailed,
+}
+
+impl TryFrom<&str> for Level {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        match value {
+            "terse" => Ok(Level::Terse),
+            "normal" => Ok(Level::Normal),
+            "detailed" => Ok(Level::Detailed),
+            _ => Err(anyhow!("Invalid level: {}", value)),
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -47,18 +67,48 @@ enum Commands {
         /// Port to connect to.
         #[arg(short = 'p', long = "port", default_value = "5432")]
         port: u16,
+
+        /// Detail level: terse, normal, detailed
+        #[arg(short = 'l', long = "level", default_value = "normal")]
+        level: String,
+        
+        /// Show locks that are normally not in conflict with application code.
+        #[arg(short = 'e', long = "extra", default_value_t = false)]
+        extra: bool,
     },
     /// List postgres lock modes
-    LockModes,
+    LockModes {
+        /// Detail level: terse, normal, detailed
+        #[arg(short = 'l', long = "level", default_value = "terse")]
+        level: String,
+        
+    },
     /// Explain what operations a lock mode allows and conflicts with
     Explain {
         /// Lock mode to explain
         mode: String,
+        /// Detail level: terse, normal, detailed
+        #[arg(short = 'l', long = "level", default_value = "detailed")]
+        level: String,
+        
     },
 }
 
+impl Commands {
+    fn level(&self) -> Result<Level> {
+        match self {
+            Commands::Trace { level, .. } | Commands::LockModes { level, .. } | Commands::Explain { level, .. } => {
+                Level::try_from(level.as_str())
+            }
+        }
+    }
+}
+
+
 pub fn main() -> Result<()> {
     let args = Eugene::parse();
+    let level = args.command.as_ref().map_or(Ok(Level::Terse), |c| c.level())?;
+
     match args.command {
         Some(Commands::Trace {
             user,
@@ -68,27 +118,43 @@ pub fn main() -> Result<()> {
             placeholders,
             commit,
             path,
+                 extra: show_ddl,
+            ..
         }) => {
             let password = std::env::var("PGPASS").context("No PGPASS environment variable set")?;
             let connection_settings = ConnectionSettings::new(user, database, host, port, password);
             let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
-            let trace_result = eugene::perform_trace(&trace_settings, &connection_settings)?;
-            println!("{trace_result}");
+            let trace_result = perform_trace(&trace_settings, &connection_settings)?;
+            let selectable = TxTraceSerializable::new(&trace_result, show_ddl);
+            let json = match level {
+                Level::Terse => Terse.trace::<JsonPretty>(&selectable),
+                Level::Normal => Normal.trace::<JsonPretty>(&selectable),
+                Level::Detailed => Verbose.trace::<JsonPretty>(&selectable),
+            }?;
+            println!("{}", json);
             Ok(())
         }
-        Some(Commands::LockModes) | None => {
-            lock_modes::LOCK_MODES.iter().for_each(|mode| {
-                println!("{}", mode.to_db_str());
-            });
+        Some(Commands::LockModes { .. }) | None => {
+            let lock_modes: Vec<_> = lock_modes::LOCK_MODES.into_iter().collect();
+            let json =  match level {
+                Level::Terse => Terse.lock_modes::<JsonPretty>(&lock_modes),
+                Level::Normal => Normal.lock_modes::<JsonPretty>(&lock_modes),
+                Level::Detailed => Verbose.lock_modes::<JsonPretty>(&lock_modes),
+            }?;
+            println!("{}", json);
             Ok(())
         }
-        Some(Commands::Explain { mode }) => {
+        Some(Commands::Explain { mode, .. }) => {
             let choice = lock_modes::LOCK_MODES
                 .iter()
                 .find(|m| m.to_db_str() == mode || m.to_db_str().replace("Lock", "") == mode)
                 .context(format!("Invalid lock mode {mode}"))?;
-            let info = LockModeInfo::new(choice);
-            println!("{info}");
+            let json = match level {
+                Level::Terse => Terse.lock_mode::<JsonPretty>(choice),
+                Level::Normal => Normal.lock_mode::<JsonPretty>(choice),
+                Level::Detailed => Normal.lock_mode::<JsonPretty>(choice),
+            }?;
+            println!("{}", json);
             Ok(())
         }
     }

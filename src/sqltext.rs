@@ -75,7 +75,7 @@ pub fn sql_statements(sql: &str) -> Vec<String> {
                 }
             }
             (';', _) if !in_string => {
-                result.push(statement);
+                result.push(statement.trim().to_string());
                 statement = String::new();
             }
             ('\'', _) => {
@@ -85,7 +85,7 @@ pub fn sql_statements(sql: &str) -> Vec<String> {
         }
     }
     if !statement.is_empty() {
-        result.push(statement);
+        result.push(statement.trim().to_string());
     }
     result.retain(|s| !s.trim().is_empty());
     result
@@ -127,6 +127,6 @@ mod tests {
     fn test_split_statements_with_comments() {
         let sql = "SELECT * FROM table; -- This is a comment\nSELECT * FROM table; /* This is a block comment */";
         let result = super::sql_statements(sql);
-        assert_eq!(result, vec!["SELECT * FROM table", "SELECT * FROM table"]);
+        assert_eq!(result, vec!["SELECT * FROM table;", "SELECT * FROM table;"]);
     }
 }

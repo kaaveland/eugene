@@ -8,15 +8,15 @@ use std::time::{Duration, Instant};
 
 /// A trace of a single SQL statement, including the locks taken and the duration of the statement.
 #[derive(Debug, Eq, PartialEq, Clone)]
-struct SqlStatementTrace {
+pub struct SqlStatementTrace {
     /// The SQL statement that was executed.
-    sql: String,
+    pub(crate) sql: String,
     /// New locks taken by this statement.
-    locks_taken: Vec<Lock>,
+    pub(crate) locks_taken: Vec<Lock>,
     /// The time the statement started executing.
-    start_time: Instant,
+    pub(crate) start_time: Instant,
     /// The duration of the statement.
-    duration: Duration,
+    pub(crate) duration: Duration,
 }
 
 impl Display for SqlStatementTrace {
@@ -57,7 +57,7 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> Result<HashSet
             let relkind: i8 = row.try_get(2)?;
             let mode: String = row.try_get(3)?;
             Lock::new(schema, object_name, mode, (relkind as u8) as char)
-                    .map_err(|err| anyhow!("{err}"))
+                .map_err(|err| anyhow!("{err}"))
         })
         .collect::<Result<HashSet<Lock>, anyhow::Error>>()?;
     Ok(locks)
@@ -82,16 +82,18 @@ fn find_new_locks(old_locks: &HashSet<Lock>, new_locks: &HashSet<Lock>) -> HashS
 
 /// A trace of a transaction, including all SQL statements executed and the locks taken by each one.
 #[derive(Eq, PartialEq, Debug, Clone, Default)]
-pub struct TxLockTrace {
+pub struct TxLockTracer {
+    /// The name of the transaction, if any, typically the file name.
+    pub(crate) name: Option<String>,
     /// The initial set of objects that are interesting to track locks for.
     initial_objects: HashSet<LockableTarget>,
     /// The list of all SQL statements executed so far in the transaction.
-    statements: Vec<SqlStatementTrace>,
+    pub(crate) statements: Vec<SqlStatementTrace>,
     /// All locks taken so far in the transaction.
     all_locks: HashSet<Lock>,
 }
 
-impl TxLockTrace {
+impl TxLockTracer {
     /// Trace a single SQL statement, recording the locks taken and the duration of the statement.
     pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> Result<()> {
         let start_time = Instant::now();
@@ -109,15 +111,16 @@ impl TxLockTrace {
         });
         Ok(())
     }
-    pub fn new(initial_objects: HashSet<LockableTarget>) -> Self {
+    pub fn new(name: Option<String>, initial_objects: HashSet<LockableTarget>) -> Self {
         Self {
+            name,
             initial_objects,
             ..Default::default()
         }
     }
 }
 
-impl Display for TxLockTrace {
+impl Display for TxLockTracer {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for (i, statement) in self.statements.iter().enumerate() {
             writeln!(f, "Statement {}: {}", i + 1, statement)?;
@@ -127,9 +130,7 @@ impl Display for TxLockTrace {
 }
 
 /// Fetch all user owned lockable objects in the database, skipping the system schemas.
-fn fetch_lockable_objects(
-    tx: &mut Transaction,
-) -> Result<HashSet<LockableTarget>, anyhow::Error> {
+fn fetch_lockable_objects(tx: &mut Transaction) -> Result<HashSet<LockableTarget>, anyhow::Error> {
     let sql = "SELECT
            n.nspname as schema_name,
            c.relname as table_name,
@@ -154,11 +155,12 @@ fn fetch_lockable_objects(
 
 /// Trace a transaction, executing a series of SQL statements and recording the locks taken.
 pub fn trace_transaction<S: AsRef<str>>(
+    name: Option<String>,
     tx: &mut Transaction,
     sql_statements: impl Iterator<Item = S>,
-) -> Result<TxLockTrace> {
+) -> Result<TxLockTracer> {
     let initial_objects = fetch_lockable_objects(tx)?;
-    let mut trace = TxLockTrace::new(initial_objects);
+    let mut trace = TxLockTracer::new(name, initial_objects);
     for sql in sql_statements {
         trace.trace_sql_statement(tx, sql.as_ref().trim())?;
     }

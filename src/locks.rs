@@ -24,8 +24,8 @@ impl LockableTarget {
 /// A lock targets a target object with a specific mode.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Lock {
-    mode: LockMode,
-    target: LockableTarget,
+    pub(crate) mode: LockMode,
+    pub(crate) target: LockableTarget,
 }
 
 /// Errors that can occur when creating a `Lock`

@@ -29,4 +29,18 @@ impl RelKind {
             _ => None,
         }
     }
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Table => "Table",
+            Self::Index => "Index",
+            Self::Sequence => "Sequence",
+            Self::Toast => "Toast",
+            Self::View => "View",
+            Self::MaterializedView => "MaterializedView",
+            Self::CompositeType => "CompositeType",
+            Self::ForeignTable => "ForeignTable",
+            Self::PartitionedTable => "PartitionedTable",
+            Self::PartitionedIndex => "PartitionedIndex",
+        }
+    }
 }

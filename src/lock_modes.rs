@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use crate::lock_modes::LockMode::*;
 
 /// A lock mode in PostgreSQL, see [the documentation](https://www.postgresql.org/docs/current/explicit-locking.html)
@@ -182,6 +181,15 @@ impl LockMode {
             .filter(|cap| !QUERY_CAPABILITIES.contains(cap))
             .collect()
     }
+
+    pub fn dangerous(&self) -> bool {
+        self.conflicts_with()
+            .iter()
+            .flat_map(|lock| lock.capabilities().iter().copied())
+            .filter(|cap| QUERY_CAPABILITIES.contains(cap))
+            .count()
+            > 0
+    }
 }
 
 #[cfg(test)]
@@ -213,49 +221,5 @@ mod tests {
             .filter(|lock| lock.capabilities().contains(&"FOR UPDATE"))
             .flat_map(|lock| lock.conflicts_with().iter())
             .for_each(|lock| assert!(lock.dangerous()));
-    }
-}
-
-/// Use to render lock mode information to output
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct LockModeInfo<'a> {
-    lock_mode: &'a str,
-    enabled_operations: &'a [&'a str],
-    conflicts_with: Vec<&'a str>,
-    blocked_olap_operations: Vec<&'a str>,
-    blocked_ddl_operations: Vec<&'a str>,
-}
-
-impl <'a> LockModeInfo<'a> {
-    pub fn new(lock_mode_info: &LockMode) ->  LockModeInfo {
-        LockModeInfo {
-            lock_mode: lock_mode_info.to_db_str(),
-            enabled_operations: lock_mode_info.capabilities(),
-            conflicts_with: lock_mode_info
-                .conflicts_with()
-                .iter()
-                .map(|m| m.to_db_str())
-                .collect::<Vec<_>>(),
-            blocked_olap_operations: lock_mode_info.blocked_queries(),
-            blocked_ddl_operations: lock_mode_info.blocked_ddl(),
-        }
-    }
-}
-
-impl Display for LockModeInfo<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(f, "Lock mode: {}", self.lock_mode)?;
-        writeln!(f, "Used for: {}", self.enabled_operations.join(", "))?;
-        writeln!(f, "Conflicts with: {}", self.conflicts_with.join(", "))?;
-        writeln!(
-            f,
-            "Blocked query types: {}",
-            self.blocked_olap_operations.join(", ")
-        )?;
-        write!(
-            f,
-            "Blocked DDL operations: {}",
-            self.blocked_ddl_operations.join(", ")
-        )
     }
 }

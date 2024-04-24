@@ -1,15 +1,27 @@
+//! This crate provides a library and a binary for tracing locks taken by SQL statements
+//! in a PostgreSQL database. It can be used to analyze the locking behavior of SQL scripts 
+//! and to review migration scripts that could potentially interfere with other operations,
+//! such as concurrent queries by application code.
 use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
-use crate::tracer::{trace_transaction, TxLockTrace};
+use crate::tracing::{trace_transaction, TxLockTracer};
 use anyhow::anyhow;
 use postgres::{Client, NoTls};
 use std::collections::HashMap;
 
+/// This module concerns itself with selecting fields from traces and locks
+/// to be displayed in output.
+pub mod field_selection;
+/// This module contains data about postgres lock modes and their capabilities.
 pub mod lock_modes;
+/// Locks targeting database objects like tables or indexes, together with their lock modes.
 pub mod locks;
 pub mod relkinds;
+/// Read and parse simple SQL scripts, resolve placeholders and break down into statements.
 pub mod sqltext;
-pub mod tracer;
+/// Trace locks taken by SQL statements.
+pub mod tracing;
 
+/// Connection settings for connecting to a PostgreSQL database.
 pub struct ConnectionSettings {
     user: String,
     database: String,
@@ -36,14 +48,25 @@ impl ConnectionSettings {
     }
 }
 
+/// Settings for tracing locks taken by SQL statements.
 pub struct TraceSettings<'a> {
     path: String,
     commit: bool,
     placeholders: HashMap<&'a str, &'a str>,
 }
 
-impl <'a> TraceSettings<'a> {
-    pub fn new(path: String, commit: bool, placeholders: &'a [String]) -> Result<TraceSettings<'a>, anyhow::Error> {
+impl<'a> TraceSettings<'a> {
+    /// Create a new TraceSettings instance.
+    /// # Arguments
+    /// * `path` - Path to the SQL script to trace, or "-" to read from stdin.
+    /// * `commit` - Whether to commit the transaction at the end of the trace.
+    /// * `placeholders` - `${}`-Placeholders to replace in the SQL script, provided 
+    ///   as a slice of strings in the form of `"name=value"`. 
+    pub fn new(
+        path: String,
+        commit: bool,
+        placeholders: &'a [String],
+    ) -> Result<TraceSettings<'a>, anyhow::Error> {
         Ok(TraceSettings {
             path,
             commit,
@@ -52,6 +75,7 @@ impl <'a> TraceSettings<'a> {
     }
 }
 
+/// Parse placeholders in the form of name=value into a map.
 pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&str, &str>> {
     let mut map = HashMap::new();
     for placeholder in placeholders {
@@ -64,16 +88,23 @@ pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&st
     Ok(map)
 }
 
+/// Perform a lock trace of a SQL script and optionally commit the transaction, depending on
+/// trace_settings.
 pub fn perform_trace(
     trace: &TraceSettings,
     connection_settings: &ConnectionSettings,
-) -> anyhow::Result<TxLockTrace> {
+) -> anyhow::Result<TxLockTracer> {
     let script_content = read_sql_statements(&trace.path)?;
+    let name = if trace.path == "-" {
+        None
+    } else {
+        trace.path.split('/').last().map(|s| s.to_string())
+    };
     let sql_script = resolve_placeholders(&script_content, &trace.placeholders)?;
     let sql_statements = sql_statements(&sql_script);
     let mut conn = Client::connect(connection_settings.connection_string().as_str(), NoTls)?;
     let mut tx = conn.transaction()?;
-    let trace_result = trace_transaction(&mut tx, sql_statements.iter())?;
+    let trace_result = trace_transaction(name, &mut tx, sql_statements.iter())?;
     if trace.commit {
         tx.commit()?;
     } else {

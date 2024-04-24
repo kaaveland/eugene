@@ -1,9 +1,12 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 
-use eugene::output::{Detailed, JsonPretty, Normal, Renderer, Terse, TxTraceData};
-use eugene::{perform_trace, ConnectionSettings, TraceSettings};
+use eugene::output::{
+    Detailed, Format, JsonPretty, Normal, PlainText, Renderer, Terse, TxTraceData,
+};
 use eugene::pg_types::lock_modes;
+use eugene::pg_types::lock_modes::LockMode;
+use eugene::{perform_trace, ConnectionSettings, TraceSettings};
 
 #[derive(Parser)]
 #[command(name = "eugene")]
@@ -19,10 +22,15 @@ concurrent transactions that would be blocked.
 )]
 struct Eugene {
     /// Output format, plain, json
-    #[arg(short = 'f', long = "format", default_value = "plain")]
+    #[arg(short = 'f', long = "format", default_value = "json")]
     format: String,
     #[command(subcommand)]
     command: Option<Commands>,
+}
+
+enum Formats {
+    Plain,
+    Json,
 }
 
 enum Level {
@@ -103,12 +111,50 @@ impl Commands {
     }
 }
 
+fn lock_mode_renderer<'a, F: Format<'a>>(
+    level: Level,
+    _f: F,
+) -> Box<dyn Fn(&'a LockMode) -> Result<String>> {
+    Box::new(move |thing: &'a LockMode| match level {
+        Level::Terse => Terse.lock_mode::<F>(thing),
+        Level::Normal => Normal.lock_mode::<F>(thing),
+        Level::Detailed => Detailed.lock_mode::<F>(thing),
+    })
+}
+
+fn lock_modes_renderer<'a, F: Format<'a>>(
+    level: Level,
+    _f: F,
+) -> Box<dyn Fn(&'a [LockMode]) -> Result<String>> {
+    Box::new(move |things: &'a [LockMode]| match level {
+        Level::Terse => Terse.lock_modes::<F>(things),
+        Level::Normal => Normal.lock_modes::<F>(things),
+        Level::Detailed => Detailed.lock_modes::<F>(things),
+    })
+}
+
+fn trace_renderer<'a, F: Format<'a>>(
+    level: Level,
+    _f: F,
+) -> Box<dyn Fn(&'a TxTraceData<'a>) -> Result<String>> {
+    Box::new(move |thing: &'a TxTraceData<'a>| match level {
+        Level::Terse => Terse.trace::<F>(thing),
+        Level::Normal => Normal.trace::<F>(thing),
+        Level::Detailed => Detailed.trace::<F>(thing),
+    })
+}
+
 pub fn main() -> Result<()> {
     let args = Eugene::parse();
     let level = args
         .command
         .as_ref()
         .map_or(Ok(Level::Terse), |c| c.level())?;
+    let format = match args.format.as_str() {
+        "plain" => Formats::Plain,
+        "json" => Formats::Json,
+        _ => return Err(anyhow!("Invalid format: {}", args.format)),
+    };
 
     match args.command {
         Some(Commands::Trace {
@@ -126,23 +172,21 @@ pub fn main() -> Result<()> {
             let connection_settings = ConnectionSettings::new(user, database, host, port, password);
             let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
             let trace_result = perform_trace(&trace_settings, &connection_settings)?;
-            let selectable = TxTraceData::new(&trace_result, extra);
-            let json = match level {
-                Level::Terse => Terse.trace::<JsonPretty>(&selectable),
-                Level::Normal => Normal.trace::<JsonPretty>(&selectable),
-                Level::Detailed => Detailed.trace::<JsonPretty>(&selectable),
+            let trace_data = TxTraceData::new(&trace_result, extra);
+            let out = match format {
+                Formats::Json => trace_renderer(level, JsonPretty)(&trace_data),
+                Formats::Plain => trace_renderer(level, PlainText)(&trace_data),
             }?;
-            println!("{}", json);
+            println!("{}", out);
             Ok(())
         }
         Some(Commands::Modes { .. }) | None => {
             let lock_modes: Vec<_> = lock_modes::LOCK_MODES.into_iter().collect();
-            let json = match level {
-                Level::Terse => Terse.lock_modes::<JsonPretty>(&lock_modes),
-                Level::Normal => Normal.lock_modes::<JsonPretty>(&lock_modes),
-                Level::Detailed => Detailed.lock_modes::<JsonPretty>(&lock_modes),
+            let out = match format {
+                Formats::Json => lock_modes_renderer(level, JsonPretty)(&lock_modes),
+                Formats::Plain => lock_modes_renderer(level, PlainText)(&lock_modes),
             }?;
-            println!("{}", json);
+            println!("{}", out);
             Ok(())
         }
         Some(Commands::Explain { mode, .. }) => {
@@ -150,12 +194,11 @@ pub fn main() -> Result<()> {
                 .iter()
                 .find(|m| m.to_db_str() == mode || m.to_db_str().replace("Lock", "") == mode)
                 .context(format!("Invalid lock mode {mode}"))?;
-            let json = match level {
-                Level::Terse => Terse.lock_mode::<JsonPretty>(choice),
-                Level::Normal => Normal.lock_mode::<JsonPretty>(choice),
-                Level::Detailed => Detailed.lock_mode::<JsonPretty>(choice),
+            let out = match format {
+                Formats::Json => lock_mode_renderer(level, JsonPretty)(choice),
+                Formats::Plain => lock_mode_renderer(level, PlainText)(choice),
             }?;
-            println!("{}", json);
+            println!("{}", out);
             Ok(())
         }
     }

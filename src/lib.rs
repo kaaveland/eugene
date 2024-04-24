@@ -8,10 +8,10 @@ use crate::tracing::{trace_transaction, TxLockTracer};
 use anyhow::anyhow;
 use postgres::{Client, NoTls};
 use std::collections::HashMap;
-pub mod pg_types;
 /// This module concerns itself with selecting fields from traces and locks
 /// to be displayed in output.
 pub mod output;
+pub mod pg_types;
 /// Read and parse simple SQL scripts, resolve placeholders and break down into statements.
 pub mod sqltext;
 /// Trace locks taken by SQL statements.

@@ -1,7 +1,7 @@
-use std::fmt;
-use std::fmt::Display;
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::relkinds::RelKind;
+use std::fmt;
+use std::fmt::Display;
 
 /// A lockable target is a schema object that can be locked, such as a table, or index.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]

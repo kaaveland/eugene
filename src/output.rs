@@ -1,13 +1,13 @@
 use serde::Serialize;
 
-use crate::lock_modes::LockMode;
-use crate::locks::Lock;
 use crate::output::lock::{DetailedLock, NormalLock, TerseLock};
 use crate::output::lock_mode::{DetailedLockMode, NormalLockMode, TerseLockMode};
 use crate::output::sql_statement::{
     NormalSqlStatement, SqlStatementCtx, TerseSqlStatement, VerboseSqlStatement,
 };
 pub use crate::output::tx_trace::{DetailedTxTrace, NormalTxTrace, TerseTxTrace, TxTraceData};
+use crate::pg_types::lock_modes::LockMode;
+use crate::pg_types::locks::Lock;
 
 pub mod lock;
 pub mod lock_mode;

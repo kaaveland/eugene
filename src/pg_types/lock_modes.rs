@@ -1,4 +1,4 @@
-use crate::lock_modes::LockMode::*;
+use crate::pg_types::lock_modes::LockMode::*;
 
 /// A lock mode in PostgreSQL, see [the documentation](https://www.postgresql.org/docs/current/explicit-locking.html)
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
@@ -194,7 +194,7 @@ impl LockMode {
 
 #[cfg(test)]
 mod tests {
-    use crate::lock_modes::LOCK_MODES;
+    use crate::pg_types::lock_modes::LOCK_MODES;
 
     #[test]
     fn test_locks_that_block_select_are_dangerous() {

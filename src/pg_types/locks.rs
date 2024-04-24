@@ -1,7 +1,7 @@
-use crate::lock_modes::LockMode;
-use crate::relkinds::RelKind;
 use std::fmt;
 use std::fmt::Display;
+use crate::pg_types::lock_modes::LockMode;
+use crate::pg_types::relkinds::RelKind;
 
 /// A lockable target is a schema object that can be locked, such as a table, or index.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
@@ -63,24 +63,5 @@ impl Lock {
     }
     pub fn blocked_queries(&self) -> Vec<&str> {
         self.mode.blocked_queries()
-    }
-}
-
-impl Display for Lock {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let blocked_ops = self.blocked_queries().join(", ");
-        write!(
-            f,
-            "{} on {:?} {}.{} blocks {}",
-            self.mode.to_db_str(),
-            self.target.rel_kind,
-            self.target.schema,
-            self.target.object_name,
-            if blocked_ops.is_empty() {
-                "only DDL"
-            } else {
-                &blocked_ops
-            }
-        )
     }
 }

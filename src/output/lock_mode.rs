@@ -1,6 +1,6 @@
 use serde::Serialize;
+use crate::pg_types::lock_modes::LockMode;
 
-use crate::lock_modes::LockMode;
 
 #[derive(Serialize, Debug, Eq, PartialEq)]
 pub struct TerseLockMode<'a> {

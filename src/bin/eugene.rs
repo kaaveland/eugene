@@ -2,7 +2,8 @@ use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 
 use eugene::output::{Detailed, JsonPretty, Normal, Renderer, Terse, TxTraceData};
-use eugene::{lock_modes, perform_trace, ConnectionSettings, TraceSettings};
+use eugene::{perform_trace, ConnectionSettings, TraceSettings};
+use eugene::pg_types::lock_modes;
 
 #[derive(Parser)]
 #[command(name = "eugene")]

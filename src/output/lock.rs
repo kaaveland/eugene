@@ -1,6 +1,5 @@
 use serde::Serialize;
-
-use crate::locks::Lock;
+use crate::pg_types::locks::Lock;
 
 #[derive(Serialize, Debug, Eq, PartialEq)]
 pub struct TerseLock<'a> {

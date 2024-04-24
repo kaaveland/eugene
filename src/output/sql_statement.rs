@@ -1,7 +1,7 @@
 use serde::Serialize;
 
-use crate::locks::Lock;
 use crate::output::lock::{DetailedLock, NormalLock, TerseLock};
+use crate::pg_types::locks::Lock;
 use crate::tracing::SqlStatementTrace;
 
 pub struct SqlStatementCtx<'a> {

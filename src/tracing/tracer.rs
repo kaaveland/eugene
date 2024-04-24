@@ -1,10 +1,10 @@
-use crate::locks::{Lock, LockableTarget};
+use std::collections::HashSet;
+use std::time::{Duration, Instant};
+
 use anyhow::{anyhow, Result};
 use postgres::Transaction;
-use std::collections::HashSet;
-use std::fmt;
-use std::fmt::Display;
-use std::time::{Duration, Instant};
+
+use crate::pg_types::locks::{Lock, LockableTarget};
 
 /// A trace of a single SQL statement, including the locks taken and the duration of the statement.
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -17,26 +17,6 @@ pub struct SqlStatementTrace {
     pub(crate) start_time: Instant,
     /// The duration of the statement.
     pub(crate) duration: Duration,
-}
-
-impl Display for SqlStatementTrace {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let locks: Vec<_> = self
-            .locks_taken
-            .iter()
-            .map(|lock| format!("{lock}"))
-            .collect();
-        let lock_s = if locks.is_empty() {
-            "None".to_string()
-        } else {
-            format!("\n  - {}", locks.join("\n  - "))
-        };
-        write!(
-            f,
-            "SQL: {}\nNew locks taken: {lock_s}\nDuration: {:?}",
-            self.sql, self.duration
-        )
-    }
 }
 
 /// Enumerate all locks owned by the current transaction.
@@ -117,15 +97,6 @@ impl TxLockTracer {
             initial_objects,
             ..Default::default()
         }
-    }
-}
-
-impl Display for TxLockTracer {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for (i, statement) in self.statements.iter().enumerate() {
-            writeln!(f, "Statement {}: {}", i + 1, statement)?;
-        }
-        Ok(())
     }
 }
 

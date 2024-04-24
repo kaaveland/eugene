@@ -4,7 +4,7 @@ use crate::locks::Lock;
 
 #[derive(Serialize, Debug, Eq, PartialEq)]
 pub struct TerseLock<'a> {
-    mode: &'static str,
+    mode: &'a str,
     schema: &'a str,
     object_name: &'a str,
 }
@@ -36,16 +36,16 @@ impl<'a> From<&'a Lock> for NormalLock<'a> {
 }
 
 #[derive(Serialize, Debug, Eq, PartialEq)]
-pub struct VerboseLock<'a> {
+pub struct DetailedLock<'a> {
     #[serde(flatten)]
     normal: NormalLock<'a>,
     rel_kind: &'a str,
     blocked_ddl: Vec<&'a str>,
 }
 
-impl<'a> From<&'a Lock> for VerboseLock<'a> {
+impl<'a> From<&'a Lock> for DetailedLock<'a> {
     fn from(value: &'a Lock) -> Self {
-        VerboseLock {
+        DetailedLock {
             normal: value.into(),
             rel_kind: value.target().rel_kind.as_str(),
             blocked_ddl: value.mode.blocked_ddl(),

@@ -18,6 +18,9 @@ need `cargo` installed to do this, see [rustup](https://rustup.rs/).
 git clone git@github.com:kaaveland/eugene.git
 cd eugene
 cargo build --release
+# The binary is now in target/release/eugene
+# You can install it into $PATH using cargo:
+cargo install --path .
 ```
 
 ## Usage
@@ -91,7 +94,7 @@ eugene trace --host localhost -U postgres --port 5432 --database example-db mig.
 
 You should see some output that looks like this:
 
-```
+```json
 {
   "name": "mig.sql",
   "sql_statements": [
@@ -176,7 +179,7 @@ Note that the output format is subject to change, in the near future `eugene` wi
 output json or markdown or something else that's suitable for use in CI/CD pipelines and
 the fields and structure of the output is still unstable.
 
-# Compatibility
+### Compatibility
 
 `eugene` should work with most versions of postgres after 12, it isn't running any 
 particularly fancy queries or using any new features or types. If you find that 
@@ -187,7 +190,7 @@ it doesn't work with your version of postgres, feel free to open an issue.
 Contributions are welcome, but there's no roadmap for this project yet. Feel free to open an issue,
 ideas and discussion are very welcome.
 
-# Migration tool
+## Migration tool
 
 `eugene` is not a migration tool like flyway or liquibase, and isn't intended to be one. There are
 many excellent migration tools already, and the scope of `eugene` is only to help develop migrations

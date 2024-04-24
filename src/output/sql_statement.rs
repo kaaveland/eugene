@@ -1,7 +1,7 @@
 use serde::Serialize;
 
-use crate::field_selection::lock::{NormalLock, TerseLock, VerboseLock};
 use crate::locks::Lock;
+use crate::output::lock::{DetailedLock, NormalLock, TerseLock};
 use crate::tracing::SqlStatementTrace;
 
 pub struct SqlStatementCtx<'a> {
@@ -82,8 +82,8 @@ pub struct VerboseSqlStatement<'a> {
     #[serde(flatten)]
     statement_number: StatementBase,
     sql: &'a str,
-    locks_taken: Vec<VerboseLock<'a>>,
-    locks_held: Vec<VerboseLock<'a>>,
+    locks_taken: Vec<DetailedLock<'a>>,
+    locks_held: Vec<DetailedLock<'a>>,
 }
 
 impl<'a> From<&'a SqlStatementCtx<'a>> for VerboseSqlStatement<'a> {

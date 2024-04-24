@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 
-use eugene::field_selection::{Detailed, JsonPretty, Normal, Renderer, Terse, TxTraceSerializable};
+use eugene::output::{Detailed, JsonPretty, Normal, Renderer, Terse, TxTraceData};
 use eugene::{lock_modes, perform_trace, ConnectionSettings, TraceSettings};
 
 #[derive(Parser)]
@@ -125,7 +125,7 @@ pub fn main() -> Result<()> {
             let connection_settings = ConnectionSettings::new(user, database, host, port, password);
             let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
             let trace_result = perform_trace(&trace_settings, &connection_settings)?;
-            let selectable = TxTraceSerializable::new(&trace_result, extra);
+            let selectable = TxTraceData::new(&trace_result, extra);
             let json = match level {
                 Level::Terse => Terse.trace::<JsonPretty>(&selectable),
                 Level::Normal => Normal.trace::<JsonPretty>(&selectable),

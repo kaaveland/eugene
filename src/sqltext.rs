@@ -9,10 +9,10 @@ pub fn resolve_placeholders(sql: &str, mapping: &HashMap<&str, &str>) -> Result<
         acc.replace(&format!("${{{}}}", k), v)
     });
     if let Some(m) = placeholder_re.find(&resolved) {
-        return Err(anyhow::anyhow!(
+        Err(anyhow::anyhow!(
             "Unresolved placeholder: {}",
             m.to_owned().as_str()
-        ));
+        ))
     } else {
         Ok(resolved)
     }

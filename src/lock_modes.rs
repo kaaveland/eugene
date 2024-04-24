@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use crate::lock_modes::LockMode::*;
 
 /// A lock mode in PostgreSQL, see [the documentation](https://www.postgresql.org/docs/current/explicit-locking.html)
@@ -32,7 +33,7 @@ pub const LOCK_MODES: [LockMode; 8] = [
 /// ALTER TABLE ... ADD FOREIGN KEY takes SHARE ROW EXCLUSIVE
 /// ALTER TABLE ... VALIDATE CONSTRAINT takes SHARE UPDATE EXCLUSIVE
 /// But ACCESS EXCLUSIVE is necessary for most forms of ALTER TABLE.
-/// https://www.postgresql.org/docs/current/explicit-locking.html
+/// See [the documentation](https://www.postgresql.org/docs/current/explicit-locking.html)
 mod capabilities {
     pub const ACCESS_SHARE: [&str; 1] = ["SELECT"];
     pub const ROW_SHARE: [&str; 4] = [
@@ -212,5 +213,49 @@ mod tests {
             .filter(|lock| lock.capabilities().contains(&"FOR UPDATE"))
             .flat_map(|lock| lock.conflicts_with().iter())
             .for_each(|lock| assert!(lock.dangerous()));
+    }
+}
+
+/// Use to render lock mode information to output
+#[derive(Debug, Eq, PartialEq, Clone)]
+pub struct LockModeInfo<'a> {
+    lock_mode: &'a str,
+    enabled_operations: &'a [&'a str],
+    conflicts_with: Vec<&'a str>,
+    blocked_olap_operations: Vec<&'a str>,
+    blocked_ddl_operations: Vec<&'a str>,
+}
+
+impl <'a> LockModeInfo<'a> {
+    pub fn new(lock_mode_info: &LockMode) ->  LockModeInfo {
+        LockModeInfo {
+            lock_mode: lock_mode_info.to_db_str(),
+            enabled_operations: lock_mode_info.capabilities(),
+            conflicts_with: lock_mode_info
+                .conflicts_with()
+                .iter()
+                .map(|m| m.to_db_str())
+                .collect::<Vec<_>>(),
+            blocked_olap_operations: lock_mode_info.blocked_queries(),
+            blocked_ddl_operations: lock_mode_info.blocked_ddl(),
+        }
+    }
+}
+
+impl Display for LockModeInfo<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        writeln!(f, "Lock mode: {}", self.lock_mode)?;
+        writeln!(f, "Used for: {}", self.enabled_operations.join(", "))?;
+        writeln!(f, "Conflicts with: {}", self.conflicts_with.join(", "))?;
+        writeln!(
+            f,
+            "Blocked query types: {}",
+            self.blocked_olap_operations.join(", ")
+        )?;
+        write!(
+            f,
+            "Blocked DDL operations: {}",
+            self.blocked_ddl_operations.join(", ")
+        )
     }
 }

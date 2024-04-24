@@ -54,7 +54,7 @@ impl Lock {
         let mode = LockMode::from_db_str(mode.as_ref())
             .ok_or_else(|| InvalidLockError::InvalidMode(mode.into()))?;
         let target = LockableTarget::new(schema, table_name, rel_kind)
-            .ok_or_else(|| InvalidLockError::InvalidRelKind(rel_kind))?;
+            .ok_or(InvalidLockError::InvalidRelKind(rel_kind))?;
         Ok(Self { mode, target })
     }
 

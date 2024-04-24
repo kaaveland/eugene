@@ -8,10 +8,14 @@ use std::time::{Duration, Instant};
 
 /// A trace of a single SQL statement, including the locks taken and the duration of the statement.
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct SqlStatementTrace {
+struct SqlStatementTrace {
+    /// The SQL statement that was executed.
     sql: String,
+    /// New locks taken by this statement.
     locks_taken: Vec<Lock>,
+    /// The time the statement started executing.
     start_time: Instant,
+    /// The duration of the statement.
     duration: Duration,
 }
 
@@ -52,10 +56,8 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> Result<HashSet
             let object_name: String = row.try_get(1)?;
             let relkind: i8 = row.try_get(2)?;
             let mode: String = row.try_get(3)?;
-            Ok(
-                Lock::new(schema, object_name, mode, (relkind as u8) as char)
-                    .map_err(|err| anyhow!("{err}"))?,
-            )
+            Lock::new(schema, object_name, mode, (relkind as u8) as char)
+                    .map_err(|err| anyhow!("{err}"))
         })
         .collect::<Result<HashSet<Lock>, anyhow::Error>>()?;
     Ok(locks)
@@ -125,7 +127,7 @@ impl Display for TxLockTrace {
 }
 
 /// Fetch all user owned lockable objects in the database, skipping the system schemas.
-pub fn fetch_lockable_objects(
+fn fetch_lockable_objects(
     tx: &mut Transaction,
 ) -> Result<HashSet<LockableTarget>, anyhow::Error> {
     let sql = "SELECT

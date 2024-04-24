@@ -1,0 +1,16 @@
+version: "2"
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    command: postgres -c shared_preload_libraries=pg_stat_statements,auto_explain
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+volumes:
+  pgdata:

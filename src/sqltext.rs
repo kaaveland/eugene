@@ -105,6 +105,7 @@ pub fn read_sql_statements(path: &str) -> Result<String, Error> {
 
 #[cfg(test)]
 mod tests {
+
     #[test]
     fn test_strip_comments() {
         let sql = "SELECT * FROM table; -- This is a comment";

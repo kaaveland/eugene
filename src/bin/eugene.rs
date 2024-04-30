@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 
-use eugene::output::{
+pub use eugene::output::{
     Detailed, Format, JsonPretty, Normal, PlainText, Renderer, Terse, TxTraceData,
 };
 use eugene::pg_types::lock_modes;
 use eugene::pg_types::lock_modes::LockMode;
+use eugene::pgpass::read_pgpass_file;
 use eugene::{perform_trace, ConnectionSettings, TraceSettings};
 
 #[derive(Parser)]
@@ -168,7 +169,15 @@ pub fn main() -> Result<()> {
             extra,
             ..
         }) => {
-            let password = std::env::var("PGPASS").context("No PGPASS environment variable set")?;
+            let password = if let Ok(password) = std::env::var("PGPASS") {
+                password
+            } else {
+                let pgpass = read_pgpass_file()?;
+                pgpass
+                    .find_password(&host, port, &database, &user)
+                    .context("No password found, provide PGPASS as environment variable or set up pgpassfile: https://www.postgresql.org/docs/current/libpq-pgpass.html")?
+                    .to_string()
+            };
             let connection_settings = ConnectionSettings::new(user, database, host, port, password);
             let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
             let trace_result = perform_trace(&trace_settings, &connection_settings)?;

@@ -12,6 +12,8 @@ use std::collections::HashMap;
 /// to be displayed in output.
 pub mod output;
 pub mod pg_types;
+/// Parse the postgres PGPASS file format.
+pub mod pgpass;
 /// Read and parse simple SQL scripts, resolve placeholders and break down into statements.
 pub mod sqltext;
 /// Trace locks taken by SQL statements.

@@ -11,6 +11,12 @@ pub struct TxTraceData<'a> {
 }
 
 impl<'a> TxTraceData<'a> {
+    pub fn name(&self) -> Option<&'a str> {
+        self.name
+    }
+    pub fn sql_statements(&self) -> &[SqlStatementCtx<'a>] {
+        &self.sql_statements
+    }
     pub fn new(trace: &'a TxLockTracer, extra: bool) -> Self {
         let mut sql_statements = vec![];
         let mut locks = vec![];

@@ -13,7 +13,11 @@ pub struct SqlStatementCtx<'a> {
 }
 
 impl<'a> SqlStatementCtx<'a> {
-    fn locks_taken<T: From<&'a Lock>>(&self) -> Vec<T> {
+    pub fn sql(&self) -> &'a str {
+        self.trace.sql.as_str()
+    }
+
+    pub fn locks_taken<T: From<&'a Lock>>(&self) -> Vec<T> {
         self.trace
             .locks_taken
             .iter()
@@ -21,7 +25,7 @@ impl<'a> SqlStatementCtx<'a> {
             .map(|lock| lock.into())
             .collect()
     }
-    fn locks_before<T: From<&'a Lock>>(&self) -> Vec<T> {
+    pub fn locks_before<T: From<&'a Lock>>(&self) -> Vec<T> {
         self.locks_before
             .iter()
             .map(|lock| (*lock).into())

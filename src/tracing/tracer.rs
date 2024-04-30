@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
 use postgres::Transaction;
+use postgres::types::Oid;
 
 use crate::pg_types::locks::{Lock, LockableTarget};
 
@@ -24,7 +25,8 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> Result<HashSet
     let query = "SELECT n.nspname::text AS schema_name,
                 c.relname::text AS object_name,
                 c.relkind AS relkind,
-                l.mode::text AS mode
+                l.mode::text AS mode,
+                c.oid AS oid
          FROM pg_locks l JOIN pg_class c ON c.oid = l.relation
            JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE l.locktype = 'relation' AND l.pid = pg_backend_pid();";
@@ -36,7 +38,8 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> Result<HashSet
             let object_name: String = row.try_get(1)?;
             let relkind: i8 = row.try_get(2)?;
             let mode: String = row.try_get(3)?;
-            Lock::new(schema, object_name, mode, (relkind as u8) as char)
+            let oid: Oid = row.try_get(4)?;
+            Lock::new(schema, object_name, mode, (relkind as u8) as char, oid)
                 .map_err(|err| anyhow!("{err}"))
         })
         .collect::<Result<HashSet<Lock>, anyhow::Error>>()?;
@@ -46,18 +49,19 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> Result<HashSet
 /// Find all locks in the current transaction that are relevant to the given set of objects.
 fn find_relevant_locks_in_current_transaction(
     tx: &mut Transaction,
-    relevant_objects: &HashSet<LockableTarget>,
+    relevant_objects: &HashSet<Oid>,
 ) -> Result<HashSet<Lock>> {
     let current_locks = query_pg_locks_in_current_transaction(tx)?;
     Ok(current_locks
         .into_iter()
-        .filter(|lock| relevant_objects.contains(lock.target()))
+        .filter(|lock| relevant_objects.contains(&lock.target_oid()))
         .collect())
 }
 
 /// Return the locks that are new in the new set of locks compared to the old set.
 fn find_new_locks(old_locks: &HashSet<Lock>, new_locks: &HashSet<Lock>) -> HashSet<Lock> {
-    new_locks.difference(old_locks).cloned().collect()
+    let old = old_locks.iter().map(|lock| (lock.target_oid(), lock.mode)).collect::<HashSet<_>>();
+    new_locks.iter().filter(|lock| !old.contains(&(lock.target_oid(), lock.mode))).cloned().collect()
 }
 
 /// A trace of a transaction, including all SQL statements executed and the locks taken by each one.
@@ -66,7 +70,7 @@ pub struct TxLockTracer {
     /// The name of the transaction, if any, typically the file name.
     pub(crate) name: Option<String>,
     /// The initial set of objects that are interesting to track locks for.
-    initial_objects: HashSet<LockableTarget>,
+    initial_objects: HashSet<Oid>,
     /// The list of all SQL statements executed so far in the transaction.
     pub(crate) statements: Vec<SqlStatementTrace>,
     /// All locks taken so far in the transaction.
@@ -91,7 +95,7 @@ impl TxLockTracer {
         });
         Ok(())
     }
-    pub fn new(name: Option<String>, initial_objects: HashSet<LockableTarget>) -> Self {
+    pub fn new(name: Option<String>, initial_objects: HashSet<Oid>) -> Self {
         Self {
             name,
             initial_objects,
@@ -105,7 +109,8 @@ fn fetch_lockable_objects(tx: &mut Transaction) -> Result<HashSet<LockableTarget
     let sql = "SELECT
            n.nspname as schema_name,
            c.relname as table_name,
-           c.relkind as relkind
+           c.relkind as relkind,
+           c.oid as oid
          FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
@@ -117,7 +122,8 @@ fn fetch_lockable_objects(tx: &mut Transaction) -> Result<HashSet<LockableTarget
             let object_name: String = row.try_get(1)?;
             let rk_byte: i8 = row.try_get(2)?;
             let rel_kind: char = (rk_byte as u8) as char;
-            LockableTarget::new(schema.as_str(), object_name.as_str(), rel_kind).ok_or(anyhow!(
+            let oid: Oid = row.try_get(3)?;
+            LockableTarget::new(schema.as_str(), object_name.as_str(), rel_kind, oid).ok_or(anyhow!(
                 "{schema}.{object_name} has invalid relkind: {rel_kind}"
             ))
         })
@@ -130,7 +136,10 @@ pub fn trace_transaction<S: AsRef<str>>(
     tx: &mut Transaction,
     sql_statements: impl Iterator<Item = S>,
 ) -> Result<TxLockTracer> {
-    let initial_objects = fetch_lockable_objects(tx)?;
+    let initial_objects = fetch_lockable_objects(tx)?
+        .into_iter()
+        .map(|obj| obj.oid)
+        .collect();
     let mut trace = TxLockTracer::new(name, initial_objects);
     for sql in sql_statements {
         trace.trace_sql_statement(tx, sql.as_ref().trim())?;

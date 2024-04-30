@@ -179,6 +179,7 @@ mod tests {
                 schema: "public".to_string(),
                 object_name: "foo".to_string(),
                 rel_kind: RelKind::Table,
+                oid: 1,
             },
         };
         let ctx = SqlStatementCtx {
@@ -191,6 +192,7 @@ mod tests {
                         schema: "public".to_string(),
                         object_name: "foo".to_string(),
                         rel_kind: RelKind::Table,
+                        oid: 2,
                     },
                 }],
                 start_time: std::time::Instant::now(),

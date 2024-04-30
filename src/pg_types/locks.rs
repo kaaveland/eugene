@@ -2,6 +2,7 @@ use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::relkinds::RelKind;
 use std::fmt;
 use std::fmt::Display;
+use postgres::types::Oid;
 
 /// A lockable target is a schema object that can be locked, such as a table, or index.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
@@ -9,14 +10,16 @@ pub struct LockableTarget {
     pub schema: String,
     pub object_name: String,
     pub rel_kind: RelKind,
+    pub oid: Oid,
 }
 
 impl LockableTarget {
-    pub fn new<S: AsRef<str>>(schema: S, object_name: S, rel_kind: char) -> Option<Self> {
+    pub fn new<S: AsRef<str>>(schema: S, object_name: S, rel_kind: char, oid: Oid) -> Option<Self> {
         Some(Self {
             schema: schema.as_ref().to_string(),
             object_name: object_name.as_ref().to_string(),
             rel_kind: RelKind::from_db_str(rel_kind)?,
+            oid,
         })
     }
 }
@@ -26,6 +29,13 @@ impl LockableTarget {
 pub struct Lock {
     pub(crate) mode: LockMode,
     pub(crate) target: LockableTarget,
+}
+
+impl Lock {
+    pub fn target_oid(&self) -> Oid {
+        self.target.oid
+    }
+    
 }
 
 /// Errors that can occur when creating a `Lock`
@@ -50,10 +60,11 @@ impl Lock {
         table_name: S,
         mode: S,
         rel_kind: char,
+        oid: Oid
     ) -> Result<Self, InvalidLockError> {
         let mode = LockMode::from_db_str(mode.as_ref())
             .ok_or_else(|| InvalidLockError::InvalidMode(mode.into()))?;
-        let target = LockableTarget::new(schema, table_name, rel_kind)
+        let target = LockableTarget::new(schema, table_name, rel_kind, oid)
             .ok_or(InvalidLockError::InvalidRelKind(rel_kind))?;
         Ok(Self { mode, target })
     }

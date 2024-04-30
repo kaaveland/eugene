@@ -97,10 +97,11 @@ impl<'a> From<&'a Lock> for DetailedLock<'a> {
 
 #[cfg(test)]
 mod tests {
+    use postgres::types::Oid;
     use super::*;
     #[test]
     fn test_play_with_display_output_format() {
-        let lock = Lock::new("public", "table", "ExclusiveLock", 'r').unwrap();
+        let lock = Lock::new("public", "table", "ExclusiveLock", 'r', Oid::from(1u32)).unwrap();
         let terse = TerseLock::from(&lock);
         assert_eq!(format!("{}", terse), "ExclusiveLock on public.table");
         let normal = NormalLock::from(&lock);

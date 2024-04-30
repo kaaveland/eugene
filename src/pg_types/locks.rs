@@ -1,8 +1,8 @@
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::relkinds::RelKind;
+use postgres::types::Oid;
 use std::fmt;
 use std::fmt::Display;
-use postgres::types::Oid;
 
 /// A lockable target is a schema object that can be locked, such as a table, or index.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
@@ -35,7 +35,6 @@ impl Lock {
     pub fn target_oid(&self) -> Oid {
         self.target.oid
     }
-    
 }
 
 /// Errors that can occur when creating a `Lock`
@@ -60,7 +59,7 @@ impl Lock {
         table_name: S,
         mode: S,
         rel_kind: char,
-        oid: Oid
+        oid: Oid,
     ) -> Result<Self, InvalidLockError> {
         let mode = LockMode::from_db_str(mode.as_ref())
             .ok_or_else(|| InvalidLockError::InvalidMode(mode.into()))?;

@@ -97,8 +97,8 @@ impl<'a> From<&'a Lock> for DetailedLock<'a> {
 
 #[cfg(test)]
 mod tests {
-    use postgres::types::Oid;
     use super::*;
+    use postgres::types::Oid;
     #[test]
     fn test_play_with_display_output_format() {
         let lock = Lock::new("public", "table", "ExclusiveLock", 'r', Oid::from(1u32)).unwrap();

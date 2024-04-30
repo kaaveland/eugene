@@ -2,8 +2,8 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
-use postgres::Transaction;
 use postgres::types::Oid;
+use postgres::Transaction;
 
 use crate::pg_types::locks::{Lock, LockableTarget};
 
@@ -60,8 +60,15 @@ fn find_relevant_locks_in_current_transaction(
 
 /// Return the locks that are new in the new set of locks compared to the old set.
 fn find_new_locks(old_locks: &HashSet<Lock>, new_locks: &HashSet<Lock>) -> HashSet<Lock> {
-    let old = old_locks.iter().map(|lock| (lock.target_oid(), lock.mode)).collect::<HashSet<_>>();
-    new_locks.iter().filter(|lock| !old.contains(&(lock.target_oid(), lock.mode))).cloned().collect()
+    let old = old_locks
+        .iter()
+        .map(|lock| (lock.target_oid(), lock.mode))
+        .collect::<HashSet<_>>();
+    new_locks
+        .iter()
+        .filter(|lock| !old.contains(&(lock.target_oid(), lock.mode)))
+        .cloned()
+        .collect()
 }
 
 /// A trace of a transaction, including all SQL statements executed and the locks taken by each one.
@@ -123,9 +130,9 @@ fn fetch_lockable_objects(tx: &mut Transaction) -> Result<HashSet<LockableTarget
             let rk_byte: i8 = row.try_get(2)?;
             let rel_kind: char = (rk_byte as u8) as char;
             let oid: Oid = row.try_get(3)?;
-            LockableTarget::new(schema.as_str(), object_name.as_str(), rel_kind, oid).ok_or(anyhow!(
-                "{schema}.{object_name} has invalid relkind: {rel_kind}"
-            ))
+            LockableTarget::new(schema.as_str(), object_name.as_str(), rel_kind, oid).ok_or(
+                anyhow!("{schema}.{object_name} has invalid relkind: {rel_kind}"),
+            )
         })
         .collect()
 }

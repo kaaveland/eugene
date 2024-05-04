@@ -153,7 +153,7 @@ impl LockMode {
         }
     }
     /// What capabilities this lock mode is used for.
-    pub fn capabilities(&self) -> &[&str] {
+    pub fn capabilities(&self) -> &[&'static str] {
         match self {
             AccessShare => &capabilities::ACCESS_SHARE,
             RowShare => &capabilities::ROW_SHARE,
@@ -166,20 +166,22 @@ impl LockMode {
         }
     }
     /// What queries this lock mode blocks.
-    pub fn blocked_queries(&self) -> Vec<&str> {
-        self.conflicts_with()
-            .iter()
-            .flat_map(|lock| lock.capabilities().iter().copied())
+    pub fn blocked_queries(&self) -> Vec<&'static str> {
+        self.blocked_capabilities()
             .filter(|cap| QUERY_CAPABILITIES.contains(cap))
             .collect()
     }
     /// What DDL statements this lock mode blocks.
-    pub fn blocked_ddl(&self) -> Vec<&str> {
+    pub fn blocked_ddl(&self) -> Vec<&'static str> {
+        self.blocked_capabilities()
+            .filter(|cap| !QUERY_CAPABILITIES.contains(cap))
+            .collect()
+    }
+
+    fn blocked_capabilities(&self) -> impl Iterator<Item = &'static str> + '_ {
         self.conflicts_with()
             .iter()
             .flat_map(|lock| lock.capabilities().iter().copied())
-            .filter(|cap| !QUERY_CAPABILITIES.contains(cap))
-            .collect()
     }
 
     pub fn dangerous(&self) -> bool {

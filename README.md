@@ -85,7 +85,7 @@ To review a SQL script for locks, you will need to run `eugene trace` and provid
 connection information to a database. For example, for the local docker-compose setup:
 
 ```bash
-# If there's no rule in ~/.pgpass for the postgres user, you can set the password like this:
+# If there's no rule in ~/.pgpass for the db user, you can set the password like this:
 export PGPASS=postgres 
 # Check https://www.postgresql.org/docs/current/libpq-pgpass.html for information about .pgpass
 createdb --host localhost -U postgres --port 5432 example-db

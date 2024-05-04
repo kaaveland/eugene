@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
+use crate::output::markdown_helpers::{theader, trow};
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::locks::Lock;
 use crate::tracing::{SqlStatementTrace, TxLockTracer};
@@ -127,6 +128,216 @@ pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullT
         total_duration_millis: context.duration_millis_so_far,
         all_locks_acquired: context.held_locks_context,
         statements,
+    }
+}
+
+impl FullTraceData {
+    /// Render a pretty-printed JSON representation of the trace.
+    pub fn to_pretty_json(&self) -> anyhow::Result<String> {
+        Ok(serde_json::to_string_pretty(&self)?)
+    }
+    /// Render a terse terminal-friendly representation of the trace.
+    pub fn to_plain_text(&self) -> anyhow::Result<String> {
+        let mut result = String::new();
+        result.push_str(&format!(
+            "Trace of \"{}\", started at: {}\n",
+            self.name.as_deref().unwrap_or("unnamed"),
+            self.start_time.to_rfc3339()
+        ));
+        result.push_str(&format!(
+            "Total duration: {} ms\n",
+            self.total_duration_millis
+        ));
+        result.push_str("All locks acquired:\n");
+        for lock in &self.all_locks_acquired {
+            result.push_str(&format!("{}\n", serde_json::to_string(lock)?));
+        }
+        for statement in &self.statements {
+            result.push_str(&format!(
+                "Statement #{}:\n",
+                statement.statement_number_in_transaction
+            ));
+            result.push_str(&format!("SQL: {}\n", statement.sql));
+            result.push_str(&format!("Duration: {} ms\n", statement.duration_millis));
+            result.push_str("Locks at start:\n");
+            for lock in &statement.locks_at_start {
+                result.push_str(&format!("{}\n", serde_json::to_string(lock)?));
+            }
+            result.push_str("New locks taken:\n");
+            for lock in &statement.new_locks_taken {
+                result.push_str(&format!("{}\n", serde_json::to_string(lock)?));
+            }
+        }
+        Ok(result)
+    }
+    /// Render a markdown report suitable for human consumption from the trace.
+    pub fn to_markdown(&self) -> anyhow::Result<String> {
+        let mut result = String::new();
+        result.push_str(&format!(
+            "# Lock trace of `{}`\n\n",
+            self.name.as_deref().unwrap_or("unnamed")
+        ));
+        result.push_str(
+            "In the below trace, a lock is considered dangerous if it conflicts with application code \
+             queries, such as `SELECT` or `INSERT`.\n\n");
+        result.push_str("We should aim to hold dangerous locks for as little time as possible. \
+        If a dangerous lock is held while doing an operation that does not require it, we should split the migration into two steps.\n\n");
+        result.push_str("For example, it often will make sense to add a new column in one migration, then backfill it in a separate one, \
+        since adding a column requires an `AccessExclusiveLock` while backfilling can do with a `RowExclusiveLock` which is much \
+        less likely to block concurrent transactions.\n\n");
+
+        result.push_str(&self.summary_section());
+        for statement in self.statements.iter() {
+            result.push_str(&Self::statement_section(statement));
+        }
+        Ok(result)
+    }
+
+    fn lock_header() -> String {
+        theader(&["Schema", "Object", "Mode", "Relkind", "OID", "Safe"])
+    }
+
+    fn lock_row(lock: &TracedLock) -> String {
+        trow(&[
+            lock.schema.as_str(),
+            lock.object_name.as_str(),
+            lock.mode.as_str(),
+            lock.relkind,
+            lock.oid.to_string().as_str(),
+            match lock.maybe_dangerous {
+                true => "❌",
+                false => "✅",
+            },
+        ])
+    }
+
+    fn statement_section(statement: &FullSqlStatementLockTrace) -> String {
+        let mut result = String::new();
+        result.push_str(&format!(
+            "## Statement number {} for {} ms\n\n",
+            statement.statement_number_in_transaction, statement.duration_millis
+        ));
+        result.push_str("### SQL\n\n");
+        result.push_str("```sql\n");
+        result.push_str(&statement.sql);
+        result.push_str("\n```\n\n");
+        result.push_str("### Locks at start\n\n");
+        if statement.locks_at_start.is_empty() {
+            result.push_str("No locks held at the start of this statement.\n\n");
+        } else {
+            result.push_str(Self::lock_header().as_str());
+            for lock in statement.locks_at_start.iter() {
+                result.push_str(Self::lock_row(lock).as_str());
+            }
+            result.push('\n');
+        }
+        result.push_str("### New locks taken\n\n");
+        if statement.new_locks_taken.is_empty() {
+            result.push_str("No new locks taken by this statement.\n\n");
+        } else {
+            result.push_str(&theader(&[
+                "Schema", "Object", "Mode", "Relkind", "OID", "Safe",
+            ]));
+            for lock in statement.new_locks_taken.iter() {
+                result.push_str(Self::lock_row(lock).as_str());
+            }
+        }
+        result.push('\n');
+        result
+    }
+
+    fn summary_section(&self) -> String {
+        let mut result = String::new();
+        result.push_str("## Overall Summary\n\n");
+        let headers = [
+            "Started at",
+            "Total duration (ms)",
+            "Number of dangerous locks",
+        ];
+        result.push_str(&theader(&headers));
+        let dangerous_locks = self
+            .all_locks_acquired
+            .iter()
+            .filter(|lock| lock.maybe_dangerous)
+            .count();
+
+        result.push_str(&trow(&[
+            self.start_time.to_rfc3339().as_str(),
+            self.total_duration_millis.to_string().as_str(),
+            match dangerous_locks {
+                0 => "0 ✅".to_string(),
+                n => format!("{} ❌", n),
+            }
+            .as_str(),
+        ]));
+
+        if self.all_locks_acquired.is_empty() {
+            result.push_str("\nNo locks acquired on database objects that already exist.\n\n");
+        } else {
+            result.push_str("\n\n### All locks acquired\n\n");
+            result.push_str(&theader(&[
+                "Schema",
+                "Object",
+                "Mode",
+                "Relkind",
+                "OID",
+                "Safe",
+                "Duration held (ms)",
+            ]));
+            let mut time_diff = 0;
+            for statement in self.statements.iter() {
+                for lock in statement.new_locks_taken.iter() {
+                    result.push_str(&trow(&[
+                        lock.schema.as_str(),
+                        lock.object_name.as_str(),
+                        lock.mode.as_str(),
+                        lock.relkind,
+                        lock.oid.to_string().as_str(),
+                        match lock.maybe_dangerous {
+                            true => "❌",
+                            false => "✅",
+                        },
+                        (self.total_duration_millis - time_diff)
+                            .to_string()
+                            .as_str(),
+                    ]));
+                }
+                time_diff += statement.duration_millis;
+            }
+            if dangerous_locks > 0 {
+                result.push_str("### Dangerous locks found\n\n");
+                for lock in self
+                    .all_locks_acquired
+                    .iter()
+                    .filter(|lock| lock.maybe_dangerous)
+                {
+                    result.push_str(&format!(
+                        "- `{}` would block the following operations on `{}.{}`:\n",
+                        lock.mode, lock.schema, lock.object_name
+                    ));
+                    for query in lock.blocked_queries.iter() {
+                        result.push_str(&format!("\n  + `{}`", query));
+                    }
+                }
+            }
+        }
+        result + "\n"
+    }
+}
+
+mod markdown_helpers {
+    pub fn theader(header: &[&str]) -> String {
+        let h = header.join(" | ");
+        let dashes = header
+            .iter()
+            .map(|h| ["-"].repeat(h.len()).join(""))
+            .collect::<Vec<_>>()
+            .join(" | ");
+        format!("{}\n{}\n", h, dashes)
+    }
+
+    pub fn trow(row: &[&str]) -> String {
+        row.join(" | ") + "\n"
     }
 }
 

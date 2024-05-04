@@ -24,23 +24,6 @@ struct Eugene {
     command: Option<Commands>,
 }
 
-enum Formats {
-    Json,
-}
-
-impl Formats {
-    fn render_locks(&self, output: &LockModesWrapper<TerseLockMode>) -> Result<String> {
-        match self {
-            Formats::Json => Ok(serde_json::to_string_pretty(output)?),
-        }
-    }
-    fn render_single_lock(&self, output: &DetailedLockMode) -> Result<String> {
-        match self {
-            Formats::Json => Ok(serde_json::to_string_pretty(output)?),
-        }
-    }
-}
-
 #[derive(Subcommand)]
 enum Commands {
     /// Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable.
@@ -69,11 +52,13 @@ enum Commands {
         /// Show locks that are normally not in conflict with application code.
         #[arg(short = 'e', long = "extra", default_value_t = false)]
         extra: bool,
+        /// Output format, plain, json or markdown
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
     },
     /// List postgres lock modes
     Modes {
+        /// Output format, json
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
     },
@@ -81,23 +66,10 @@ enum Commands {
     Explain {
         /// Lock mode to explain
         mode: String,
-
+        /// Output format, json
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
     },
-}
-
-impl Commands {
-    fn format(&self) -> Result<Formats> {
-        match self {
-            Commands::Trace { format, .. }
-            | Commands::Modes { format, .. }
-            | Commands::Explain { format, .. } => match format.as_str() {
-                "json" => Ok(Formats::Json),
-                _ => Err(anyhow!("Invalid format: {}", format)),
-            },
-        }
-    }
 }
 
 struct ProvidedConnectionSettings {
@@ -147,21 +119,44 @@ fn trace(
     commit: bool,
     path: String,
     extra: bool,
+    trace_format: TraceFormat,
 ) -> Result<String> {
     let connection_settings = provided_connection_settings.try_into()?;
     let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
     let trace_result = perform_trace(&trace_settings, &connection_settings)?;
     let full_trace = output::full_trace_data(&trace_result, output::Settings::new(!extra));
-    Ok(serde_json::to_string_pretty(&full_trace)?)
+    match trace_format {
+        TraceFormat::Json => full_trace.to_pretty_json(),
+        TraceFormat::Plain => full_trace.to_plain_text(),
+        TraceFormat::Markdown => full_trace.to_markdown(),
+    }
+}
+
+enum TraceFormat {
+    Json,
+    Plain,
+    Markdown,
+}
+
+impl TryFrom<String> for TraceFormat {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        match value.as_str() {
+            "json" => Ok(TraceFormat::Json),
+            "plain" => Ok(TraceFormat::Plain),
+            "md" | "markdown" => Ok(TraceFormat::Markdown),
+            _ => Err(anyhow!(
+                "Invalid trace format: {}, possible choices: {:?}",
+                value,
+                &["json", "plain", "markdown"]
+            )),
+        }
+    }
 }
 
 pub fn main() -> Result<()> {
     let args = Eugene::parse();
-    let format = args
-        .command
-        .as_ref()
-        .map_or(Ok(Formats::Json), |c| c.format())?;
-
     match args.command {
         Some(Commands::Trace {
             user,
@@ -172,7 +167,7 @@ pub fn main() -> Result<()> {
             commit,
             path,
             extra,
-            ..
+            format,
         }) => {
             let out = trace(
                 ProvidedConnectionSettings::new(user, database, host, port),
@@ -180,6 +175,7 @@ pub fn main() -> Result<()> {
                 commit,
                 path,
                 extra,
+                format.try_into()?,
             )?;
             println!("{}", out);
             Ok(())
@@ -190,7 +186,7 @@ pub fn main() -> Result<()> {
                 .map(TerseLockMode::from)
                 .collect();
             let wrapper = LockModesWrapper::new(lock_modes);
-            println!("{}", format.render_locks(&wrapper)?);
+            println!("{}", serde_json::to_string_pretty(&wrapper)?);
             Ok(())
         }
         Some(Commands::Explain { mode, .. }) => {
@@ -199,7 +195,7 @@ pub fn main() -> Result<()> {
                 .find(|m| m.to_db_str() == mode || m.to_db_str().replace("Lock", "") == mode)
                 .context(format!("Invalid lock mode {mode}"))?;
             let choice: DetailedLockMode = choice.into();
-            println!("{}", format.render_single_lock(&choice)?);
+            println!("{}", serde_json::to_string_pretty(&choice)?);
             Ok(())
         }
     }

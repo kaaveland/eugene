@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, Local};
 use postgres::types::Oid;
 use postgres::Transaction;
 
@@ -72,7 +73,7 @@ fn find_new_locks(old_locks: &HashSet<Lock>, new_locks: &HashSet<Lock>) -> HashS
 }
 
 /// A trace of a transaction, including all SQL statements executed and the locks taken by each one.
-#[derive(Eq, PartialEq, Debug, Clone, Default)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub struct TxLockTracer {
     /// The name of the transaction, if any, typically the file name.
     pub(crate) name: Option<String>,
@@ -82,6 +83,8 @@ pub struct TxLockTracer {
     pub(crate) statements: Vec<SqlStatementTrace>,
     /// All locks taken so far in the transaction.
     all_locks: HashSet<Lock>,
+    /// The time the trace started
+    pub(crate) trace_start: DateTime<Local>,
 }
 
 impl TxLockTracer {
@@ -106,7 +109,9 @@ impl TxLockTracer {
         Self {
             name,
             initial_objects,
-            ..Default::default()
+            statements: vec![],
+            all_locks: HashSet::new(),
+            trace_start: Local::now(),
         }
     }
 }

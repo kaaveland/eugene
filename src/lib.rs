@@ -2,15 +2,16 @@
 //! in a PostgreSQL database. It can be used to analyze the locking behavior of SQL scripts
 //! and to review migration scripts that could potentially interfere with other operations,
 //! such as concurrent queries by application code.
-use crate::output::tx_trace::TxTraceData;
-use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
-use crate::tracing::{trace_transaction, TxLockTracer};
+use std::collections::HashMap;
+
 use anyhow::anyhow;
 use postgres::{Client, NoTls};
-use std::collections::HashMap;
-/// This module concerns itself with selecting fields from traces and locks
-/// to be displayed in output.
+
+use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
+use crate::tracing::{trace_transaction, TxLockTracer};
+
 pub mod output;
+/// Types that directly translate to postgres concepts like lock modes and relkinds.
 pub mod pg_types;
 /// Parse the postgres PGPASS file format.
 pub mod pgpass;
@@ -108,9 +109,6 @@ pub fn perform_trace(
     } else {
         tx.rollback()?;
     }
+    conn.close()?;
     Ok(trace_result)
-}
-
-pub fn trace_data<'a, T: From<&'a TxTraceData<'a>>>(trace: &'a TxTraceData<'a>) -> T {
-    T::from(trace)
 }

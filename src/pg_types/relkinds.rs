@@ -14,7 +14,8 @@ pub enum RelKind {
 }
 
 impl RelKind {
-    pub fn from_db_str(s: char) -> Option<Self> {
+    /// Convert a `pg_class.relkind` character code to a `RelKind`.
+    pub fn from_db_code(s: char) -> Option<Self> {
         match s {
             'r' => Some(Self::Table),
             'i' => Some(Self::Index),
@@ -29,7 +30,8 @@ impl RelKind {
             _ => None,
         }
     }
-    pub fn as_str(&self) -> &str {
+    /// A human readable string name for the relation kind.
+    pub fn as_str(&self) -> &'static str {
         match self {
             Self::Table => "Table",
             Self::Index => "Index",

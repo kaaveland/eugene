@@ -1,8 +1,10 @@
-use crate::pg_types::lock_modes::LockMode;
-use crate::pg_types::relkinds::RelKind;
-use postgres::types::Oid;
 use std::fmt;
 use std::fmt::Display;
+
+use postgres::types::Oid;
+
+use crate::pg_types::lock_modes::LockMode;
+use crate::pg_types::relkinds::RelKind;
 
 /// A lockable target is a schema object that can be locked, such as a table, or index.
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
@@ -18,7 +20,7 @@ impl LockableTarget {
         Some(Self {
             schema: schema.as_ref().to_string(),
             object_name: object_name.as_ref().to_string(),
-            rel_kind: RelKind::from_db_str(rel_kind)?,
+            rel_kind: RelKind::from_db_code(rel_kind)?,
             oid,
         })
     }
@@ -71,7 +73,10 @@ impl Lock {
     pub fn target(&self) -> &LockableTarget {
         &self.target
     }
-    pub fn blocked_queries(&self) -> Vec<&str> {
+    pub fn blocked_queries(&self) -> Vec<&'static str> {
         self.mode.blocked_queries()
+    }
+    pub fn blocked_ddl(&self) -> Vec<&'static str> {
+        self.mode.blocked_ddl()
     }
 }

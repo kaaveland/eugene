@@ -1,13 +1,10 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 
-pub use eugene::output::{
-    Detailed, Format, JsonPretty, Normal, PlainText, Renderer, Terse, TxTraceData,
-};
+use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
-use eugene::pg_types::lock_modes::LockMode;
 use eugene::pgpass::read_pgpass_file;
-use eugene::{perform_trace, ConnectionSettings, TraceSettings};
+use eugene::{output, perform_trace, ConnectionSettings, TraceSettings};
 
 #[derive(Parser)]
 #[command(name = "eugene")]
@@ -23,34 +20,8 @@ concurrent transactions that would be blocked.
 )]
 struct Eugene {
     /// Output format, plain, json
-    #[arg(short = 'f', long = "format", default_value = "json")]
-    format: String,
     #[command(subcommand)]
     command: Option<Commands>,
-}
-
-enum Formats {
-    Plain,
-    Json,
-}
-
-enum Level {
-    Terse,
-    Normal,
-    Detailed,
-}
-
-impl TryFrom<&str> for Level {
-    type Error = anyhow::Error;
-
-    fn try_from(value: &str) -> Result<Self> {
-        match value {
-            "terse" => Ok(Level::Terse),
-            "normal" => Ok(Level::Normal),
-            "detailed" => Ok(Level::Detailed),
-            _ => Err(anyhow!("Invalid level: {}", value)),
-        }
-    }
 }
 
 #[derive(Subcommand)]
@@ -78,85 +49,114 @@ enum Commands {
         #[arg(short = 'p', long = "port", default_value = "5432")]
         port: u16,
 
-        /// Detail level: terse, normal, detailed
-        #[arg(short = 'l', long = "level", default_value = "normal")]
-        level: String,
-
         /// Show locks that are normally not in conflict with application code.
         #[arg(short = 'e', long = "extra", default_value_t = false)]
         extra: bool,
+        /// Output format, plain, json or markdown
+        #[arg(short = 'f', long = "format", default_value = "json")]
+        format: String,
     },
     /// List postgres lock modes
     Modes {
-        /// Detail level: terse, normal, detailed
-        #[arg(short = 'l', long = "level", default_value = "terse")]
-        level: String,
+        /// Output format, json
+        #[arg(short = 'f', long = "format", default_value = "json")]
+        format: String,
     },
     /// Explain what operations a lock mode allows and conflicts with
     Explain {
         /// Lock mode to explain
         mode: String,
-        /// Detail level: terse, normal, detailed
-        #[arg(short = 'l', long = "level", default_value = "detailed")]
-        level: String,
+        /// Output format, json
+        #[arg(short = 'f', long = "format", default_value = "json")]
+        format: String,
     },
 }
 
-impl Commands {
-    fn level(&self) -> Result<Level> {
-        match self {
-            Commands::Trace { level, .. }
-            | Commands::Modes { level, .. }
-            | Commands::Explain { level, .. } => Level::try_from(level.as_str()),
+struct ProvidedConnectionSettings {
+    user: String,
+    database: String,
+    host: String,
+    port: u16,
+}
+
+impl ProvidedConnectionSettings {
+    fn new(user: String, database: String, host: String, port: u16) -> Self {
+        ProvidedConnectionSettings {
+            user,
+            database,
+            host,
+            port,
         }
     }
 }
 
-fn lock_mode_renderer<'a, F: Format<'a>>(
-    level: Level,
-    _f: F,
-) -> Box<dyn Fn(&'a LockMode) -> Result<String>> {
-    Box::new(move |thing: &'a LockMode| match level {
-        Level::Terse => Terse.lock_mode::<F>(thing),
-        Level::Normal => Normal.lock_mode::<F>(thing),
-        Level::Detailed => Detailed.lock_mode::<F>(thing),
-    })
+impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ProvidedConnectionSettings) -> std::result::Result<Self, Self::Error> {
+        let password = if let Ok(password) = std::env::var("PGPASS") {
+            password
+        } else {
+            let pgpass = read_pgpass_file()?;
+            pgpass
+                .find_password(&value.host, value.port, &value.database, &value.user)
+                .context("No password found, provide PGPASS as environment variable or set up pgpassfile: https://www.postgresql.org/docs/current/libpq-pgpass.html")?
+                .to_string()
+        };
+        Ok(ConnectionSettings::new(
+            value.user,
+            value.database,
+            value.host,
+            value.port,
+            password,
+        ))
+    }
 }
 
-fn lock_modes_renderer<'a, F: Format<'a>>(
-    level: Level,
-    _f: F,
-) -> Box<dyn Fn(&'a [LockMode]) -> Result<String>> {
-    Box::new(move |things: &'a [LockMode]| match level {
-        Level::Terse => Terse.lock_modes::<F>(things),
-        Level::Normal => Normal.lock_modes::<F>(things),
-        Level::Detailed => Detailed.lock_modes::<F>(things),
-    })
+fn trace(
+    provided_connection_settings: ProvidedConnectionSettings,
+    placeholders: Vec<String>,
+    commit: bool,
+    path: String,
+    extra: bool,
+    trace_format: TraceFormat,
+) -> Result<String> {
+    let connection_settings = provided_connection_settings.try_into()?;
+    let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
+    let trace_result = perform_trace(&trace_settings, &connection_settings)?;
+    let full_trace = output::full_trace_data(&trace_result, output::Settings::new(!extra));
+    match trace_format {
+        TraceFormat::Json => full_trace.to_pretty_json(),
+        TraceFormat::Plain => full_trace.to_plain_text(),
+        TraceFormat::Markdown => full_trace.to_markdown(),
+    }
 }
 
-fn trace_renderer<'a, F: Format<'a>>(
-    level: Level,
-    _f: F,
-) -> Box<dyn Fn(&'a TxTraceData<'a>) -> Result<String>> {
-    Box::new(move |thing: &'a TxTraceData<'a>| match level {
-        Level::Terse => Terse.trace::<F>(thing),
-        Level::Normal => Normal.trace::<F>(thing),
-        Level::Detailed => Detailed.trace::<F>(thing),
-    })
+enum TraceFormat {
+    Json,
+    Plain,
+    Markdown,
+}
+
+impl TryFrom<String> for TraceFormat {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
+        match value.as_str() {
+            "json" => Ok(TraceFormat::Json),
+            "plain" => Ok(TraceFormat::Plain),
+            "md" | "markdown" => Ok(TraceFormat::Markdown),
+            _ => Err(anyhow!(
+                "Invalid trace format: {}, possible choices: {:?}",
+                value,
+                &["json", "plain", "markdown"]
+            )),
+        }
+    }
 }
 
 pub fn main() -> Result<()> {
     let args = Eugene::parse();
-    let level = args
-        .command
-        .as_ref()
-        .map_or(Ok(Level::Terse), |c| c.level())?;
-    let format = match args.format.as_str() {
-        "plain" => Formats::Plain,
-        "json" => Formats::Json,
-        _ => return Err(anyhow!("Invalid format: {}", args.format)),
-    };
-
     match args.command {
         Some(Commands::Trace {
             user,
@@ -167,35 +167,26 @@ pub fn main() -> Result<()> {
             commit,
             path,
             extra,
-            ..
+            format,
         }) => {
-            let password = if let Ok(password) = std::env::var("PGPASS") {
-                password
-            } else {
-                let pgpass = read_pgpass_file()?;
-                pgpass
-                    .find_password(&host, port, &database, &user)
-                    .context("No password found, provide PGPASS as environment variable or set up pgpassfile: https://www.postgresql.org/docs/current/libpq-pgpass.html")?
-                    .to_string()
-            };
-            let connection_settings = ConnectionSettings::new(user, database, host, port, password);
-            let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
-            let trace_result = perform_trace(&trace_settings, &connection_settings)?;
-            let trace_data = TxTraceData::new(&trace_result, extra);
-            let out = match format {
-                Formats::Json => trace_renderer(level, JsonPretty)(&trace_data),
-                Formats::Plain => trace_renderer(level, PlainText)(&trace_data),
-            }?;
+            let out = trace(
+                ProvidedConnectionSettings::new(user, database, host, port),
+                placeholders,
+                commit,
+                path,
+                extra,
+                format.try_into()?,
+            )?;
             println!("{}", out);
             Ok(())
         }
         Some(Commands::Modes { .. }) | None => {
-            let lock_modes: Vec<_> = lock_modes::LOCK_MODES.into_iter().collect();
-            let out = match format {
-                Formats::Json => lock_modes_renderer(level, JsonPretty)(&lock_modes),
-                Formats::Plain => lock_modes_renderer(level, PlainText)(&lock_modes),
-            }?;
-            println!("{}", out);
+            let lock_modes: Vec<_> = lock_modes::LOCK_MODES
+                .iter()
+                .map(TerseLockMode::from)
+                .collect();
+            let wrapper = LockModesWrapper::new(lock_modes);
+            println!("{}", serde_json::to_string_pretty(&wrapper)?);
             Ok(())
         }
         Some(Commands::Explain { mode, .. }) => {
@@ -203,11 +194,8 @@ pub fn main() -> Result<()> {
                 .iter()
                 .find(|m| m.to_db_str() == mode || m.to_db_str().replace("Lock", "") == mode)
                 .context(format!("Invalid lock mode {mode}"))?;
-            let out = match format {
-                Formats::Json => lock_mode_renderer(level, JsonPretty)(choice),
-                Formats::Plain => lock_mode_renderer(level, PlainText)(choice),
-            }?;
-            println!("{}", out);
+            let choice: DetailedLockMode = choice.into();
+            println!("{}", serde_json::to_string_pretty(&choice)?);
             Ok(())
         }
     }

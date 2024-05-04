@@ -174,7 +174,7 @@ impl FullTraceData {
     pub fn to_markdown(&self) -> anyhow::Result<String> {
         let mut result = String::new();
         result.push_str(&format!(
-            "# Lock trace of `{}`\n\n",
+            "# Eugene 🔒 trace of `{}`\n\n",
             self.name.as_deref().unwrap_or("unnamed")
         ));
         result.push_str(
@@ -199,9 +199,9 @@ impl FullTraceData {
 
     fn lock_row(lock: &TracedLock) -> String {
         trow(&[
-            lock.schema.as_str(),
-            lock.object_name.as_str(),
-            lock.mode.as_str(),
+            format!("`{}`", lock.schema).as_str(),
+            format!("`{}`", lock.object_name).as_str(),
+            format!("`{}`", lock.mode).as_str(),
             lock.relkind,
             lock.oid.to_string().as_str(),
             match lock.maybe_dangerous {
@@ -288,9 +288,9 @@ impl FullTraceData {
             for statement in self.statements.iter() {
                 for lock in statement.new_locks_taken.iter() {
                     result.push_str(&trow(&[
-                        lock.schema.as_str(),
-                        lock.object_name.as_str(),
-                        lock.mode.as_str(),
+                        format!("`{}`", lock.schema).as_str(),
+                        format!("`{}`", lock.object_name).as_str(),
+                        format!("`{}`", lock.mode).as_str(),
                         lock.relkind,
                         lock.oid.to_string().as_str(),
                         match lock.maybe_dangerous {
@@ -316,7 +316,7 @@ impl FullTraceData {
                         lock.mode, lock.schema, lock.object_name
                     ));
                     for query in lock.blocked_queries.iter() {
-                        result.push_str(&format!("\n  + `{}`", query));
+                        result.push_str(&format!("  + `{}`\n", query));
                     }
                 }
             }

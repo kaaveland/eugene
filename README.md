@@ -89,15 +89,15 @@ connection information to a database. For example, for the local docker-compose 
 export PGPASS=postgres 
 # Check https://www.postgresql.org/docs/current/libpq-pgpass.html for information about .pgpass
 createdb --host localhost -U postgres --port 5432 example-db
-# Populate the database with some data, then trace mig.sql
-eugene trace --host localhost -U postgres --port 5432 --database example-db mig.sql
+# Populate the database with some data, then trace add_authors.sql
+eugene trace --host localhost -U postgres --port 5432 --database example-db add_authors.sql
 ```
 
 You should see some output that looks like this:
 
 ```json
 {
-  "name": "mig.sql",
+  "name": "add_authors.sql",
   "sql_statements": [
     {
       "statement_number": 1,

@@ -38,10 +38,11 @@ pub struct ConnectionSettings {
 
 impl ConnectionSettings {
     pub fn connection_string(&self) -> String {
-        format!(
+        let out = format!(
             "host={} user={} dbname={} port={} password={}",
             self.host, self.user, self.database, self.port, self.password
-        )
+        );
+        out
     }
     pub fn new(user: String, database: String, host: String, port: u16, password: String) -> Self {
         ConnectionSettings {
@@ -110,12 +111,18 @@ pub fn perform_trace(
     let sql_statements = sql_statements(&sql_script);
     let mut conn = Client::connect(connection_settings.connection_string().as_str(), NoTls)?;
     let mut tx = conn.transaction()?;
+
+    // TODO: We probably need to special case create index concurrently here, since it's
+    // illegal to run concurrently in a transaction, eg. we'd need to run it with auto-commit.
+
     let trace_result = trace_transaction(name, &mut tx, sql_statements.iter())?;
+
     if trace.commit {
         tx.commit()?;
     } else {
         tx.rollback()?;
     }
+
     conn.close()?;
     Ok(trace_result)
 }

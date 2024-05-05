@@ -44,7 +44,7 @@ fn make_column_not_nullable(sql_statement_trace: &FullSqlStatementLockTrace) -> 
             "The column `{}` in the table `{}.{}` was changed to `NOT NULL`. \
             The statement blocks until all rows in the table are validated to be `NOT NULL`, unless a \
              `CHECK ({} IS NOT NULL)` constraint exists, in which case it is safe. \
-            Split this type of change into steps:\n\n \
+            Splitting this kind of change into 3 steps can make it safer:\n\n \
             1. Add a `CHECK ({} IS NOT NULL) NOT VALID;` constraint.\n\
             2. Validate the constraint in a later transaction, with `ALTER TABLE ... VALIDATE CONSTRAINT`.\n\
             3. Make the column `NOT NULL`\n",
@@ -68,7 +68,7 @@ fn add_json_column(sql_statement_trace: &FullSqlStatementLockTrace) -> Option<Hi
         code: "add_json_column",
         help: format!(
             "A new column `{}` of type `json` was added to the table `{}.{}`. The `json` type does not \
-             support the equality operator, so this can break all `SELECT DISTINCT` queries on the table. \
+             support the equality operator, so this can break `SELECT DISTINCT` queries on the table. \
              Use the `jsonb` type instead.",
             column.column_name,
             column.schema_name,
@@ -124,6 +124,7 @@ fn type_change_requires_table_rewrite(
 
 pub type HintCheck = Box<dyn Fn(&FullSqlStatementLockTrace) -> Option<Hint>>;
 
+/// Returns all known hints that can be checked against a `FullSqlStatementLockTrace`.
 pub fn checks() -> Vec<HintCheck> {
     vec![
         Box::new(add_new_valid_constraint),

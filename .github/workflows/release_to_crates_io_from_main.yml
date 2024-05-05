@@ -1,7 +1,9 @@
 name: Release to crates.io from main
 
 on:
-  workflow_dispatch: {}
+  push:
+    tags:
+      - '*.*.*'
 
 jobs:
   release:
@@ -9,6 +11,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Verify that Cargo.toml version matches tag
+        run: |
+          version="$(cargo read-manifest | jq -r .version)"
+          tag="$(echo ${{ github.ref }} | sed 's/refs\/tags\///')"
+          if [ "$tag" != "$version" ]; then
+            echo "Tag $tag does not match Cargo.toml version $version"
+            exit 1
+          fi
       - name: Package for crates.io
         run: cargo package
         env:

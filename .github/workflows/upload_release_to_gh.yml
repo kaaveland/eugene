@@ -1,6 +1,10 @@
 name: Upload release to GitHub
+
 on:
-  workflow_dispatch: {}
+  push:
+    tags:
+      - '*.*.*'
+
 permissions:
   contents: write
   packages: write
@@ -11,6 +15,14 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - name: Verify that tag matches Cargo.toml version
+        run: |
+          version="$(cargo read-manifest | jq -r .version)"
+          tag="$(echo ${{ github.ref }} | sed 's/refs\/tags\///')"
+          if [ "$tag" != "$version" ]; then
+            echo "Tag $tag does not match Cargo.toml version $version"
+            exit 1
+          fi
       - name: Create release
         run: |
           version="$(cargo read-manifest | jq -r .version)"

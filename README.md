@@ -119,6 +119,26 @@ for linux on debian:slim with the gnu toolchain.
 Contributions are welcome, but there's no roadmap for this project yet. Feel free to open an issue,
 ideas and discussion are very welcome. 
 
+## Building
+
+You can build the project with `cargo build` and run the tests with `cargo test`. The tests
+need to connect to a postgres database. The easiest way to do this is to use the docker-compose
+setup at the root of the repository:
+
+```bash
+docker-compose up -d
+cargo test
+```
+
+## Releasing
+
+To release a new version:
+1. Update the version in `Cargo.toml`
+2. Make sure to build so that `Cargo.lock` is updated
+3. Commit the changes and push to the main branch
+4. Tag the commit and push the tag
+5. GitHub Workflows pick up the tag and build and release the new version to crates.io
+
 ## Migration tool
 
 `eugene` is not a migration tool like flyway or liquibase, and isn't intended to be one. There are

@@ -84,38 +84,40 @@ fn find_new_locks(old_locks: &HashSet<Lock>, new_locks: &HashSet<Lock>) -> HashS
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
 pub struct ColumnIdentifier {
-    oid: Oid,
-    attnum: i32,
+    pub(crate) oid: Oid,
+    pub(crate) attnum: i32,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ColumnMetadata {
-    name: String,
-    nullable: bool,
-    typename: String,
-    max_len: Option<u32>,
+    pub(crate) schema_name: String,
+    pub(crate) table_name: String,
+    pub(crate) column_name: String,
+    pub(crate) nullable: bool,
+    pub(crate) typename: String,
+    pub(crate) max_len: Option<u32>,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ModifiedColumn {
-    old: ColumnMetadata,
-    new: ColumnMetadata,
+    pub(crate) old: ColumnMetadata,
+    pub(crate) new: ColumnMetadata,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct Constraint {
-    schema_name: String,
-    table_name: String,
-    constraint_type: Contype,
-    name: String,
-    expression: Option<String>,
-    valid: bool,
+    pub(crate) schema_name: String,
+    pub(crate) table_name: String,
+    pub(crate) constraint_type: Contype,
+    pub(crate) name: String,
+    pub(crate) expression: Option<String>,
+    pub(crate) valid: bool,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct ModifiedConstraint {
-    old: Constraint,
-    new: Constraint,
+    pub(crate) old: Constraint,
+    pub(crate) new: Constraint,
 }
 
 /// A trace of a transaction, including all SQL statements executed and the locks taken by each one.
@@ -231,7 +233,9 @@ fn fetch_all_columns(
            a.attname as column_name,
            a.attnotnull as not_null,
            t.typname as type_name,
-           a.atttypmod as typmod
+           a.atttypmod as typmod,
+           n.nspname as schema_name,
+           c.relname as table_name
          FROM pg_catalog.pg_attribute a
            JOIN pg_catalog.pg_type t ON a.atttypid = t.oid
            JOIN pg_catalog.pg_class c ON a.attrelid = c.oid
@@ -252,15 +256,19 @@ fn fetch_all_columns(
             } else {
                 None
             };
+            let schema_name: String = row.try_get(6)?;
+            let table_name: String = row.try_get(7)?;
             let identifier = ColumnIdentifier {
                 oid: table_oid,
                 attnum: attnum as i32,
             };
             let metadata = ColumnMetadata {
-                name: column_name,
+                column_name,
                 nullable: !not_null,
                 typename: type_name,
                 max_len,
+                schema_name,
+                table_name,
             };
             Ok((identifier, metadata))
         })
@@ -447,8 +455,8 @@ mod tests {
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
-        assert_eq!(modification.old.name, "title");
-        assert_eq!(modification.new.name, "book_title");
+        assert_eq!(modification.old.column_name, "title");
+        assert_eq!(modification.new.column_name, "book_title");
     }
 
     #[test]

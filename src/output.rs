@@ -4,6 +4,7 @@ use serde::Serialize;
 use crate::output::markdown_helpers::{theader, trow};
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::locks::Lock;
+use crate::tracing::tracer::ColumnMetadata;
 use crate::tracing::{SqlStatementTrace, TxLockTracer};
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
@@ -59,6 +60,82 @@ fn traced_lock_from(lock: &Lock) -> TracedLock {
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
+struct Column {
+    schema_name: String,
+    table_name: String,
+    column_name: String,
+    data_type: String,
+    nullable: bool,
+}
+
+impl From<&ColumnMetadata> for Column {
+    fn from(meta: &ColumnMetadata) -> Self {
+        Column {
+            schema_name: meta.schema_name.clone(),
+            table_name: meta.table_name.clone(),
+            column_name: meta.column_name.clone(),
+            data_type: meta.typename.clone(),
+            nullable: meta.nullable,
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
+struct ModifiedColumn {
+    old: Column,
+    new: Column,
+}
+
+impl From<&crate::tracing::tracer::ModifiedColumn> for ModifiedColumn {
+    fn from(meta: &crate::tracing::tracer::ModifiedColumn) -> Self {
+        ModifiedColumn {
+            old: Column::from(&meta.old),
+            new: Column::from(&meta.new),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
+pub struct Constraint {
+    schema_name: String,
+    table_name: String,
+    name: String,
+    constraint_name: String,
+    constraint_type: &'static str,
+    valid: bool,
+    definition: Option<String>,
+}
+
+impl From<&crate::tracing::tracer::Constraint> for Constraint {
+    fn from(constraint: &crate::tracing::tracer::Constraint) -> Self {
+        Constraint {
+            schema_name: constraint.schema_name.clone(),
+            table_name: constraint.table_name.clone(),
+            name: constraint.name.clone(),
+            constraint_name: constraint.name.clone(),
+            constraint_type: constraint.constraint_type.to_display(),
+            valid: constraint.valid,
+            definition: constraint.expression.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
+pub struct ModifiedConstraint {
+    old: Constraint,
+    new: Constraint,
+}
+
+impl From<&crate::tracing::tracer::ModifiedConstraint> for ModifiedConstraint {
+    fn from(meta: &crate::tracing::tracer::ModifiedConstraint) -> Self {
+        ModifiedConstraint {
+            old: Constraint::from(&meta.old),
+            new: Constraint::from(&meta.new),
+        }
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
 struct FullSqlStatementLockTrace {
     statement_number_in_transaction: usize,
     sql: String,
@@ -66,6 +143,10 @@ struct FullSqlStatementLockTrace {
     start_time_millis: u64,
     locks_at_start: Vec<TracedLock>,
     new_locks_taken: Vec<TracedLock>,
+    new_columns: Vec<Column>,
+    altered_columns: Vec<ModifiedColumn>,
+    new_constraints: Vec<Constraint>,
+    altered_constraints: Vec<ModifiedConstraint>,
 }
 
 impl OutputContext {
@@ -85,6 +166,26 @@ impl OutputContext {
             start_time_millis: self.duration_millis_so_far,
             new_locks_taken,
             locks_at_start,
+            new_columns: statement
+                .added_columns
+                .iter()
+                .map(|(_, c)| Column::from(c))
+                .collect(),
+            altered_columns: statement
+                .modified_columns
+                .iter()
+                .map(|(_, c)| ModifiedColumn::from(c))
+                .collect(),
+            new_constraints: statement
+                .added_constraints
+                .iter()
+                .map(Constraint::from)
+                .collect(),
+            altered_constraints: statement
+                .modified_constraints
+                .iter()
+                .map(|(_, c)| ModifiedConstraint::from(c))
+                .collect(),
         };
         self.statement_number += 1;
         self.held_locks_context

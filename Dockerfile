@@ -1,7 +1,7 @@
 FROM debian:stable-slim
 
 ARG TARGETARCH
-COPY ./eugene-${TARGETARCH} /usr/bin/local/eugene
+COPY ./eugene-${TARGETARCH} /usr/local/bin/eugene
 RUN chmod +x /usr/local/bin/eugene
 
 ENTRYPOINT ["/usr/local/bin/eugene"]

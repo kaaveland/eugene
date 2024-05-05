@@ -1,5 +1,8 @@
 # Careful with That Lock, Eugene
 
+![Tests](https://github.com/kaaveland/eugene/actions/workflows/run_tests.yml/badge.svg?branch=main)
+![crates.io](https://github.com/kaaveland/eugene/actions/workflows/release_to_crates_io_from_main.yml/badge.svg?branch=main)
+
 `eugene` is a proof of concept command line tool for reviewing locks taken by SQL
 migration scripts in postgres. 
 
@@ -11,16 +14,16 @@ information about the goals of this experiment, take a look at
 
 ## Installation
 
-Currently, the only way to install `eugene` is to clone the repository and build it. You will
-need `cargo` installed to do this, see [rustup](https://rustup.rs/).
+You can install `eugene` from [crates.io](https://crates.io/crates/eugene) using `cargo` from [rustup](https://rustup.rs/):
 
 ```bash
-git clone git@github.com:kaaveland/eugene.git
-cd eugene
-cargo build --release
-# The binary is now in target/release/eugene
-# You can install it into $PATH using cargo:
-cargo install --path .
+cargo install eugene --bin
+```
+
+To perform a local installation of your checkout out repository, you can use:
+
+```bash
+cargo install --path . --bin
 ```
 
 ## Usage
@@ -174,22 +177,19 @@ Note that some SQL scripts contain syntax that breaks `eugene` at the moment, fo
 since the parser is very simple. This will be addressed in future versions, if the tool turns
 out to be useful.
 
-### Output format
-
-Note that the output format is subject to change, in the near future `eugene` will be able to
-output json or markdown or something else that's suitable for use in CI/CD pipelines and
-the fields and structure of the output is still unstable.
 
 ### Compatibility
 
-`eugene` should work with most versions of postgres after 12, it isn't running any 
-particularly fancy queries or using any new features or types. If you find that 
-it doesn't work with your version of postgres, feel free to open an issue.
+`eugene` is tested with postgres versions `>= 12` on linux, and is
+also tested on macos and windows for a narrowed range of versions. 
+It doesn't intentionally use any platform specific features or new
+features and should work with all of those.
+
 
 # Contributing
 
 Contributions are welcome, but there's no roadmap for this project yet. Feel free to open an issue,
-ideas and discussion are very welcome.
+ideas and discussion are very welcome. 
 
 ## Migration tool
 

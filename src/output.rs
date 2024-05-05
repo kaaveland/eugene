@@ -304,6 +304,7 @@ impl FullTraceData {
                 }
                 time_diff += statement.duration_millis;
             }
+            result.push('\n');
             if dangerous_locks > 0 {
                 result.push_str("### Dangerous locks found\n\n");
                 for lock in self

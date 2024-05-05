@@ -1,0 +1,51 @@
+name: Generate sample reports
+
+on:
+  pull_request:
+    branches:
+      - main
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  post_locktrace_markdown:
+    runs-on: ubuntu-latest
+    name: Post a report sample to the pull request
+    env:
+      PGPASS: postgres
+    services:
+      postgres:
+        image: postgres:16
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install eugene
+        run: cargo install --path .
+      - name: Set up psql
+        run: sudo apt-get install -y postgresql-client
+      - name: Make ~/.pgpass
+        run: echo "localhost:5432:*:postgres:$PGPASS" > ~/.pgpass && chmod 600 ~/.pgpass
+      - name: Init testdb
+        run: psql --host localhost --port 5432 -U postgres < db-initscripts/init-testdb.sql
+      - name: Run eugene to generate example report
+        run: eugene trace -e -d example-db -f markdown examples/add_authors.sql > report.md
+      - name: Post report as comment to pull request
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.SUBMIT_COMMENT_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('report.md', 'utf8');
+            github.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: report
+            });
+        

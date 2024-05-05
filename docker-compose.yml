@@ -7,10 +7,11 @@ services:
     ports:
       - '127.0.0.1:5432:5432'
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
+      - ./db-initscripts:/docker-entrypoint-initdb.d
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
 
 volumes:
-  pgdata:
+  pg_data:

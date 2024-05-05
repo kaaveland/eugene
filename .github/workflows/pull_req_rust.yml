@@ -8,57 +8,87 @@ on:
 env:
   CARGO_TERM_COLOR: always
 jobs:
-  check_formatting:
+  run_tests_ubuntu:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-  check_clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-  run_tests:
-    runs-on: ${{ matrix.os }}
+    name: Test postgres-${{ matrix.pgversion }}
     strategy:
-      matrix: {os: [ubuntu-latest, macos-latest, windows-latest] }
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run tests
-        run: cargo test --all-targets --all-features
-  post_locktrace_markdown:
-    runs-on: ubuntu-latest
+      matrix:
+        pgversion:
+          - "12"
+          - "13"
+          - "14"
+          - "15"
+          - "16"
     env:
       PGPASS: postgres
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.pgversion }}
         ports:
           - 5432:5432
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
+        options: >-
+          --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
       - uses: actions/checkout@v4
-      - name: Install eugene
-        run: cargo install --path .
-      - name: Run eugene to create books
-        run: eugene trace -d postgres -c examples/create_books.sql
-      - name: Run eugene to generate example report
-        run: eugene trace -e -d postgres -f markdown examples/add_authors.sql > report.md
-      - name: Post report as comment to pull request
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.SUBMIT_COMMENT_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('report.md', 'utf8');
-            github.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: report
-            });
+      - name: Set up psql
+        run: sudo apt-get install -y postgresql-client
+      - name: Make ~/.pgpass
+        run: echo "localhost:5432:*:postgres:$PGPASS" > ~/.pgpass && chmod 600 ~/.pgpass
+      - name: Init testdb
+        run: psql --host localhost --port 5432 -U postgres < db-initscripts/init-testdb.sql
+      - name: Run tests
+        run: cargo test --all-targets --all-features
+  run_tests_macos:
+    name: Test on macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql and postgres
+        run: brew install postgresql
+      - name: Init postgres db
+        run: |
+          initdb -E UTF-8 -U postgres $HOME/pgdata
+          pg_ctl -D $HOME/pgdata start
+      - name: Give postgres time to start
+        run: sleep 10
+      - name: Set up ~/.pgpass
+        run: |
+          psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+          echo "localhost:5432:*:postgres:postgres" > ~/.pgpass && chmod 600 ~/.pgpass
+      - name: Init testdb
+        run: psql -U postgres < db-initscripts/init-testdb.sql
+      - name: Run tests
+        run: cargo test --all-targets --all-features
+      - name: Stop postgres
+        run: pg_ctl -D $HOME/pgdata stop
+  run_tests_windows:
+    name: Test on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install postgres with choco
+        shell: bash
+        run: |
+          choco install postgresql16 --params "/Password:postgres"
+          echo 'C:\Program Files\PostgreSQL\16\bin' >> $GITHUB_PATH
+          echo 'C:\Program Files\PostgreSQL\16\lib' >> $GITHUB_PATH
+      - name: Start postgres service
+        shell: pwsh
+        run: Start-Service postgresql-x64-16
+      - name: Give postgres time to start
+        shell: pwsh
+        run: Start-Sleep -s 10
+      - name: Init testdb
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          mkdir -p $APPDATA/postgresql
+          echo "localhost:5432:*:postgres:postgres" > $APPDATA/postgresql/pgpass.conf          
+          psql -U postgres < db-initscripts/init-testdb.sql
+      - name: Run tests
+        run: cargo test --all-targets --all-features

@@ -61,6 +61,11 @@ eugene explain AccessExclusive
 Use `eugene modes` or refer to [the postgres documentation](https://www.postgresql.org/docs/current/explicit-locking.html) 
 to learn more about lock modes.
 
+## Lock tracing reports
+
+`eugene` can produce reports in a verbose markdown that is suitable for human reading. Take a look
+at [the examples](https://github.com/kaaveland/eugene/tree/main/examples) to see how the output looks.
+
 ## Tracing locks taken by a transaction
 
 To review a SQL script for locks, you will need to run `eugene trace` and provide some

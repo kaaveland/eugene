@@ -88,7 +88,7 @@ fn running_statement_while_holding_access_exclusive(
             name: "Running more statements after taking `AccessExclusiveLock`",
             code: "holding_access_exclusive",
             help: format!(
-                "The statement is running while holding an `AccessExclusiveLock` on the {} `{}{}`, \
+                "The statement is running while holding an `AccessExclusiveLock` on the {} `{}.{}`, \
                 blocking all other transactions from accessing it. \
                 Once holding `AccessExclusiveLock` we should immediately commit the transaction. \
                 Any extra steps necessary are better done in a separate transaction.",

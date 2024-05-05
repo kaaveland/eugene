@@ -10,6 +10,12 @@ use postgres::{Client, NoTls};
 use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
 use crate::tracing::{trace_transaction, TxLockTracer};
 
+/// Hints that can help avoid dangerous migrations, by minimizing time spent holding dangerous locks.
+pub mod hints;
+/// Generate output structures for lock traces and static data like lock modes.
+/// This module is used by the binary to generate output in various formats is currently
+/// the best documentation of output format, and can be considered a public api
+/// for the library.
 pub mod output;
 /// Types that directly translate to postgres concepts like lock modes and relkinds.
 pub mod pg_types;
@@ -17,7 +23,8 @@ pub mod pg_types;
 pub mod pgpass;
 /// Read and parse simple SQL scripts, resolve placeholders and break down into statements.
 pub mod sqltext;
-/// Trace locks taken by SQL statements.
+/// Trace locks taken by SQL statements. Structures and data from here should be considered
+/// internal to the crate, their fields are not part of the public API.
 pub mod tracing;
 
 /// Connection settings for connecting to a PostgreSQL database.

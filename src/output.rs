@@ -1,11 +1,20 @@
-use chrono::{DateTime, Local};
 use serde::Serialize;
+
+pub use output_format::{
+    Column, Constraint, FullSqlStatementLockTrace, FullTraceData, ModifiedColumn,
+    ModifiedConstraint, TracedLock,
+};
 
 use crate::output::markdown_helpers::{theader, trow};
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::locks::Lock;
-use crate::tracing::tracer::ColumnMetadata;
 use crate::tracing::{SqlStatementTrace, TxLockTracer};
+
+/// Output types for the lock tracing library, exportable to JSON and public API.
+///
+/// The intention is to provide serialization and eventually deserialization for lock traces
+/// using these record types.
+pub mod output_format;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Settings {
@@ -34,121 +43,6 @@ struct OutputContext {
     duration_millis_so_far: u64,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-struct TracedLock {
-    schema: String,
-    object_name: String,
-    mode: String,
-    relkind: &'static str,
-    oid: u32,
-    maybe_dangerous: bool,
-    blocked_queries: Vec<&'static str>,
-    blocked_ddl: Vec<&'static str>,
-}
-
-fn traced_lock_from(lock: &Lock) -> TracedLock {
-    TracedLock {
-        schema: lock.target().schema.to_string(),
-        object_name: lock.target().object_name.to_string(),
-        mode: lock.mode.to_db_str().to_string(),
-        relkind: lock.target().rel_kind.as_str(),
-        oid: lock.target().oid,
-        maybe_dangerous: lock.mode.dangerous(),
-        blocked_queries: lock.blocked_queries(),
-        blocked_ddl: lock.blocked_ddl(),
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-struct Column {
-    schema_name: String,
-    table_name: String,
-    column_name: String,
-    data_type: String,
-    nullable: bool,
-}
-
-impl From<&ColumnMetadata> for Column {
-    fn from(meta: &ColumnMetadata) -> Self {
-        Column {
-            schema_name: meta.schema_name.clone(),
-            table_name: meta.table_name.clone(),
-            column_name: meta.column_name.clone(),
-            data_type: meta.typename.clone(),
-            nullable: meta.nullable,
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-struct ModifiedColumn {
-    old: Column,
-    new: Column,
-}
-
-impl From<&crate::tracing::tracer::ModifiedColumn> for ModifiedColumn {
-    fn from(meta: &crate::tracing::tracer::ModifiedColumn) -> Self {
-        ModifiedColumn {
-            old: Column::from(&meta.old),
-            new: Column::from(&meta.new),
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-pub struct Constraint {
-    schema_name: String,
-    table_name: String,
-    name: String,
-    constraint_name: String,
-    constraint_type: &'static str,
-    valid: bool,
-    definition: Option<String>,
-}
-
-impl From<&crate::tracing::tracer::Constraint> for Constraint {
-    fn from(constraint: &crate::tracing::tracer::Constraint) -> Self {
-        Constraint {
-            schema_name: constraint.schema_name.clone(),
-            table_name: constraint.table_name.clone(),
-            name: constraint.name.clone(),
-            constraint_name: constraint.name.clone(),
-            constraint_type: constraint.constraint_type.to_display(),
-            valid: constraint.valid,
-            definition: constraint.expression.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-pub struct ModifiedConstraint {
-    old: Constraint,
-    new: Constraint,
-}
-
-impl From<&crate::tracing::tracer::ModifiedConstraint> for ModifiedConstraint {
-    fn from(meta: &crate::tracing::tracer::ModifiedConstraint) -> Self {
-        ModifiedConstraint {
-            old: Constraint::from(&meta.old),
-            new: Constraint::from(&meta.new),
-        }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-struct FullSqlStatementLockTrace {
-    statement_number_in_transaction: usize,
-    sql: String,
-    duration_millis: u64,
-    start_time_millis: u64,
-    locks_at_start: Vec<TracedLock>,
-    new_locks_taken: Vec<TracedLock>,
-    new_columns: Vec<Column>,
-    altered_columns: Vec<ModifiedColumn>,
-    new_constraints: Vec<Constraint>,
-    altered_constraints: Vec<ModifiedConstraint>,
-}
-
 impl OutputContext {
     fn output_statement(&mut self, statement: &SqlStatementTrace) -> FullSqlStatementLockTrace {
         let locks_at_start = self.held_locks_context.clone();
@@ -156,7 +50,7 @@ impl OutputContext {
             .locks_taken
             .iter()
             .filter(|lock| !self.hide_lock(lock))
-            .map(traced_lock_from)
+            .map(TracedLock::from)
             .filter(|lock| !locks_at_start.contains(lock))
             .collect();
         let result = FullSqlStatementLockTrace {
@@ -204,16 +98,6 @@ impl OutputContext {
             ..OutputContext::default()
         }
     }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-pub struct FullTraceData {
-    name: Option<String>,
-    #[serde(with = "datefmt")]
-    start_time: DateTime<Local>,
-    total_duration_millis: u64,
-    all_locks_acquired: Vec<TracedLock>,
-    statements: Vec<FullSqlStatementLockTrace>,
 }
 
 pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullTraceData {
@@ -344,6 +228,20 @@ impl FullTraceData {
             }
         }
         result.push('\n');
+
+        let hints = crate::hints::checks()
+            .iter()
+            .filter_map(|check| check(statement))
+            .collect::<Vec<_>>();
+        if !hints.is_empty() {
+            result.push_str("### Hints\n\n");
+            for hint in hints {
+                result.push_str(&format!(
+                    "#### {}\n\nID: `{}`\n\n{}\n\n",
+                    hint.name, hint.code, hint.help
+                ));
+            }
+        }
         result
     }
 
@@ -440,17 +338,6 @@ mod markdown_helpers {
 
     pub fn trow(row: &[&str]) -> String {
         row.join(" | ") + "\n"
-    }
-}
-
-mod datefmt {
-    use chrono::{DateTime, Local};
-
-    pub fn serialize<S>(date: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        serializer.serialize_str(&date.to_rfc3339())
     }
 }
 

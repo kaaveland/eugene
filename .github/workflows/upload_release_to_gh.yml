@@ -1,0 +1,124 @@
+name: Upload release to GitHub
+on:
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  packages: write
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create release
+        run: |
+          version="$(cargo read-manifest | jq -r .version)"
+          echo "Creating release $version"
+          gh release create $version -t $version --generate-notes -d
+  upload_source_to_release:
+    needs:
+      - create_release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload source code
+        run: |
+          version="$(cargo read-manifest | jq -r .version)"
+          tar czf eugene-$version-sources.tar.gz Cargo.toml Cargo.lock src
+          gh release upload "$version" eugene-$version-sources.tar.gz
+  build_release:
+    needs:
+      - create_release
+    runs-on: ${{ matrix.target.runs-on }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      matrix:
+        target:
+          - toolchain: x86_64-unknown-linux-gnu
+            platform: linux/amd64
+            runs-on: ubuntu-latest
+          - toolchain: aarch64-unknown-linux-gnu
+            platform: linux/arm64
+            runs-on: ubuntu-latest
+          - toolchain: x86_64-unknown-linux-musl
+            platform: linux/amd64
+            runs-on: ubuntu-latest
+          - toolchain: aarch64-unknown-linux-musl
+            platform: linux/arm64
+            runs-on: ubuntu-latest
+          - toolchain: x86_64-apple-darwin
+            platform: darwin/amd64
+            runs-on: macos-latest
+          - toolchain: aarch64-apple-darwin
+            platform: darwin/arm64
+            runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust toolchain for ${{ matrix.target.toolchain }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target.toolchain }}
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Install cross
+        run: cargo binstall -y --force cross
+      - name: build release
+        run: cross build --release --target "${{ matrix.target.toolchain }}"
+      - name: rename release
+        shell: bash
+        run: |
+          version="$(cargo read-manifest | jq -r .version)"
+          mv target/${{ matrix.target.toolchain }}/release/eugene eugene-${{ matrix.target.toolchain }}
+          if [[ "${{ matrix.target.runs-on }}" == "macos-latest" ]]; then
+            shasum -a 256 eugene-${{ matrix.target.toolchain }} > eugene-${{ matrix.target.toolchain }}.sha256
+          else
+            sha256sum eugene-${{ matrix.target.toolchain }} > eugene-${{ matrix.target.toolchain }}.sha256
+          fi
+          gh release upload "$version" eugene-${{ matrix.target.toolchain }} eugene-${{ matrix.target.toolchain }}.sha256
+
+  publish_release:
+    runs-on: ubuntu-latest
+    needs:
+      - build_release
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+        - uses: actions/checkout@v4
+        - name: Publish release
+          run: |
+            version="$(cargo read-manifest | jq -r .version)"
+            gh release edit "$version" --draft=false
+
+  build_images:
+    name: Build multiplatform image for ghcr.io
+    needs:
+      - build_release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch release artifacts for linux/arm64 and linux/amd64
+        run: |
+          version="$(cargo read-manifest | jq -r .version)"
+          gh release download "$version" 
+          cp eugene-x86_64-unknown-linux-gnu eugene-amd64
+          cp eugene-aarch64-unknown-linux-gnu eugene-arm64
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build docker image
+        run: |
+          version="$(cargo read-manifest | jq -r .version)"
+          docker buildx create --use
+          docker buildx build . \
+            --platform "linux/amd64,linux/arm64" \
+            -t ghcr.io/${{ github.repository }}:latest \
+            -t ghcr.io/${{ github.repository }}:$version \
+            --push

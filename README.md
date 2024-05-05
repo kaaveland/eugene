@@ -34,49 +34,28 @@ cargo install --path . --bin
 eugene help
 ```
 
+## Docker images
+
+You can use the docker image `ghcr.io/kaaveland/eugene` to run the tool. For example:
+
+```shell
+docker run --rm -it ghcr.io/kaaveland/eugene:latest \
+  trace --format markdown \
+  --host pg-test --database test-db \
+  examples/add_authors.sql
+```
 ## Explaining lock modes
 
-`eugene` knows about the lock modes in postgres, for example `eugene explain ShareLock` will emit:
+`eugene` knows about the lock modes in postgres, and can explain them to you:
 
-```json
-{
-  "lock_mode": "ShareLock",
-  "used_for": [
-    "CREATE INDEX"
-  ],
-  "conflicts_with": [
-    "RowExclusiveLock",
-    "ShareUpdateExclusiveLock",
-    "ShareRowExclusiveLock",
-    "ExclusiveLock",
-    "AccessExclusiveLock"
-  ],
-  "blocked_queries": [
-    "UPDATE",
-    "DELETE",
-    "INSERT",
-    "MERGE"
-  ],
-  "blocked_ddl_operations": [
-    "VACUUM",
-    "ANALYZE",
-    "CREATE INDEX CONCURRENTLY",
-    "CREATE STATISTICS",
-    "REINDEX CONCURRENTLY",
-    "ALTER INDEX",
-    "ALTER TABLE",
-    "CREATE TRIGGER",
-    "ALTER TABLE",
-    "REFRESH MATERIALIZED VIEW CONCURRENTLY",
-    "ALTER TABLE",
-    "DROP TABLE",
-    "TRUNCATE",
-    "REINDEX",
-    "CLUSTER",
-    "VACUUM FULL",
-    "REFRESH MATERIALIZED VIEW"
-  ]
-}
+```bash
+eugene modes
+```
+
+Or
+
+```
+eugene explain AccessExclusive
 ```
 
 Use `eugene modes` or refer to [the postgres documentation](https://www.postgresql.org/docs/current/explicit-locking.html) 
@@ -88,12 +67,15 @@ To review a SQL script for locks, you will need to run `eugene trace` and provid
 connection information to a database. For example, for the local docker-compose setup:
 
 ```bash
-# If there's no rule in ~/.pgpass for the db user, you can set the password like this:
+# You can use ~/.pgpass for the password, or set it in the environment
 export PGPASS=postgres 
-# Check https://www.postgresql.org/docs/current/libpq-pgpass.html for information about .pgpass
-createdb --host localhost -U postgres --port 5432 example-db
-# Populate the database with some data, then trace add_authors.sql
-eugene trace --host localhost -U postgres --port 5432 --database example-db add_authors.sql
+docker compose up -d
+sleep 5 # wait for the database to start
+eugene trace --host localhost \
+  -U postgres --port 5432 \
+  --database example-db \
+  --format json \ # or markdown
+  examples/add_authors.sql
 ```
 
 You should see some output that looks like this:
@@ -101,23 +83,110 @@ You should see some output that looks like this:
 ```json
 {
   "name": "add_authors.sql",
-  "sql_statements": [
+  "start_time": "2024-05-05T21:27:09.739410+02:00",
+  "total_duration_millis": 1015,
+  "all_locks_acquired": [
     {
-      "statement_number": 1,
-      "duration_millis": 5,
-      "sql": "create table author(name text not null);",
-      "locks_taken": [],
-      "locks_held": []
+      "schema": "public",
+      "object_name": "books",
+      "mode": "AccessExclusiveLock",
+      "relkind": "Table",
+      "oid": 16411,
+      "maybe_dangerous": true,
+      "blocked_queries": [
+        "SELECT",
+        "FOR UPDATE",
+        "FOR NO KEY UPDATE",
+        "FOR SHARE",
+        "FOR KEY SHARE",
+        "UPDATE",
+        "DELETE",
+        "INSERT",
+        "MERGE"
+      ],
+      "blocked_ddl": [
+        "VACUUM",
+        "ANALYZE",
+        "CREATE INDEX CONCURRENTLY",
+        "CREATE STATISTICS",
+        "REINDEX CONCURRENTLY",
+        "ALTER INDEX",
+        "ALTER TABLE",
+        "CREATE INDEX",
+        "CREATE TRIGGER",
+        "ALTER TABLE",
+        "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+        "ALTER TABLE",
+        "DROP TABLE",
+        "TRUNCATE",
+        "REINDEX",
+        "CLUSTER",
+        "VACUUM FULL",
+        "REFRESH MATERIALIZED VIEW"
+      ]
     },
     {
-      "statement_number": 2,
-      "duration_millis": 0,
+      "schema": "public",
+      "object_name": "books",
+      "mode": "ShareRowExclusiveLock",
+      "relkind": "Table",
+      "oid": 16411,
+      "maybe_dangerous": true,
+      "blocked_queries": [
+        "UPDATE",
+        "DELETE",
+        "INSERT",
+        "MERGE"
+      ],
+      "blocked_ddl": [
+        "VACUUM",
+        "ANALYZE",
+        "CREATE INDEX CONCURRENTLY",
+        "CREATE STATISTICS",
+        "REINDEX CONCURRENTLY",
+        "ALTER INDEX",
+        "ALTER TABLE",
+        "CREATE INDEX",
+        "CREATE TRIGGER",
+        "ALTER TABLE",
+        "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+        "ALTER TABLE",
+        "DROP TABLE",
+        "TRUNCATE",
+        "REINDEX",
+        "CLUSTER",
+        "VACUUM FULL",
+        "REFRESH MATERIALIZED VIEW"
+      ]
+    }
+  ],
+  "statements": [
+    {
+      "statement_number_in_transaction": 1,
+      "sql": "create table authors(id serial primary key, name text not null);",
+      "duration_millis": 6,
+      "start_time_millis": 0,
+      "locks_at_start": [],
+      "new_locks_taken": [],
+      "new_columns": [],
+      "altered_columns": [],
+      "new_constraints": [],
+      "altered_constraints": []
+    },
+    {
+      "statement_number_in_transaction": 2,
       "sql": "alter table books alter column title set not null;",
-      "locks_taken": [
+      "duration_millis": 1,
+      "start_time_millis": 6,
+      "locks_at_start": [],
+      "new_locks_taken": [
         {
-          "mode": "AccessExclusiveLock",
           "schema": "public",
           "object_name": "books",
+          "mode": "AccessExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
           "blocked_queries": [
             "SELECT",
             "FOR UPDATE",
@@ -128,21 +197,64 @@ You should see some output that looks like this:
             "DELETE",
             "INSERT",
             "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
           ]
         }
       ],
-      "locks_held": []
+      "new_columns": [],
+      "altered_columns": [
+        {
+          "old": {
+            "schema_name": "public",
+            "table_name": "books",
+            "column_name": "title",
+            "data_type": "text",
+            "nullable": true
+          },
+          "new": {
+            "schema_name": "public",
+            "table_name": "books",
+            "column_name": "title",
+            "data_type": "text",
+            "nullable": false
+          }
+        }
+      ],
+      "new_constraints": [],
+      "altered_constraints": []
     },
     {
-      "statement_number": 3,
-      "duration_millis": 0,
-      "sql": "select * from books",
-      "locks_taken": [],
-      "locks_held": [
+      "statement_number_in_transaction": 3,
+      "sql": "alter table books add column author_id integer not null;",
+      "duration_millis": 1,
+      "start_time_millis": 7,
+      "locks_at_start": [
         {
-          "mode": "AccessExclusiveLock",
           "schema": "public",
           "object_name": "books",
+          "mode": "AccessExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
           "blocked_queries": [
             "SELECT",
             "FOR UPDATE",
@@ -153,9 +265,311 @@ You should see some output that looks like this:
             "DELETE",
             "INSERT",
             "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
           ]
         }
-      ]
+      ],
+      "new_locks_taken": [],
+      "new_columns": [
+        {
+          "schema_name": "public",
+          "table_name": "books",
+          "column_name": "author_id",
+          "data_type": "int4",
+          "nullable": false
+        }
+      ],
+      "altered_columns": [],
+      "new_constraints": [],
+      "altered_constraints": []
+    },
+    {
+      "statement_number_in_transaction": 4,
+      "sql": "alter table books add foreign key (author_id) references authors(id);",
+      "duration_millis": 1,
+      "start_time_millis": 8,
+      "locks_at_start": [
+        {
+          "schema": "public",
+          "object_name": "books",
+          "mode": "AccessExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
+          "blocked_queries": [
+            "SELECT",
+            "FOR UPDATE",
+            "FOR NO KEY UPDATE",
+            "FOR SHARE",
+            "FOR KEY SHARE",
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
+          ]
+        }
+      ],
+      "new_locks_taken": [
+        {
+          "schema": "public",
+          "object_name": "books",
+          "mode": "ShareRowExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
+          "blocked_queries": [
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
+          ]
+        }
+      ],
+      "new_columns": [],
+      "altered_columns": [],
+      "new_constraints": [
+        {
+          "schema_name": "public",
+          "table_name": "books",
+          "name": "books_author_id_fkey",
+          "constraint_name": "books_author_id_fkey",
+          "constraint_type": "FOREIGN KEY",
+          "valid": true,
+          "definition": "FOREIGN KEY (author_id) REFERENCES authors(id)"
+        }
+      ],
+      "altered_constraints": []
+    },
+    {
+      "statement_number_in_transaction": 5,
+      "sql": "select pg_sleep(1);",
+      "duration_millis": 1005,
+      "start_time_millis": 9,
+      "locks_at_start": [
+        {
+          "schema": "public",
+          "object_name": "books",
+          "mode": "AccessExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
+          "blocked_queries": [
+            "SELECT",
+            "FOR UPDATE",
+            "FOR NO KEY UPDATE",
+            "FOR SHARE",
+            "FOR KEY SHARE",
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
+          ]
+        },
+        {
+          "schema": "public",
+          "object_name": "books",
+          "mode": "ShareRowExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
+          "blocked_queries": [
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
+          ]
+        }
+      ],
+      "new_locks_taken": [],
+      "new_columns": [],
+      "altered_columns": [],
+      "new_constraints": [],
+      "altered_constraints": []
+    },
+    {
+      "statement_number_in_transaction": 6,
+      "sql": "select * from books;",
+      "duration_millis": 1,
+      "start_time_millis": 1014,
+      "locks_at_start": [
+        {
+          "schema": "public",
+          "object_name": "books",
+          "mode": "AccessExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
+          "blocked_queries": [
+            "SELECT",
+            "FOR UPDATE",
+            "FOR NO KEY UPDATE",
+            "FOR SHARE",
+            "FOR KEY SHARE",
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
+          ]
+        },
+        {
+          "schema": "public",
+          "object_name": "books",
+          "mode": "ShareRowExclusiveLock",
+          "relkind": "Table",
+          "oid": 16411,
+          "maybe_dangerous": true,
+          "blocked_queries": [
+            "UPDATE",
+            "DELETE",
+            "INSERT",
+            "MERGE"
+          ],
+          "blocked_ddl": [
+            "VACUUM",
+            "ANALYZE",
+            "CREATE INDEX CONCURRENTLY",
+            "CREATE STATISTICS",
+            "REINDEX CONCURRENTLY",
+            "ALTER INDEX",
+            "ALTER TABLE",
+            "CREATE INDEX",
+            "CREATE TRIGGER",
+            "ALTER TABLE",
+            "REFRESH MATERIALIZED VIEW CONCURRENTLY",
+            "ALTER TABLE",
+            "DROP TABLE",
+            "TRUNCATE",
+            "REINDEX",
+            "CLUSTER",
+            "VACUUM FULL",
+            "REFRESH MATERIALIZED VIEW"
+          ]
+        }
+      ],
+      "new_locks_taken": [],
+      "new_columns": [],
+      "altered_columns": [],
+      "new_constraints": [],
+      "altered_constraints": []
     }
   ]
 }
@@ -164,7 +578,6 @@ You should see some output that looks like this:
 Note that `eugene` only logs locks that target relations visible to other transactions, so it does 
 not log any lock for the `author` table in this instance. By default, `eugene trace` will roll back 
 transactions, and you should pass `-c` or `--commit` if this is not what you want.
-
 
 ### Complex SQL scripts and variables
 
@@ -177,14 +590,12 @@ Note that some SQL scripts contain syntax that breaks `eugene` at the moment, fo
 since the parser is very simple. This will be addressed in future versions, if the tool turns
 out to be useful.
 
-
 ### Compatibility
 
-`eugene` is tested with postgres versions `>= 12` on linux, and is
-also tested on macos and windows for a narrowed range of versions. 
-It doesn't intentionally use any platform specific features or new
-features and should work with all of those.
-
+`eugene` is tested with postgres versions `>= 12` on linux, and is also tested on macos
+and windows for a narrower range of versions. It doesn't intentionally use any platform
+specific features or new features and should work with all of those. We build images
+for linux on debian:slim with the gnu toolchain.
 
 # Contributing
 

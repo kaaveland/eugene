@@ -29,6 +29,8 @@ pub struct SqlStatementTrace {
     pub(crate) added_constraints: Vec<Constraint>,
     /// Constraints that were modified
     pub(crate) modified_constraints: Vec<(Oid, ModifiedConstraint)>,
+    /// Database objects that were created by this statement
+    pub(crate) created_objects: Vec<LockableTarget>,
 }
 
 /// Enumerate all locks owned by the current transaction.
@@ -139,6 +141,9 @@ pub struct TxLockTracer {
     constraints: HashMap<Oid, Constraint>,
     /// Is the trace from one or more `CONCURRENTLY` statements that must run outside transactions?
     pub(crate) concurrent: bool,
+
+    /// Database objects that have been created in the transaction
+    pub(crate) created_objects: HashSet<Oid>,
 }
 
 impl TxLockTracer {
@@ -193,6 +198,12 @@ impl TxLockTracer {
             }
         }
         self.constraints = constraints;
+        let new_objects: Vec<_> = fetch_lockable_objects(tx, &oid_vec)?
+            .into_iter()
+            .filter(|target| !self.created_objects.contains(&target.oid))
+            .collect();
+        self.created_objects
+            .extend(new_objects.iter().map(|obj| obj.oid));
 
         self.statements.push(SqlStatementTrace {
             sql: sql.to_string(),
@@ -203,6 +214,7 @@ impl TxLockTracer {
             modified_columns,
             added_constraints,
             modified_constraints,
+            created_objects: new_objects,
         });
         Ok(())
     }
@@ -222,6 +234,7 @@ impl TxLockTracer {
             columns,
             constraints,
             concurrent: false,
+            created_objects: Default::default(),
         }
     }
 
@@ -242,6 +255,7 @@ impl TxLockTracer {
                     modified_columns: vec![],
                     added_constraints: vec![],
                     modified_constraints: vec![],
+                    created_objects: vec![],
                 })
                 .collect(),
             all_locks: HashSet::new(),
@@ -249,6 +263,7 @@ impl TxLockTracer {
             columns: HashMap::new(),
             constraints: HashMap::new(),
             concurrent: true,
+            created_objects: Default::default(),
         }
     }
 }
@@ -306,7 +321,7 @@ fn fetch_all_columns(
         .collect()
 }
 
-/// Fetch all non-system constraints in the database
+/// Fetch all non-system constraints in the database that match an `oid`
 fn fetch_constraints(tx: &mut Transaction, oids: &[Oid]) -> Result<HashMap<Oid, Constraint>> {
     let sql = "SELECT
            n.nspname as schema_name,
@@ -347,8 +362,11 @@ fn fetch_constraints(tx: &mut Transaction, oids: &[Oid]) -> Result<HashMap<Oid, 
         .collect()
 }
 
-/// Fetch all user owned lockable objects in the database, skipping the system schemas.
-fn fetch_lockable_objects(tx: &mut Transaction) -> Result<HashSet<LockableTarget>, anyhow::Error> {
+/// Fetch all user owned lockable objects in the database, skipping the system schemas and objects in `skip_list`
+fn fetch_lockable_objects(
+    tx: &mut Transaction,
+    skip_list: &[Oid],
+) -> Result<HashSet<LockableTarget>, anyhow::Error> {
     let sql = "SELECT
            n.nspname as schema_name,
            c.relname as table_name,
@@ -356,9 +374,12 @@ fn fetch_lockable_objects(tx: &mut Transaction) -> Result<HashSet<LockableTarget
            c.oid as oid
          FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-         WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+         WHERE
+           n.nspname NOT IN ('pg_catalog', 'information_schema') AND NOT c.oid = ANY($1)
          ";
-    let rows = tx.query(sql, &[]).map_err(|err| anyhow!("{err}"))?;
+    let rows = tx
+        .query(sql, &[&skip_list])
+        .map_err(|err| anyhow!("{err}"))?;
     rows.into_iter()
         .map(|row| {
             let schema: String = row.try_get(0)?;
@@ -379,7 +400,7 @@ pub fn trace_transaction<S: AsRef<str>>(
     tx: &mut Transaction,
     sql_statements: impl Iterator<Item = S>,
 ) -> Result<TxLockTracer> {
-    let initial_objects: HashSet<_> = fetch_lockable_objects(tx)?
+    let initial_objects: HashSet<_> = fetch_lockable_objects(tx, &[])?
         .into_iter()
         .map(|obj| obj.oid)
         .collect();
@@ -562,5 +583,57 @@ mod tests {
             .find(|lock| lock.mode.blocked_queries().contains(&"INSERT"));
 
         assert!(lock.is_some());
+    }
+
+    #[test]
+    fn discovers_new_index() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["create index on books (title)"].into_iter(),
+        )
+        .unwrap();
+
+        assert!(trace.statements[0]
+            .created_objects
+            .iter()
+            .any(|obj| obj.object_name == "books_title_idx"));
+    }
+
+    #[test]
+    fn ignores_new_index_on_new_table() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec![
+                "create table papers (id serial primary key, title text not null);",
+                "create index papers_title_idx on papers (title)",
+            ]
+            .into_iter(),
+        )
+        .unwrap();
+
+        assert!(trace.statements[1].locks_taken.is_empty());
+    }
+
+    #[test]
+    fn add_unique_constraint_using_unique_index_is_safe() {
+        let mut client = get_client();
+        client
+            .execute("create unique index books_title_uq on books(title);", &[])
+            .unwrap();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["alter table books add constraint unique_title unique using index books_title_uq"]
+                .into_iter(),
+        )
+        .unwrap();
+        assert!(trace.statements[0].created_objects.is_empty());
     }
 }

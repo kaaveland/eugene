@@ -11,7 +11,11 @@ fn add_new_valid_constraint(sql_statement_trace: &FullSqlStatementLockTrace) -> 
     let cons = sql_statement_trace
         .new_constraints
         .iter()
-        .find(|constraint| constraint.valid);
+        .find(|constraint| {
+            constraint.valid
+                && constraint.constraint_type != "UNIQUE"
+                && constraint.constraint_type != "EXCLUSION"
+        });
 
     cons.map(|constraint| Hint {
         name: "Validating table with a new constraint",
@@ -122,6 +126,66 @@ fn type_change_requires_table_rewrite(
         })
 }
 
+fn new_index_on_existing_table_is_nonconcurrent(
+    sql_statement_trace: &FullSqlStatementLockTrace,
+) -> Option<Hint> {
+    sql_statement_trace
+        .new_locks_taken
+        .iter()
+        .find(|lock| lock.mode == "ShareLock")
+        .map(|lock| {
+            (
+                lock,
+                sql_statement_trace
+                    .new_objects
+                    .iter()
+                    .find(|obj| obj.relkind == "Index"),
+            )
+        })
+        .map(|(lock, index)| Hint {
+            name: "Creating a new index on an existing table",
+            code: "new_index_on_existing_table_is_nonconcurrent",
+            help: format!(
+                "A new index was created on the table `{}.{}`. \
+                The index {}was created non-concurrently, which blocks all writes to the table. \
+                Consider using `CREATE INDEX CONCURRENTLY` in its own transaction to avoid blocking writes.",
+                lock.schema,
+                lock.object_name,
+                index
+                    .map(|obj| format!("`{}.{}` ", obj.schema, obj.object_name))
+                    .unwrap_or(String::new())
+            ),
+        })
+}
+
+fn new_unique_constraint_created_index(
+    sql_statement_trace: &FullSqlStatementLockTrace,
+) -> Option<Hint> {
+    sql_statement_trace
+        .new_constraints
+        .iter()
+        .find(|constraint| constraint.constraint_type == "UNIQUE")
+        .and_then(|constraint| sql_statement_trace.new_objects.iter().find(|obj| obj.relkind == "Index").map(|index| (constraint, index)))
+        .map(|(constraint, index)| Hint {
+            name: "Creating a new unique constraint",
+            code: "new_unique_constraint_created_index",
+            help: format!(
+                "A new unique constraint `{}` was added to the table `{}.{}`. \
+                This constraint creates a unique index on the table, and blocks all writes. \
+                Consider creating the index concurrently in a separate transaction, then adding \
+                the unqiue constraint by using the index: `ALTER TABLE {}.{} ADD CONSTRAINT {} UNIQUE USING INDEX {}.{};`",
+                constraint.name,
+                constraint.schema_name,
+                constraint.table_name,
+                constraint.schema_name,
+                constraint.table_name,
+                constraint.name,
+                index.schema,
+                index.object_name,
+            ),
+        })
+}
+
 pub type HintCheck = Box<dyn Fn(&FullSqlStatementLockTrace) -> Option<Hint>>;
 
 /// Returns all known hints that can be checked against a `FullSqlStatementLockTrace`.
@@ -132,5 +196,7 @@ pub fn checks() -> Vec<HintCheck> {
         Box::new(add_json_column),
         Box::new(running_statement_while_holding_access_exclusive),
         Box::new(type_change_requires_table_rewrite),
+        Box::new(new_index_on_existing_table_is_nonconcurrent),
+        Box::new(new_unique_constraint_created_index),
     ]
 }

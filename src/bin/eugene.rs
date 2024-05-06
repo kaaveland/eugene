@@ -52,6 +52,9 @@ enum Commands {
         /// Show locks that are normally not in conflict with application code.
         #[arg(short = 'e', long = "extra", default_value_t = false)]
         extra: bool,
+        /// Skip the summary section for markdown output
+        #[arg(short = 's', long = "skip-summary", default_value_t = false)]
+        skip_summary: bool,
         /// Output format, plain, json or markdown
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
@@ -119,12 +122,14 @@ fn trace(
     commit: bool,
     path: String,
     extra: bool,
+    skip_summary: bool,
     trace_format: TraceFormat,
 ) -> Result<String> {
     let connection_settings = provided_connection_settings.try_into()?;
     let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
     let trace_result = perform_trace(&trace_settings, &connection_settings)?;
-    let full_trace = output::full_trace_data(&trace_result, output::Settings::new(!extra));
+    let full_trace =
+        output::full_trace_data(&trace_result, output::Settings::new(!extra, skip_summary));
     match trace_format {
         TraceFormat::Json => full_trace.to_pretty_json(),
         TraceFormat::Plain => full_trace.to_plain_text(),
@@ -167,6 +172,7 @@ pub fn main() -> Result<()> {
             commit,
             path,
             extra,
+            skip_summary,
             format,
         }) => {
             let out = trace(
@@ -175,6 +181,7 @@ pub fn main() -> Result<()> {
                 commit,
                 path,
                 extra,
+                skip_summary,
                 format.try_into()?,
             )?;
             println!("{}", out);

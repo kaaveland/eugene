@@ -172,7 +172,7 @@ in a transaction. Other principles are:
 
 1. `src/bin/eugene.rs` should contain only code related to the command line interface and standard in/err/out.
 2. Structs that are serializable go in `output` 
-3. Structs that have public fields go somewhere in `output::output_types`
+3. Structs that have public fields go somewhere in `output::output_format`
 4. We prefer not to expose public fields of anything in `tracing`
 5. That means we need to map from `tracing` to `output` to serialize output or expose fields
    - We `.clone()` liberally for this purpose, because eventually we'd like make the structs `Deserialize`.

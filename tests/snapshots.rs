@@ -30,7 +30,7 @@ mod snapshot_tests {
                 "postgres".to_string(),
             );
 
-            let output_settings = eugene::output::Settings::new(false);
+            let output_settings = eugene::output::Settings::new(false, false);
             let trace_result =
                 eugene::perform_trace(&trace_settings, &connection_settings).unwrap();
             let mut full_trace = eugene::output::full_trace_data(&trace_result, output_settings);

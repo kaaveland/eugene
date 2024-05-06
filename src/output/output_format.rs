@@ -1,8 +1,27 @@
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
-use crate::pg_types::locks::Lock;
+use crate::pg_types::locks::{Lock, LockableTarget};
 use crate::tracing::tracer::ColumnMetadata;
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
+pub struct DbObject {
+    pub schema: String,
+    pub object_name: String,
+    pub relkind: &'static str,
+    pub oid: u32,
+}
+
+impl From<&LockableTarget> for DbObject {
+    fn from(value: &LockableTarget) -> Self {
+        DbObject {
+            schema: value.schema.to_string(),
+            object_name: value.object_name.to_string(),
+            relkind: value.rel_kind.as_str(),
+            oid: value.oid,
+        }
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
 pub struct TracedLock {
@@ -119,6 +138,7 @@ pub struct FullSqlStatementLockTrace {
     pub altered_columns: Vec<ModifiedColumn>,
     pub new_constraints: Vec<Constraint>,
     pub altered_constraints: Vec<ModifiedConstraint>,
+    pub new_objects: Vec<DbObject>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
@@ -129,6 +149,8 @@ pub struct FullTraceData {
     pub total_duration_millis: u64,
     pub all_locks_acquired: Vec<TracedLock>,
     pub statements: Vec<FullSqlStatementLockTrace>,
+    #[serde(skip)]
+    pub(crate) skip_summary: bool,
 }
 
 mod datefmt {

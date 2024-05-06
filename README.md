@@ -61,6 +61,10 @@ it can suggest workarounds. To see what hints are available, run:
 eugene hints
 ```
 
+I have shamelessly stolen many such hints from inspirational projects like
+[strong_migrations](https://github.com/ankane/strong_migrations) and blog posts like 
+[PostgreSQL at Scale: Database Schema Changes Without Downtime](https://medium.com/paypal-tech/postgresql-at-scale-database-schema-changes-without-downtime-20d3749ed680).
+
 ## Explaining lock modes
 
 `eugene` knows about the lock modes in postgres, and can explain them to you:

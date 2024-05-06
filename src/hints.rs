@@ -291,7 +291,7 @@ pub const HINTS: [HintInfo; 9] = [
     HintInfo {
         name: "Creating a new index on an existing table",
         code: "new_index_on_existing_table_is_nonconcurrent",
-        condition: "A new index was created on an existing table without the `CONCURRENT` keyword",
+        condition: "A new index was created on an existing table without the `CONCURRENTLY` keyword",
         workaround: "Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`",
         effect: "This blocks all writes to the table while the index is being created",
         render_help: new_index_on_existing_table_is_nonconcurrent,

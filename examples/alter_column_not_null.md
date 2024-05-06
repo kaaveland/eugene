@@ -118,7 +118,7 @@ The statement is running while holding an `AccessExclusiveLock` on the Table `pu
 
 ID: `new_index_on_existing_table_is_nonconcurrent`
 
-A new index was created on an existing table without the `CONCURRENT` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
+A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
 
 A new index was created on the table `public.books`. The index `public.title_unique` was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
 

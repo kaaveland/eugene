@@ -1,4 +1,7 @@
+use itertools::Itertools;
+
 use crate::output::FullSqlStatementLockTrace;
+use crate::pg_types::lock_modes;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Hint {
@@ -221,8 +224,30 @@ fn new_exclusion_constraint_found(
         })
 }
 
+fn took_dangerous_lock_without_timeout(
+    sql_statement_trace: &FullSqlStatementLockTrace,
+) -> Option<String> {
+    if sql_statement_trace.lock_timeout_millis > 0 {
+        None
+    } else {
+        sql_statement_trace
+            .new_locks_taken
+            .iter()
+            .find(|lock| lock_modes::LOCK_MODES.iter().any(|mode| mode.to_db_str() == lock.mode && mode.dangerous()))
+            .map(|lock| {
+                (lock, lock_modes::LockMode::from_db_str(lock.mode.as_str()).unwrap().blocked_queries().iter().map(|query| format!("`{query}`")).collect_vec())
+            })
+            .map(|(lock, blocked_queries)| {
+                format!(
+                    "The statement took `{}` on the {} `{}.{}` without a timeout. It blocks {} while waiting to acquire the lock.",
+                    lock.mode, lock.relkind, lock.schema, lock.object_name, blocked_queries.join(", "),
+                )
+            })
+    }
+}
+
 /// All the hints eugene can check statement traces against
-pub const HINTS: [HintInfo; 8] = [
+pub const HINTS: [HintInfo; 9] = [
     HintInfo {
         name: "Validating table with a new constraint",
         code: "validate_constraint_with_lock",
@@ -286,5 +311,13 @@ pub const HINTS: [HintInfo; 8] = [
         workaround: "There is no safe way to add an exclusion constraint to an existing table",
         effect: "This blocks all reads and writes to the table while the constraint index is being created",
         render_help: new_exclusion_constraint_found,
+    },
+    HintInfo {
+        name: "Taking dangerous lock without timeout",
+        code: "dangerous_lock_without_timeout",
+        condition: "A lock that would block many common operations was taken without a timeout",
+        workaround: "Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary",
+        effect: "This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`",
+        render_help: took_dangerous_lock_without_timeout,
     }
 ];

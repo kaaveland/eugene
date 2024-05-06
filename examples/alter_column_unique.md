@@ -80,3 +80,11 @@ Found a new unique constraint and a new index. This blocks all writes to the tab
 
 A new unique constraint `unique_title` was added to the table `public.books`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unqiue constraint by using the index: `ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE USING INDEX public.unique_title;`
 
+#### Taking dangerous lock without timeout
+
+ID: `dangerous_lock_without_timeout`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+The statement took `AccessExclusiveLock` on the Table `public.books` without a timeout. It blocks `SELECT`, `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
+

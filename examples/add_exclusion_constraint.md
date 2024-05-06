@@ -80,3 +80,11 @@ Found a new exclusion constraint. This blocks all reads and writes to the table 
 
 A new exclusion constraint `title_exclusion` was added to the table `public.books`. There is no safe way to add an exclusion constraint to an existing table. This constraint creates an index on the table, and blocks all reads and writes.
 
+#### Taking dangerous lock without timeout
+
+ID: `dangerous_lock_without_timeout`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+The statement took `AccessExclusiveLock` on the Table `public.books` without a timeout. It blocks `SELECT`, `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
+

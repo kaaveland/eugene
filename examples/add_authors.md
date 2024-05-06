@@ -96,6 +96,14 @@ The column `title` in the table `public.books` was changed to `NOT NULL`. If the
 3. Make the column `NOT NULL`
 
 
+#### Taking dangerous lock without timeout
+
+ID: `dangerous_lock_without_timeout`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+The statement took `AccessExclusiveLock` on the Table `public.books` without a timeout. It blocks `SELECT`, `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
+
 ## Statement number 3 for 10 ms
 
 ### SQL
@@ -165,6 +173,14 @@ ID: `holding_access_exclusive`
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
 
 The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it.
+
+#### Taking dangerous lock without timeout
+
+ID: `dangerous_lock_without_timeout`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+The statement took `ShareRowExclusiveLock` on the Table `public.books` without a timeout. It blocks `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
 
 ## Statement number 5 for 10 ms
 

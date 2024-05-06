@@ -60,3 +60,11 @@ A new index was created on an existing table without the `CONCURRENT` keyword. T
 
 A new index was created on the table `public.books`. The index `public.books_title_idx` was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
 
+#### Taking dangerous lock without timeout
+
+ID: `dangerous_lock_without_timeout`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+The statement took `ShareLock` on the Table `public.books` without a timeout. It blocks `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
+

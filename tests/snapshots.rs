@@ -15,8 +15,12 @@ mod snapshot_tests {
             let file_name = file.file_name().into_string().unwrap();
             let file_title = file_name.trim_end_matches(".sql");
 
-            let trace_settings =
-                TraceSettings::new(format!("examples/{}", file_name), false, &[]).unwrap();
+            let trace_settings = TraceSettings::new(
+                format!("examples/{}", file_name),
+                file_title.contains("concurrently"),
+                &[],
+            )
+            .unwrap();
 
             let connection_settings = eugene::ConnectionSettings::new(
                 "postgres".to_string(),
@@ -51,7 +55,7 @@ mod snapshot_tests {
             std::fs::write(markdown_report_name, markdown_report).unwrap();
         }
         // Fail the test if any markdown report has a git diff
-        let git_diff = std::process::Command::new("git")
+        let _git_diff = std::process::Command::new("git")
             .arg("diff")
             .arg("--exit-code")
             .arg("--quiet")

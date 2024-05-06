@@ -109,20 +109,128 @@ pub fn perform_trace(
     };
     let sql_script = resolve_placeholders(&script_content, &trace.placeholders)?;
     let sql_statements = sql_statements(&sql_script);
+
+    let all_concurrently = sql_statements.iter().all(sqltext::is_concurrently);
+
     let mut conn = Client::connect(connection_settings.connection_string().as_str(), NoTls)?;
-    let mut tx = conn.transaction()?;
 
-    // TODO: We probably need to special case create index concurrently here, since it's
-    // illegal to run concurrently in a transaction, eg. we'd need to run it with auto-commit.
-
-    let trace_result = trace_transaction(name, &mut tx, sql_statements.iter())?;
-
-    if trace.commit {
-        tx.commit()?;
+    let result = if all_concurrently && trace.commit {
+        for s in sql_statements.iter() {
+            conn.execute(s, &[])?;
+        }
+        TxLockTracer::tracer_for_concurrently(name, sql_statements.iter())
     } else {
-        tx.rollback()?;
+        let mut tx = conn.transaction()?;
+
+        // TODO: We probably need to special case create index concurrently here, since it's
+        // illegal to run concurrently in a transaction, eg. we'd need to run it with auto-commit.
+
+        let trace_result = trace_transaction(name, &mut tx, sql_statements.iter())?;
+
+        if trace.commit {
+            tx.commit()?;
+        } else {
+            tx.rollback()?;
+        }
+
+        trace_result
+    };
+    conn.close()?;
+    Ok(result)
+}
+
+#[cfg(test)]
+/// Generate a new copy of the test_db database for testing.
+pub fn generate_new_test_db() -> String {
+    let mut pg_client = Client::connect(
+        "host=localhost dbname=postgres password=postgres user=postgres",
+        NoTls,
+    )
+    .unwrap();
+
+    pg_client
+        .execute(
+            "CREATE TABLE IF NOT EXISTS test_dbs(\
+        name text PRIMARY KEY, time timestamptz default now());",
+            &[],
+        )
+        .ok();
+
+    let db_name = format!(
+        "eugene_testdb_{}",
+        uuid::Uuid::new_v4().to_string().replace('-', "_")
+    );
+    pg_client
+        .execute(
+            "INSERT INTO test_dbs(name) VALUES($1);",
+            &[&db_name.as_str()],
+        )
+        .unwrap();
+
+    let old_dbs = pg_client
+        .query(
+            "SELECT name FROM test_dbs WHERE time < now() - interval '15 minutes';",
+            &[],
+        )
+        .unwrap();
+
+    for row in old_dbs {
+        let db_name: String = row.get(0);
+        pg_client
+            .execute(&format!("DROP DATABASE IF EXISTS {}", db_name), &[])
+            .unwrap();
+        pg_client
+            .execute(
+                "DELETE FROM test_dbs WHERE name = $1;",
+                &[&db_name.as_str()],
+            )
+            .unwrap();
     }
 
-    conn.close()?;
-    Ok(trace_result)
+    pg_client
+        .execute(
+            &format!("CREATE DATABASE {} TEMPLATE test_db", db_name),
+            &[],
+        )
+        .unwrap();
+    db_name
+}
+
+#[cfg(test)]
+mod tests {
+    use postgres::NoTls;
+
+    use crate::{generate_new_test_db, ConnectionSettings};
+
+    #[test]
+    fn test_with_commit_we_can_run_concurrently_statements() {
+        let trace_settings = super::TraceSettings {
+            path: "examples/create_index_concurrently.sql".to_string(),
+            commit: true,
+            placeholders: Default::default(),
+        };
+        let connection_settings = ConnectionSettings::new(
+            "postgres".to_string(),
+            generate_new_test_db(),
+            "localhost".to_string(),
+            5432,
+            "postgres".to_string(),
+        );
+        let mut conn =
+            postgres::Client::connect(connection_settings.connection_string().as_str(), NoTls)
+                .unwrap();
+        // drop the index if it is already there
+        conn.execute("DROP INDEX IF EXISTS books_concurrently_test_idx", &[])
+            .unwrap();
+        super::perform_trace(&trace_settings, &connection_settings).unwrap();
+
+        let exists: bool = conn
+            .query_one(
+                "select count(*) > 0 from pg_class where relname = 'books_concurrently_test_idx'",
+                &[],
+            )
+            .unwrap()
+            .get(0);
+        assert!(exists);
+    }
 }

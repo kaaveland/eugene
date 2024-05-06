@@ -45,6 +45,7 @@ jobs:
         run: psql --host localhost --port 5432 -U postgres < db-initscripts/init-testdb.sql
       - name: Run tests
         run: cargo test --all-targets --all-features
+
   run_tests_macos:
     name: Test on macos
     runs-on: macos-latest

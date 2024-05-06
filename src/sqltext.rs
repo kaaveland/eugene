@@ -1,6 +1,7 @@
-use anyhow::Result;
 use std::collections::HashMap;
 use std::io::{Error, Read};
+
+use anyhow::Result;
 
 /// Naively resolve placeholders in SQL script in ${} format using provided mapping
 pub fn resolve_placeholders(sql: &str, mapping: &HashMap<&str, &str>) -> Result<String> {
@@ -103,27 +104,36 @@ pub fn read_sql_statements(path: &str) -> Result<String, Error> {
     }
 }
 
+/// Check if a SQL statement is a CREATE INDEX CONCURRENTLY statement or similar, which
+/// must run outside of a transaction.
+pub fn is_concurrently<S: AsRef<str>>(sql: S) -> bool {
+    let sql = sql.as_ref();
+    sql.to_lowercase().contains("concurrently")
+}
+
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn test_strip_comments() {
         let sql = "SELECT * FROM table; -- This is a comment";
         let result = super::strip_comments(sql);
         assert_eq!(result, "SELECT * FROM table; ");
     }
+
     #[test]
     fn test_strip_block_comments() {
         let sql = "SELECT * FROM table; /* This is a block comment */";
         let result = super::strip_comments(sql);
         assert_eq!(result, "SELECT * FROM table; ");
     }
+
     #[test]
     fn test_strip_mixed_comments_two_statements() {
         let sql = "SELECT * FROM table; -- This is a comment\nSELECT * FROM table; /* This is a block comment */";
         let result = super::strip_comments(sql);
         assert_eq!(result, "SELECT * FROM table; \nSELECT * FROM table; ");
     }
+
     #[test]
     fn test_split_statements_with_comments() {
         let sql = "SELECT * FROM table; -- This is a comment\nSELECT * FROM table; /* This is a block comment */";

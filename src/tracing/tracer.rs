@@ -137,6 +137,8 @@ pub struct TxLockTracer {
     columns: HashMap<ColumnIdentifier, ColumnMetadata>,
     /// All constraints in the database
     constraints: HashMap<Oid, Constraint>,
+    /// Is the trace from one or more `CONCURRENTLY` statements that must run outside transactions?
+    pub(crate) concurrent: bool,
 }
 
 impl TxLockTracer {
@@ -204,6 +206,7 @@ impl TxLockTracer {
         });
         Ok(())
     }
+
     pub fn new(
         name: Option<String>,
         initial_objects: HashSet<Oid>,
@@ -218,6 +221,34 @@ impl TxLockTracer {
             trace_start: Local::now(),
             columns,
             constraints,
+            concurrent: false,
+        }
+    }
+
+    pub fn tracer_for_concurrently<S: AsRef<str>>(
+        name: Option<String>,
+        statements: impl Iterator<Item = S>,
+    ) -> Self {
+        Self {
+            name,
+            initial_objects: HashSet::new(),
+            statements: statements
+                .map(|s| SqlStatementTrace {
+                    sql: s.as_ref().to_string(),
+                    locks_taken: vec![],
+                    start_time: Instant::now(),
+                    duration: Duration::from_secs(0),
+                    added_columns: vec![],
+                    modified_columns: vec![],
+                    added_constraints: vec![],
+                    modified_constraints: vec![],
+                })
+                .collect(),
+            all_locks: HashSet::new(),
+            trace_start: Local::now(),
+            columns: HashMap::new(),
+            constraints: HashMap::new(),
+            concurrent: true,
         }
     }
 }
@@ -366,9 +397,13 @@ pub fn trace_transaction<S: AsRef<str>>(
 mod tests {
     use postgres::{Client, NoTls};
 
+    use crate::generate_new_test_db;
+    use crate::pg_types::lock_modes::LockMode;
+
     fn get_client() -> Client {
+        let test_db = generate_new_test_db();
         Client::connect(
-            "host=localhost dbname=test_db password=postgres user=postgres",
+            format!("host=localhost dbname={test_db} password=postgres user=postgres").as_str(),
             NoTls,
         )
         .unwrap()
@@ -473,5 +508,59 @@ mod tests {
         assert_eq!(modification.old.typename, "text");
         assert_eq!(modification.new.typename, "varchar");
         assert_eq!(modification.new.max_len.unwrap(), 255);
+    }
+
+    #[test]
+    fn test_that_we_see_new_access_share_lock() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let trace =
+            super::trace_transaction(None, &mut tx, vec!["select * from books"].into_iter())
+                .unwrap();
+        let lock = &trace.statements[0].locks_taken[0];
+        assert_eq!(lock.mode, LockMode::AccessShare);
+        let is_pkey = lock.target.rel_kind.is_index();
+        if is_pkey {
+            assert_eq!(lock.target.object_name, "books_pkey");
+        } else {
+            assert_eq!(lock.target.object_name, "books");
+        }
+    }
+
+    #[test]
+    fn test_that_we_see_access_exclusive_lock_on_alter() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["alter table books add column metadata text"].into_iter(),
+        )
+        .unwrap();
+        let lock = trace
+            .all_locks
+            .iter()
+            .find(|lock| lock.mode == LockMode::AccessExclusive)
+            .unwrap();
+
+        assert_eq!(lock.target.object_name, "books");
+    }
+
+    #[test]
+    fn test_creating_index_blocks_writes() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["create index on books (title)"].into_iter(),
+        )
+        .unwrap();
+        let lock = trace
+            .all_locks
+            .iter()
+            .find(|lock| lock.mode.blocked_queries().contains(&"INSERT"));
+
+        assert!(lock.is_some());
     }
 }

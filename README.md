@@ -1,7 +1,10 @@
 # Careful with That Lock, Eugene
 
 ![Tests](https://github.com/kaaveland/eugene/actions/workflows/run_tests.yml/badge.svg?branch=main)
-![crates.io](https://github.com/kaaveland/eugene/actions/workflows/release_to_crates_io_from_main.yml/badge.svg?branch=main)
+![crates.io](https://img.shields.io/crates/v/eugene.svg)
+![docs.rs](https://img.shields.io/docsrs/eugene)
+![release](https://img.shields.io/github/release-date/kaaveland/eugene)
+![GitHub License](https://img.shields.io/github/license/kaaveland/eugene)
 
 `eugene` is a proof of concept command line tool for reviewing locks taken by SQL
 migration scripts in postgres. 
@@ -14,7 +17,8 @@ information about the goals of this experiment, take a look at
 
 ## Installation
 
-You can install `eugene` from [crates.io](https://crates.io/crates/eugene) using `cargo` from [rustup](https://rustup.rs/):
+You can install `eugene` from [crates.io](https://crates.io/crates/eugene) using `cargo` from
+[rustup](https://rustup.rs/):
 
 ```bash
 cargo install eugene --bin
@@ -117,7 +121,9 @@ for linux on debian:slim with the gnu toolchain.
 # Contributing
 
 Contributions are welcome, but there's no roadmap for this project yet. Feel free to open an issue,
-ideas and discussion are very welcome. 
+ideas and discussion are very welcome. If you see an issue you'd like to fix, but don't know
+where to start, feel free to ping @kaaveland to ask for help, or just to let him know you're
+working on it.
 
 ## Building
 
@@ -130,6 +136,16 @@ docker-compose up -d
 cargo test
 ```
 
+## Documentation
+
+You can browse this locally with:
+
+```bash
+cargo doc --open
+```
+
+Docs are also hosted at [docs.rs](https://docs.rs/eugene/).
+
 ## Releasing
 
 To release a new version:
@@ -138,6 +154,26 @@ To release a new version:
 3. Commit the changes and push to the main branch
 4. Tag the commit and push the tag
 5. GitHub Workflows pick up the tag and build and release the new version to crates.io
+
+
+## High level design
+
+1. `src/bin/eugene.rs` should contain only code related to the command line interface and standard in/err/out.
+2. Structs that are serializable go in `output` 
+3. Structs that have public fields go somewhere in `output::output_types`.
+4. We prefer not to expose public fields of anything in `tracing`
+5. That means we need to map from `tracing` to `output` to serialize output or expose fields.
+
+## Tests
+
+Tests are welcome and come in two flavors:
+
+1. Unit tests go in the same file as the code they test. They are allowed to use a database connection, corresponding
+   to the [docker-compose](https://github.com/kaaveland/eugene/blob/main/docker-compose.yml) setup or the 
+   [github workflow](https://github.com/kaaveland/eugene/blob/main/.github/workflows/run_tests.yml) for the tests  
+2. Integration tests go in the `tests` directory. These can only access public interfaces and therefore would the
+   the right place to gauge how dependents would see the tool. In particular, we take snapshots of markdown reports
+   that go in the examples directory, which we can use to track changes in the output format.
 
 ## Migration tool
 

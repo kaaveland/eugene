@@ -31,6 +31,8 @@ pub struct SqlStatementTrace {
     pub(crate) modified_constraints: Vec<(Oid, ModifiedConstraint)>,
     /// Database objects that were created by this statement
     pub(crate) created_objects: Vec<LockableTarget>,
+    /// The `lock_timeout` that was active in postgres when `sql` started to execute
+    pub(crate) lock_timeout_millis: u64,
 }
 
 /// Enumerate all locks owned by the current transaction.
@@ -151,6 +153,7 @@ impl TxLockTracer {
     pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> Result<()> {
         let start_time = Instant::now();
         let oid_vec = self.initial_objects.iter().copied().collect_vec();
+        let lock_timeout = get_lock_timeout(tx)?;
         tx.execute(sql, &[])
             .map_err(|err| anyhow!("{err} while executing {}", sql.to_owned()))?;
         let duration = start_time.elapsed();
@@ -215,6 +218,7 @@ impl TxLockTracer {
             added_constraints,
             modified_constraints,
             created_objects: new_objects,
+            lock_timeout_millis: lock_timeout,
         });
         Ok(())
     }
@@ -256,6 +260,7 @@ impl TxLockTracer {
                     added_constraints: vec![],
                     modified_constraints: vec![],
                     created_objects: vec![],
+                    lock_timeout_millis: 0,
                 })
                 .collect(),
             all_locks: HashSet::new(),
@@ -412,6 +417,29 @@ pub fn trace_transaction<S: AsRef<str>>(
         trace.trace_sql_statement(tx, sql.as_ref().trim())?;
     }
     Ok(trace)
+}
+
+/// Retrieve the current `lock_timeout` for the active transaction
+pub fn get_lock_timeout(tx: &mut Transaction) -> Result<u64> {
+    let query = "select current_setting('lock_timeout')";
+    let timeout: String = tx.query_one(query, &[])?.try_get(0)?;
+    let digits = timeout
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<String>();
+    let unit = timeout
+        .chars()
+        .skip_while(|c| c.is_ascii_digit())
+        .collect::<String>();
+    let n: u64 = digits.parse()?;
+    match unit.as_str() {
+        "ms" | "" => Ok(n),
+        "s" => Ok(n * 1000),
+        "min" => Ok(n * 60 * 1000),
+        "h" => Ok(n * 60 * 60 * 1000),
+        "d" => Ok(n * 24 * 60 * 60 * 1000),
+        _ => Err(anyhow!("Invalid unit: {unit}")),
+    }
 }
 
 #[cfg(test)]
@@ -635,5 +663,22 @@ mod tests {
         )
         .unwrap();
         assert!(trace.statements[0].created_objects.is_empty());
+    }
+
+    #[test]
+    fn discovers_lock_timeout_from_set() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec![
+                "set lock_timeout = 1000",
+                "alter table books add column metadata text",
+            ]
+            .into_iter(),
+        )
+        .unwrap();
+        assert_eq!(trace.statements[1].lock_timeout_millis, 1000);
     }
 }

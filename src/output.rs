@@ -110,6 +110,7 @@ impl OutputContext {
                 .iter()
                 .map(DbObject::from)
                 .collect(),
+            lock_timeout_millis: statement.lock_timeout_millis,
         };
         self.statement_number += 1;
         self.held_locks_context

@@ -161,6 +161,7 @@ pub struct FullSqlStatementLockTrace {
     pub new_constraints: Vec<Constraint>,
     pub altered_constraints: Vec<ModifiedConstraint>,
     pub new_objects: Vec<DbObject>,
+    pub lock_timeout_millis: u64,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]

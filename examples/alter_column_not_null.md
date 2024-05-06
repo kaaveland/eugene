@@ -76,6 +76,14 @@ The column `title` in the table `public.books` was changed to `NOT NULL`. If the
 3. Make the column `NOT NULL`
 
 
+#### Taking dangerous lock without timeout
+
+ID: `dangerous_lock_without_timeout`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+The statement took `AccessExclusiveLock` on the Table `public.books` without a timeout. It blocks `SELECT`, `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
+
 ## Statement number 2 for 10 ms
 
 ### SQL
@@ -121,4 +129,12 @@ ID: `new_unique_constraint_created_index`
 Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
 A new unique constraint `title_unique` was added to the table `public.books`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unqiue constraint by using the index: `ALTER TABLE public.books ADD CONSTRAINT title_unique UNIQUE USING INDEX public.title_unique;`
+
+#### Taking dangerous lock without timeout
+
+ID: `dangerous_lock_without_timeout`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+The statement took `ShareLock` on the Table `public.books` without a timeout. It blocks `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
 

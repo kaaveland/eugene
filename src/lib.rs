@@ -140,10 +140,67 @@ pub fn perform_trace(
 }
 
 #[cfg(test)]
+/// Generate a new copy of the test_db database for testing.
+pub fn generate_new_test_db() -> String {
+    let mut pg_client = Client::connect(
+        "host=localhost dbname=postgres password=postgres user=postgres",
+        NoTls,
+    )
+    .unwrap();
+
+    pg_client
+        .execute(
+            "CREATE TABLE IF NOT EXISTS test_dbs(\
+        name text PRIMARY KEY, time timestamptz default now());",
+            &[],
+        )
+        .ok();
+
+    let db_name = format!(
+        "eugene_testdb_{}",
+        uuid::Uuid::new_v4().to_string().replace('-', "_")
+    );
+    pg_client
+        .execute(
+            "INSERT INTO test_dbs(name) VALUES($1);",
+            &[&db_name.as_str()],
+        )
+        .unwrap();
+
+    let old_dbs = pg_client
+        .query(
+            "SELECT name FROM test_dbs WHERE time < now() - interval '15 minutes';",
+            &[],
+        )
+        .unwrap();
+
+    for row in old_dbs {
+        let db_name: String = row.get(0);
+        pg_client
+            .execute(&format!("DROP DATABASE IF EXISTS {}", db_name), &[])
+            .unwrap();
+        pg_client
+            .execute(
+                "DELETE FROM test_dbs WHERE name = $1;",
+                &[&db_name.as_str()],
+            )
+            .unwrap();
+    }
+
+    pg_client
+        .execute(
+            &format!("CREATE DATABASE {} TEMPLATE test_db", db_name),
+            &[],
+        )
+        .unwrap();
+    db_name
+}
+
+#[cfg(test)]
 mod tests {
     use postgres::NoTls;
 
-    use crate::ConnectionSettings;
+    use crate::{generate_new_test_db, ConnectionSettings};
 
     #[test]
     fn test_with_commit_we_can_run_concurrently_statements() {
@@ -154,7 +211,7 @@ mod tests {
         };
         let connection_settings = ConnectionSettings::new(
             "postgres".to_string(),
-            "test_db".to_string(),
+            generate_new_test_db(),
             "localhost".to_string(),
             5432,
             "postgres".to_string(),

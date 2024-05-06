@@ -397,11 +397,13 @@ pub fn trace_transaction<S: AsRef<str>>(
 mod tests {
     use postgres::{Client, NoTls};
 
+    use crate::generate_new_test_db;
     use crate::pg_types::lock_modes::LockMode;
 
     fn get_client() -> Client {
+        let test_db = generate_new_test_db();
         Client::connect(
-            "host=localhost dbname=test_db password=postgres user=postgres",
+            format!("host=localhost dbname={test_db} password=postgres user=postgres").as_str(),
             NoTls,
         )
         .unwrap()

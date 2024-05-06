@@ -72,26 +72,18 @@ fn make_column_not_nullable_help(
         .iter()
         .find(|column| !column.new.nullable && column.old.nullable);
 
-    columns.map(|column|
+    columns.map(|column| {
+        let table_name = format!("{}.{}", column.new.schema_name, column.new.table_name);
+        let col_name = column.new.column_name.as_str();
         format!(
-            "The column `{}` in the table `{}.{}` was changed to `NOT NULL`. \
-            If there is a `CHECK ({} IS NOT NULL)` constraint on `{}.{}`, this is safe. \
+            "The column `{col_name}` in the table `{table_name}` was changed to `NOT NULL`. \
+            If there is a `CHECK ({col_name} IS NOT NULL)` constraint on `{table_name}`, this is safe. \
             Splitting this kind of change into 3 steps can make it safe:\n\n\
-            1. Add a `CHECK ({} IS NOT NULL) NOT VALID;` constraint on `{}.{}`.\n\
-            2. Validate the constraint in a later transaction, with `ALTER TABLE {}.{} VALIDATE CONSTRAINT ...`.\n\
+            1. Add a `CHECK ({col_name} IS NOT NULL) NOT VALID;` constraint on `{table_name}`.\n\
+            2. Validate the constraint in a later transaction, with `ALTER TABLE {table_name} VALIDATE CONSTRAINT ...`.\n\
             3. Make the column `NOT NULL`\n",
-            column.new.column_name,
-            column.new.schema_name,
-            column.new.table_name,
-            column.new.column_name,
-            column.new.schema_name,
-            column.new.table_name,
-            column.new.column_name,
-            column.new.schema_name,
-            column.new.table_name,
-            column.new.schema_name,
-            column.new.table_name,
         )
+    }
     )
 }
 

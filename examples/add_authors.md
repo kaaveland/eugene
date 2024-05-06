@@ -87,10 +87,12 @@ Schema | Object | Mode | Relkind | OID | Safe
 
 ID: `make_column_not_nullable_with_lock`
 
-The column `title` in the table `public.books` was changed to `NOT NULL`. The statement blocks until all rows in the table are validated to be `NOT NULL`, unless a `CHECK (title IS NOT NULL)` constraint exists, in which case it is safe. Splitting this kind of change into 3 steps can make it safer:
+A column was changed from `NULL` to`NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
- 1. Add a `CHECK (title IS NOT NULL) NOT VALID;` constraint.
-2. Validate the constraint in a later transaction, with `ALTER TABLE ... VALIDATE CONSTRAINT`.
+The column `title` in the table `public.books` was changed to `NOT NULL`. If there is a `CHECK (title IS NOT NULL)` constraint on `public.books`, this is safe. Splitting this kind of change into 3 steps can make it safe:
+
+1. Add a `CHECK (title IS NOT NULL) NOT VALID;` constraint on `public.books`.
+2. Validate the constraint in a later transaction, with `ALTER TABLE public.books VALIDATE CONSTRAINT ...`.
 3. Make the column `NOT NULL`
 
 
@@ -119,7 +121,9 @@ No new locks taken by this statement.
 
 ID: `holding_access_exclusive`
 
-The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it. Once holding `AccessExclusiveLock` we should immediately commit the transaction. Any extra steps necessary are better done in a separate transaction.
+A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
+
+The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it.
 
 ## Statement number 4 for 10 ms
 
@@ -150,13 +154,17 @@ Schema | Object | Mode | Relkind | OID | Safe
 
 ID: `validate_constraint_with_lock`
 
-A new constraint `books_author_id_fkey` was added to the table `books`. The constraint is of type `FOREIGN KEY` and is valid. The statement blocks until all rows in the table are validated for the constraint. It is safer to add constraints as `NOT VALID` and validate them later, to avoid holding dangerous locks for a long time. Constraints that are `NOT VALID` affect all new inserts and updates, but not existing data. Adding the constraint initially as `NOT VALID`, then validating with `ALTER TABLE ... VALIDATE CONSTRAINT ...` in a later transaction minimizes time spent holding dangerous locks.
+A new constraint was added and it is already `VALID`. This blocks all table access until all rows are validated. A safer way is: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.
+
+A new constraint `books_author_id_fkey` of type `FOREIGN KEY` was added to the table `books` as `VALID`. Constraints that are `NOT VALID` can be made `VALID` by `ALTER TABLE public.books VALIDATE CONSTRAINT books_author_id_fkey` which takes a lesser lock.
 
 #### Running more statements after taking `AccessExclusiveLock`
 
 ID: `holding_access_exclusive`
 
-The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it. Once holding `AccessExclusiveLock` we should immediately commit the transaction. Any extra steps necessary are better done in a separate transaction.
+A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
+
+The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it.
 
 ## Statement number 5 for 10 ms
 
@@ -187,5 +195,7 @@ No new locks taken by this statement.
 
 ID: `holding_access_exclusive`
 
-The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it. Once holding `AccessExclusiveLock` we should immediately commit the transaction. Any extra steps necessary are better done in a separate transaction.
+A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
+
+The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it.
 

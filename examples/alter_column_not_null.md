@@ -16,13 +16,14 @@ There is a summary section for the entire script at the start of the report and 
 
 Started at | Total duration (ms) | Number of dangerous locks
 ---------- | ------------------- | -------------------------
-2021-01-01T01:00:00+01:00 | 10 | 1 ❌
+2021-01-01T01:00:00+01:00 | 20 | 2 ❌
 
 ### All locks found
 
 Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms)
 ------ | ------ | ---- | ------- | --- | ---- | ------------------
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 10
+`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 20
+`public` | `books` | `ShareLock` | Table | 1 | ❌ | 10
 
 ### Dangerous locks found
 
@@ -32,6 +33,11 @@ Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms)
   + `FOR NO KEY UPDATE`
   + `FOR SHARE`
   + `FOR KEY SHARE`
+  + `UPDATE`
+  + `DELETE`
+  + `INSERT`
+  + `MERGE`
+- `ShareLock` would block the following operations on `public.books`:
   + `UPDATE`
   + `DELETE`
   + `INSERT`
@@ -61,10 +67,58 @@ Schema | Object | Mode | Relkind | OID | Safe
 
 ID: `make_column_not_nullable_with_lock`
 
-The column `title` in the table `public.books` was changed to `NOT NULL`. The statement blocks until all rows in the table are validated to be `NOT NULL`, unless a `CHECK (title IS NOT NULL)` constraint exists, in which case it is safe. Splitting this kind of change into 3 steps can make it safer:
+A column was changed from `NULL` to`NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
- 1. Add a `CHECK (title IS NOT NULL) NOT VALID;` constraint.
-2. Validate the constraint in a later transaction, with `ALTER TABLE ... VALIDATE CONSTRAINT`.
+The column `title` in the table `public.books` was changed to `NOT NULL`. If there is a `CHECK (title IS NOT NULL)` constraint on `public.books`, this is safe. Splitting this kind of change into 3 steps can make it safe:
+
+1. Add a `CHECK (title IS NOT NULL) NOT VALID;` constraint on `public.books`.
+2. Validate the constraint in a later transaction, with `ALTER TABLE public.books VALIDATE CONSTRAINT ...`.
 3. Make the column `NOT NULL`
 
+
+## Statement number 2 for 10 ms
+
+### SQL
+
+```sql
+alter table books add constraint title_unique unique (title);
+```
+
+### Locks at start
+
+Schema | Object | Mode | Relkind | OID | Safe
+------ | ------ | ---- | ------- | --- | ----
+`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌
+
+### New locks taken
+
+Schema | Object | Mode | Relkind | OID | Safe
+------ | ------ | ---- | ------- | --- | ----
+`public` | `books` | `ShareLock` | Table | 1 | ❌
+
+### Hints
+
+#### Running more statements after taking `AccessExclusiveLock`
+
+ID: `holding_access_exclusive`
+
+A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
+
+The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it.
+
+#### Creating a new index on an existing table
+
+ID: `new_index_on_existing_table_is_nonconcurrent`
+
+A new index was created on an existing table without the `CONCURRENT` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
+
+A new index was created on the table `public.books`. The index `public.title_unique` was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
+
+#### Creating a new unique constraint
+
+ID: `new_unique_constraint_created_index`
+
+Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
+
+A new unique constraint `title_unique` was added to the table `public.books`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unqiue constraint by using the index: `ALTER TABLE public.books ADD CONSTRAINT title_unique UNIQUE USING INDEX public.title_unique;`
 

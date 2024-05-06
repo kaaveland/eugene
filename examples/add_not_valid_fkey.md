@@ -106,5 +106,7 @@ Schema | Object | Mode | Relkind | OID | Safe
 
 ID: `holding_access_exclusive`
 
-The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it. Once holding `AccessExclusiveLock` we should immediately commit the transaction. Any extra steps necessary are better done in a separate transaction.
+A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
+
+The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it.
 

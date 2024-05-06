@@ -53,6 +53,7 @@ impl PgPassRule<String> {
         }
     }
 }
+
 impl PgPassRule<u16> {
     fn matches(&self, value: u16) -> bool {
         match self {
@@ -73,19 +74,15 @@ struct PgPassEntry {
 
 impl PgPassEntry {
     fn apply_to(&self, host: &str, port: u16, database: &str, user: &str) -> Option<&str> {
-        if !self.host.matches(host) {
-            return None;
+        if self.host.matches(host)
+            && self.port.matches(port)
+            && self.database.matches(database)
+            && self.user.matches(user)
+        {
+            Some(self.password.as_str())
+        } else {
+            None
         }
-        if !self.port.matches(port) {
-            return None;
-        }
-        if !self.database.matches(database) {
-            return None;
-        }
-        if !self.user.matches(user) {
-            return None;
-        }
-        Some(self.password.as_str())
     }
 }
 
@@ -129,11 +126,12 @@ fn parse_pgpass_entries(contents: &str) -> Result<PgPassFile> {
     Ok(PgPassFile { entries })
 }
 
-/// Represents the contents of a pgpass file, see https://www.postgresql.org/docs/current/libpq-pgpass.html
+/// Represents the contents of a pgpass file, see <https://www.postgresql.org/docs/current/libpq-pgpass.html>
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct PgPassFile {
     entries: Vec<PgPassEntry>,
 }
+
 /// Reads the pgpass file, see https://www.postgresql.org/docs/current/libpq-pgpass.html
 ///
 /// Will respect the `PGPASSFILE` environment variable if set, otherwise will use the default location

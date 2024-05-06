@@ -109,20 +109,71 @@ pub fn perform_trace(
     };
     let sql_script = resolve_placeholders(&script_content, &trace.placeholders)?;
     let sql_statements = sql_statements(&sql_script);
+
+    let all_concurrently = sql_statements.iter().all(sqltext::is_concurrently);
+
     let mut conn = Client::connect(connection_settings.connection_string().as_str(), NoTls)?;
-    let mut tx = conn.transaction()?;
 
-    // TODO: We probably need to special case create index concurrently here, since it's
-    // illegal to run concurrently in a transaction, eg. we'd need to run it with auto-commit.
-
-    let trace_result = trace_transaction(name, &mut tx, sql_statements.iter())?;
-
-    if trace.commit {
-        tx.commit()?;
+    let result = if all_concurrently && trace.commit {
+        for s in sql_statements.iter() {
+            conn.execute(s, &[])?;
+        }
+        TxLockTracer::tracer_for_concurrently(name, sql_statements.iter())
     } else {
-        tx.rollback()?;
-    }
+        let mut tx = conn.transaction()?;
 
+        // TODO: We probably need to special case create index concurrently here, since it's
+        // illegal to run concurrently in a transaction, eg. we'd need to run it with auto-commit.
+
+        let trace_result = trace_transaction(name, &mut tx, sql_statements.iter())?;
+
+        if trace.commit {
+            tx.commit()?;
+        } else {
+            tx.rollback()?;
+        }
+
+        trace_result
+    };
     conn.close()?;
-    Ok(trace_result)
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use postgres::NoTls;
+
+    use crate::ConnectionSettings;
+
+    #[test]
+    fn test_with_commit_we_can_run_concurrently_statements() {
+        let trace_settings = super::TraceSettings {
+            path: "examples/create_index_concurrently.sql".to_string(),
+            commit: true,
+            placeholders: Default::default(),
+        };
+        let connection_settings = ConnectionSettings::new(
+            "postgres".to_string(),
+            "test_db".to_string(),
+            "localhost".to_string(),
+            5432,
+            "postgres".to_string(),
+        );
+        let mut conn =
+            postgres::Client::connect(connection_settings.connection_string().as_str(), NoTls)
+                .unwrap();
+        // drop the index if it is already there
+        conn.execute("DROP INDEX IF EXISTS books_concurrently_test_idx", &[])
+            .unwrap();
+        super::perform_trace(&trace_settings, &connection_settings).unwrap();
+
+        let exists: bool = conn
+            .query_one(
+                "select count(*) > 0 from pg_class where relname = 'books_concurrently_test_idx'",
+                &[],
+            )
+            .unwrap()
+            .get(0);
+        assert!(exists);
+    }
 }

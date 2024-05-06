@@ -45,4 +45,8 @@ impl RelKind {
             Self::PartitionedIndex => "PartitionedIndex",
         }
     }
+    /// Is this RelKind an index?
+    pub fn is_index(&self) -> bool {
+        matches!(self, Self::Index | Self::PartitionedIndex)
+    }
 }

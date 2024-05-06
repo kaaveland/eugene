@@ -67,7 +67,7 @@ Schema | Object | Mode | Relkind | OID | Safe
 
 ID: `make_column_not_nullable_with_lock`
 
-A column was changed from `NULL` to`NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
+A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
 The column `title` in the table `public.books` was changed to `NOT NULL`. If there is a `CHECK (title IS NOT NULL)` constraint on `public.books`, this is safe. Splitting this kind of change into 3 steps can make it safe:
 

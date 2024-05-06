@@ -204,8 +204,25 @@ fn new_unique_constraint_created_index(
         )
 }
 
+fn new_exclusion_constraint_found(
+    sql_statement_trace: &FullSqlStatementLockTrace,
+) -> Option<String> {
+    sql_statement_trace
+        .new_constraints
+        .iter()
+        .find(|constraint| constraint.constraint_type == "EXCLUSION")
+        .map(|constraint| {
+            format!(
+                "A new exclusion constraint `{}` was added to the table `{}.{}`. \
+                There is no safe way to add an exclusion constraint to an existing table. \
+                This constraint creates an index on the table, and blocks all reads and writes.",
+                constraint.name, constraint.schema_name, constraint.table_name,
+            )
+        })
+}
+
 /// All the hints eugene can check statement traces against
-pub const HINTS: [HintInfo; 7] = [
+pub const HINTS: [HintInfo; 8] = [
     HintInfo {
         name: "Validating table with a new constraint",
         code: "validate_constraint_with_lock",
@@ -262,4 +279,12 @@ pub const HINTS: [HintInfo; 7] = [
         effect: "This blocks all writes to the table while the index is being created and validated",
         render_help: new_unique_constraint_created_index,
     },
+    HintInfo {
+        name: "Creating a new exclusion constraint",
+        code: "new_exclusion_constraint_created",
+        condition: "Found a new exclusion constraint",
+        workaround: "There is no safe way to add an exclusion constraint to an existing table",
+        effect: "This blocks all reads and writes to the table while the constraint index is being created",
+        render_help: new_exclusion_constraint_found,
+    }
 ];

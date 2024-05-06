@@ -9,10 +9,10 @@
 `eugene` is a proof of concept command line tool for reviewing locks taken by SQL
 migration scripts in postgres. 
 
-It is currently an experiment inspired by the 
-observation that postgres has transactional DDL, and therefore it is possible to
-inspect the locks held by the current transaction in the `pg_locks` view. For more
-information about the goals of this experiment, take a look at 
+It is currently an experiment inspired by the observation that postgres has
+transactional DDL, and therefore it is possible to inspect the locks held by the
+current transaction in the `pg_locks` view. For more information about the goals of
+this experiment, take a look at
 [the blog post](https://kaveland.no/careful-with-that-lock-eugene.html) that started it.
 
 ## Installation
@@ -43,10 +43,13 @@ eugene help
 You can use the docker image `ghcr.io/kaaveland/eugene` to run the tool. For example:
 
 ```shell
-docker run --rm -it ghcr.io/kaaveland/eugene:latest \
+docker run --rm -it \
+  -ePGPASS=postgres \
+  -v./examples/add_authors.sql:/add_authors.sql \
+  ghcr.io/kaaveland/eugene:0.1.2 \
   trace --format markdown \
   --host pg-test --database test-db \
-  examples/add_authors.sql
+  /add_authors.sql
 ```
 ## Explaining lock modes
 
@@ -158,11 +161,21 @@ To release a new version:
 
 ## High level design
 
+The central idea is to run the SQL script statements in a transaction, and check what effects
+they have on the state of the database:
+- What locks are taken
+- What changes are done tables, constraints, columns
+- What indexes are created or dropped
+
+The `tracing` module is responsible for storing this kind of state after running SQL statements
+in a transaction. Other principles are:
+
 1. `src/bin/eugene.rs` should contain only code related to the command line interface and standard in/err/out.
 2. Structs that are serializable go in `output` 
-3. Structs that have public fields go somewhere in `output::output_types`.
+3. Structs that have public fields go somewhere in `output::output_types`
 4. We prefer not to expose public fields of anything in `tracing`
-5. That means we need to map from `tracing` to `output` to serialize output or expose fields.
+5. That means we need to map from `tracing` to `output` to serialize output or expose fields
+   - We `.clone()` liberally for this purpose, because eventually we'd like make the structs `Deserialize`.
 
 ## Tests
 

@@ -68,11 +68,15 @@ Schema | Object | Mode | Relkind | OID | Safe
 
 ID: `new_index_on_existing_table_is_nonconcurrent`
 
-A new index was created on the table `public.books`. The index `public.unique_title` was created non-concurrently, which blocks all writes to the table. Consider using `CREATE INDEX CONCURRENTLY` in its own transaction to avoid blocking writes.
+A new index was created on an existing table without the `CONCURRENT` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
+
+A new index was created on the table `public.books`. The index `public.unique_title` was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
 
 #### Creating a new unique constraint
 
 ID: `new_unique_constraint_created_index`
 
-A new unique constraint `unique_title` was added to the table `public.books`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction., then adding the unqiue constraint by using the index: `ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE USING INDEX public.unique_title;`
+Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
+
+A new unique constraint `unique_title` was added to the table `public.books`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unqiue constraint by using the index: `ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE USING INDEX public.unique_title;`
 

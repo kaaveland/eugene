@@ -278,16 +278,17 @@ impl FullTraceData {
         }
         result.push('\n');
 
-        let hints = crate::hints::checks()
+        let hints = crate::hints::HINTS
             .iter()
-            .filter_map(|check| check(statement))
+            .filter_map(|hint| hint.check(statement))
             .collect::<Vec<_>>();
+
         if !hints.is_empty() {
             result.push_str("### Hints\n\n");
             for hint in hints {
                 result.push_str(&format!(
-                    "#### {}\n\nID: `{}`\n\n{}\n\n",
-                    hint.name, hint.code, hint.help
+                    "#### {}\n\nID: `{}`\n\n{}. {}. A safer way is: {}.\n\n{}\n\n",
+                    hint.name, hint.code, hint.condition, hint.effect, hint.workaround, hint.help
                 ));
             }
         }

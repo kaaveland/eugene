@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
+use serde::Serialize;
 
+use eugene::output::output_format::GenericHint;
 use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
@@ -69,6 +71,12 @@ enum Commands {
     Explain {
         /// Lock mode to explain
         mode: String,
+        /// Output format, json
+        #[arg(short = 'f', long = "format", default_value = "json")]
+        format: String,
+    },
+    /// Show migration hints that eugene can detect in traces
+    Hints {
         /// Output format, json
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
@@ -143,6 +151,11 @@ enum TraceFormat {
     Markdown,
 }
 
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct HintContainer {
+    hints: Vec<GenericHint>,
+}
+
 impl TryFrom<String> for TraceFormat {
     type Error = anyhow::Error;
 
@@ -203,6 +216,12 @@ pub fn main() -> Result<()> {
                 .context(format!("Invalid lock mode {mode}"))?;
             let choice: DetailedLockMode = choice.into();
             println!("{}", serde_json::to_string_pretty(&choice)?);
+            Ok(())
+        }
+        Some(Commands::Hints { .. }) => {
+            let hints: Vec<_> = eugene::hints::HINTS.iter().map(GenericHint::from).collect();
+            let hints = HintContainer { hints };
+            println!("{}", serde_json::to_string_pretty(&hints)?);
             Ok(())
         }
     }

@@ -51,6 +51,16 @@ docker run --rm -it \
   --host pg-test --database test-db \
   /add_authors.sql
 ```
+
+## Viewing migration hints
+
+`eugene` knows about some common migration patterns that can cause problems with locks and in many cases,
+it can suggest workarounds. To see what hints are available, run:
+
+```bash
+eugene hints
+```
+
 ## Explaining lock modes
 
 `eugene` knows about the lock modes in postgres, and can explain them to you:

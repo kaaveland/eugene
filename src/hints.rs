@@ -13,11 +13,11 @@ pub struct Hint {
 type HintFn = fn(&FullSqlStatementLockTrace) -> Option<String>;
 
 pub struct HintInfo {
-    code: &'static str,
-    name: &'static str,
-    condition: &'static str,
-    workaround: &'static str,
-    effect: &'static str,
+    pub(crate) code: &'static str,
+    pub(crate) name: &'static str,
+    pub(crate) condition: &'static str,
+    pub(crate) workaround: &'static str,
+    pub(crate) effect: &'static str,
     render_help: HintFn,
 }
 
@@ -217,7 +217,7 @@ pub const HINTS: [HintInfo; 7] = [
     HintInfo {
         name: "Validating table with a new `NOT NULL` column",
         code: "make_column_not_nullable_with_lock",
-        condition: "A column was changed from `NULL` to`NOT NULL`",
+        condition: "A column was changed from `NULL` to `NOT NULL`",
         workaround: "Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`",
         effect: "This blocks all table access until all rows are validated",
         render_help: make_column_not_nullable_help,

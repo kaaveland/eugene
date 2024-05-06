@@ -1,8 +1,30 @@
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
+use crate::hints::HintInfo;
 use crate::pg_types::locks::{Lock, LockableTarget};
 use crate::tracing::tracer::ColumnMetadata;
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
+pub struct GenericHint {
+    id: String,
+    name: String,
+    condition: String,
+    effect: String,
+    workaround: String,
+}
+
+impl From<&HintInfo> for GenericHint {
+    fn from(value: &HintInfo) -> Self {
+        GenericHint {
+            id: value.code.to_string(),
+            name: value.name.to_string(),
+            condition: value.condition.to_string(),
+            effect: value.effect.to_string(),
+            workaround: value.workaround.to_string(),
+        }
+    }
+}
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
 pub struct DbObject {

@@ -7,6 +7,7 @@ pub enum Contype {
     PrimaryKey,
     Unique,
     Exclusion,
+    ConstraintTrigger
 }
 
 impl Contype {
@@ -17,6 +18,7 @@ impl Contype {
             'p' => Ok(Contype::PrimaryKey),
             'u' => Ok(Contype::Unique),
             'x' => Ok(Contype::Exclusion),
+            't' => Ok(Contype::ConstraintTrigger),
             _ => Err(anyhow!("Invalid constraint type: {}", c)),
         }
     }
@@ -27,6 +29,7 @@ impl Contype {
             Contype::PrimaryKey => "PRIMARY KEY",
             Contype::Unique => "UNIQUE",
             Contype::Exclusion => "EXCLUSION",
+            Contype::ConstraintTrigger => "CONSTRAINT TRIGGER",
         }
     }
 }

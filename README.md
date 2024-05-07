@@ -13,7 +13,7 @@ It is currently an experiment inspired by the observation that postgres has
 transactional DDL, and therefore it is possible to inspect the locks held by the
 current transaction in the `pg_locks` view.
 
-[Careful with That Lock, Eugene: Part2](kaveland.no/careful-with-that-lock-eugene-part-2.html)
+[Careful with That Lock, Eugene: Part 2](kaveland.no/careful-with-that-lock-eugene-part-2.html)
 is a blog post that serves as an introduction to the tool and the problem it is trying to solve.
 
 ## Installation

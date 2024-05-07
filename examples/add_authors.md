@@ -14,18 +14,19 @@ There is a summary section for the entire script at the start of the report and 
 
 ## Overall Summary
 
-Started at | Total duration (ms) | Number of dangerous locks
----------- | ------------------- | -------------------------
-2021-01-01T01:00:00+01:00 | 50 | 2 ❌
+| Started at | Total duration (ms) | Number of dangerous locks |
+|------------|---------------------|---------------------------|
+| 2021-01-01T01:00:00+01:00 | 50 | 2 ❌ |
 
 ### All locks found
 
-Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms)
------- | ------ | ---- | ------- | --- | ---- | ------------------
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 40
-`public` | `books` | `AccessShareLock` | Table | 1 | ✅ | 20
-`public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ | 20
-`public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅ | 20
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 40 |
+| `public` | `books` | `AccessShareLock` | Table | 1 | ✅ | 20 |
+| `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ | 20 |
+| `public` | `books_concurrently_test_idx` | `AccessShareLock` | Index | 1 | ✅ | 20 |
+| `public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅ | 20 |
 
 ### Dangerous locks found
 
@@ -76,9 +77,9 @@ No locks held at the start of this statement.
 
 ### New locks taken
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### Hints
 
@@ -113,9 +114,9 @@ alter table books add column author_id integer not null;
 
 ### Locks at start
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### New locks taken
 
@@ -142,17 +143,18 @@ alter table books add foreign key (author_id) references authors(id);
 
 ### Locks at start
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### New locks taken
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessShareLock` | Table | 1 | ✅
-`public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌
-`public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessShareLock` | Table | 1 | ✅ |
+| `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ |
+| `public` | `books_concurrently_test_idx` | `AccessShareLock` | Index | 1 | ✅ |
+| `public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅ |
 
 ### Hints
 
@@ -190,12 +192,13 @@ select * from books;
 
 ### Locks at start
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌
-`public` | `books` | `AccessShareLock` | Table | 1 | ✅
-`public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌
-`public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| `public` | `books` | `AccessShareLock` | Table | 1 | ✅ |
+| `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ |
+| `public` | `books_concurrently_test_idx` | `AccessShareLock` | Index | 1 | ✅ |
+| `public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅ |
 
 ### New locks taken
 

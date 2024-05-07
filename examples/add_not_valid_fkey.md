@@ -14,17 +14,17 @@ There is a summary section for the entire script at the start of the report and 
 
 ## Overall Summary
 
-Started at | Total duration (ms) | Number of dangerous locks
----------- | ------------------- | -------------------------
-2021-01-01T01:00:00+01:00 | 30 | 2 ❌
+| Started at | Total duration (ms) | Number of dangerous locks |
+|------------|---------------------|---------------------------|
+| 2021-01-01T01:00:00+01:00 | 30 | 2 ❌ |
 
 ### All locks found
 
-Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms)
------- | ------ | ---- | ------- | --- | ---- | ------------------
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 20
-`public` | `books` | `AccessShareLock` | Table | 1 | ✅ | 10
-`public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ | 10
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 20 |
+| `public` | `books` | `AccessShareLock` | Table | 1 | ✅ | 10 |
+| `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ | 10 |
 
 ### Dangerous locks found
 
@@ -75,9 +75,9 @@ No locks held at the start of this statement.
 
 ### New locks taken
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### Hints
 
@@ -99,16 +99,16 @@ alter table books add constraint fk_books_authors foreign key (author_id) refere
 
 ### Locks at start
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### New locks taken
 
-Schema | Object | Mode | Relkind | OID | Safe
------- | ------ | ---- | ------- | --- | ----
-`public` | `books` | `AccessShareLock` | Table | 1 | ✅
-`public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌
+| Schema | Object | Mode | Relkind | OID | Safe |
+|--------|--------|------|---------|-----|------|
+| `public` | `books` | `AccessShareLock` | Table | 1 | ✅ |
+| `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ |
 
 ### Hints
 

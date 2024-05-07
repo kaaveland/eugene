@@ -14,9 +14,9 @@ There is a summary section for the entire script at the start of the report and 
 
 ## Overall Summary
 
-Started at | Total duration (ms) | Number of dangerous locks
----------- | ------------------- | -------------------------
-2021-01-01T01:00:00+01:00 | 20 | 0 ✅
+| Started at | Total duration (ms) | Number of dangerous locks |
+|------------|---------------------|---------------------------|
+| 2021-01-01T01:00:00+01:00 | 20 | 0 ✅ |
 
 
 No locks acquired on database objects that already exist.

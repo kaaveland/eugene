@@ -384,12 +384,12 @@ mod markdown_helpers {
             .iter()
             .map(|h| ["-"].repeat(h.len()).join(""))
             .collect::<Vec<_>>()
-            .join(" | ");
-        format!("{}\n{}\n", h, dashes)
+            .join("-|-");
+        format!("| {} |\n|-{}-|\n", h, dashes)
     }
 
     pub fn trow(row: &[&str]) -> String {
-        row.join(" | ") + "\n"
+        format!("| {} |\n", row.join(" | "))
     }
 }
 

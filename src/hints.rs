@@ -188,7 +188,7 @@ fn new_unique_constraint_created_index(
                 "A new unique constraint `{}` was added to the table `{}.{}`. \
                 This constraint creates a unique index on the table, and blocks all writes. \
                 Consider creating the index concurrently in a separate transaction, then adding \
-                the unqiue constraint by using the index: `ALTER TABLE {}.{} ADD CONSTRAINT {} UNIQUE USING INDEX {}.{};`",
+                the unique constraint by using the index: `ALTER TABLE {}.{} ADD CONSTRAINT {} UNIQUE USING INDEX {}.{};`",
                 constraint.name,
                 constraint.schema_name,
                 constraint.table_name,

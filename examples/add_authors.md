@@ -164,7 +164,7 @@ ID: `validate_constraint_with_lock`
 
 A new constraint was added and it is already `VALID`. This blocks all table access until all rows are validated. A safer way is: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.
 
-A new constraint `books_author_id_fkey` of type `FOREIGN KEY` was added to the table `books` as `VALID`. Constraints that are `NOT VALID` can be made `VALID` by `ALTER TABLE public.books VALIDATE CONSTRAINT books_author_id_fkey` which takes a lesser lock.
+A new constraint `books_author_id_fkey` of type `FOREIGN KEY` was added to the table `public.books` as `VALID`. Constraints that are `NOT VALID` can be made `VALID` by `ALTER TABLE public.books VALIDATE CONSTRAINT books_author_id_fkey` which takes a lesser lock.
 
 #### Running more statements after taking `AccessExclusiveLock`
 

@@ -78,7 +78,7 @@ ID: `new_unique_constraint_created_index`
 
 Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
-A new unique constraint `unique_title` was added to the table `public.books`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unqiue constraint by using the index: `ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE USING INDEX public.unique_title;`
+A new unique constraint `unique_title` was added to the table `public.books`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unique constraint by using the index: `ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE USING INDEX public.unique_title;`
 
 #### Taking dangerous lock without timeout
 

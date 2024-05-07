@@ -7,7 +7,7 @@ pub enum Contype {
     PrimaryKey,
     Unique,
     Exclusion,
-    ConstraintTrigger
+    ConstraintTrigger,
 }
 
 impl Contype {

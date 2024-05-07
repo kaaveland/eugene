@@ -49,16 +49,14 @@ fn add_new_valid_constraint_help(
                 && constraint.constraint_type != "EXCLUSION"
         })?;
 
+    let name = constraint.name.as_str();
+    let table = format!("{}.{}", constraint.schema_name, constraint.table_name);
+    let contype = constraint.constraint_type;
+
     let help = format!(
-        "A new constraint `{}` of type `{}` was added to the table `{}` as `VALID`. \
+        "A new constraint `{name}` of type `{contype}` was added to the table `{table}` as `VALID`. \
                      Constraints that are `NOT VALID` can be made `VALID` by \
-                     `ALTER TABLE {}.{} VALIDATE CONSTRAINT {}` which takes a lesser lock.",
-        constraint.name,
-        constraint.constraint_type,
-        constraint.table_name,
-        constraint.schema_name,
-        constraint.table_name,
-        constraint.name
+                     `ALTER TABLE {table} VALIDATE CONSTRAINT {name}` which takes a lesser lock.",
     );
 
     Some(help)
@@ -184,19 +182,15 @@ fn new_unique_constraint_created_index(
                 .map(|index| (constraint, index))
         })?;
 
+    let table = format!("{}.{}", constraint.schema_name, constraint.table_name);
+    let name = constraint.name.as_str();
+    let index_name = format!("{}.{}", index.schema, index.object_name);
+
     let help = format!(
-                "A new unique constraint `{}` was added to the table `{}.{}`. \
+                "A new unique constraint `{name}` was added to the table `{table}`. \
                 This constraint creates a unique index on the table, and blocks all writes. \
                 Consider creating the index concurrently in a separate transaction, then adding \
-                the unique constraint by using the index: `ALTER TABLE {}.{} ADD CONSTRAINT {} UNIQUE USING INDEX {}.{};`",
-                constraint.name,
-                constraint.schema_name,
-                constraint.table_name,
-                constraint.schema_name,
-                constraint.table_name,
-                constraint.name,
-                index.schema,
-                index.object_name,
+                the unique constraint by using the index: `ALTER TABLE {table} ADD CONSTRAINT {name} UNIQUE USING INDEX {index_name};`",
             );
     Some(help)
 }

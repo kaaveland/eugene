@@ -1,4 +1,6 @@
 use itertools::Itertools;
+use serde_json::map;
+use std::iter;
 
 use crate::output::FullSqlStatementLockTrace;
 use crate::pg_types::lock_modes;
@@ -40,113 +42,110 @@ impl HintInfo {
 fn add_new_valid_constraint_help(
     sql_statement_trace: &FullSqlStatementLockTrace,
 ) -> Option<String> {
-    let cons = sql_statement_trace
+    let constraint = sql_statement_trace
         .new_constraints
         .iter()
         .find(|constraint| {
             constraint.valid
                 && constraint.constraint_type != "UNIQUE"
                 && constraint.constraint_type != "EXCLUSION"
-        });
+        })?;
 
-    cons.map(|constraint| {
-        format!(
-            "A new constraint `{}` of type `{}` was added to the table `{}` as `VALID`. \
+    let help = format!(
+        "A new constraint `{}` of type `{}` was added to the table `{}` as `VALID`. \
                      Constraints that are `NOT VALID` can be made `VALID` by \
                      `ALTER TABLE {}.{} VALIDATE CONSTRAINT {}` which takes a lesser lock.",
-            constraint.name,
-            constraint.constraint_type,
-            constraint.table_name,
-            constraint.schema_name,
-            constraint.table_name,
-            constraint.name
-        )
-    })
+        constraint.name,
+        constraint.constraint_type,
+        constraint.table_name,
+        constraint.schema_name,
+        constraint.table_name,
+        constraint.name
+    );
+
+    Some(help)
 }
 
 fn make_column_not_nullable_help(
     sql_statement_trace: &FullSqlStatementLockTrace,
 ) -> Option<String> {
-    let columns = sql_statement_trace
+    let column = sql_statement_trace
         .altered_columns
         .iter()
-        .find(|column| !column.new.nullable && column.old.nullable);
+        .find(|column| !column.new.nullable && column.old.nullable)?;
 
-    columns.map(|column| {
-        let table_name = format!("{}.{}", column.new.schema_name, column.new.table_name);
-        let col_name = column.new.column_name.as_str();
-        format!(
+    let table_name = format!("{}.{}", column.new.schema_name, column.new.table_name);
+    let col_name = column.new.column_name.as_str();
+    let help = format!(
             "The column `{col_name}` in the table `{table_name}` was changed to `NOT NULL`. \
             If there is a `CHECK ({col_name} IS NOT NULL)` constraint on `{table_name}`, this is safe. \
             Splitting this kind of change into 3 steps can make it safe:\n\n\
             1. Add a `CHECK ({col_name} IS NOT NULL) NOT VALID;` constraint on `{table_name}`.\n\
             2. Validate the constraint in a later transaction, with `ALTER TABLE {table_name} VALIDATE CONSTRAINT ...`.\n\
             3. Make the column `NOT NULL`\n",
-        )
-    }
-    )
+        );
+    Some(help)
 }
 
 fn add_json_column(sql_statement_trace: &FullSqlStatementLockTrace) -> Option<String> {
-    let columns = sql_statement_trace
+    let column = sql_statement_trace
         .new_columns
         .iter()
-        .find(|column| column.data_type == "json");
+        .find(|column| column.data_type == "json")?;
 
-    columns.map(|column|
-        format!(
+    let help = format!(
             "A new column `{}` of type `json` was added to the table `{}.{}`. The `json` type does not \
              support the equality operator, so this can break `SELECT DISTINCT` queries on the table. \
              Use the `jsonb` type instead.",
             column.column_name,
             column.schema_name,
             column.table_name,
-        )
-    )
+        );
+    Some(help)
 }
 
 fn running_statement_while_holding_access_exclusive(
     sql_statement_trace: &FullSqlStatementLockTrace,
 ) -> Option<String> {
-    sql_statement_trace
+    let lock = sql_statement_trace
         .locks_at_start
         .iter()
-        .find(|lock| lock.mode == "AccessExclusiveLock")
-        .map(|lock| {
-            format!(
-                "The statement is running while holding an `AccessExclusiveLock` on the {} `{}.{}`, \
+        .find(|lock| lock.mode == "AccessExclusiveLock")?;
+
+    let help = format!(
+        "The statement is running while holding an `AccessExclusiveLock` on the {} `{}.{}`, \
                 blocking all other transactions from accessing it.",
-                lock.relkind, lock.schema, lock.object_name,
-            )
-        })
+        lock.relkind, lock.schema, lock.object_name,
+    );
+    Some(help)
 }
 
 fn type_change_requires_table_rewrite(
     sql_statement_trace: &FullSqlStatementLockTrace,
 ) -> Option<String> {
-    sql_statement_trace
+    let column = sql_statement_trace
         .altered_columns
         .iter()
         // TODO: This is not true for all type changes, eg. cidr -> inet is safe
         // TODO: The check is also not sufficient, since varchar(10) -> varchar(20) is safe, but the opposite isn't
-        .find(|column| column.new.data_type != column.old.data_type)
-        .map(|column| format!(
-            "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This always requires\
-            an `AccessExclusiveLock` that will block all other transactions from using the table, and for some\
+        .find(|column| column.new.data_type != column.old.data_type)?;
+    let help = format!(
+            "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This always requires \
+            an `AccessExclusiveLock` that will block all other transactions from using the table, and for some \
             type changes, it causes a time-consuming table rewrite.",
             column.new.column_name,
             column.new.schema_name,
             column.new.table_name,
             column.old.data_type,
             column.new.data_type,
-        )
-        )
+        );
+    Some(help)
 }
 
 fn new_index_on_existing_table_is_nonconcurrent(
     sql_statement_trace: &FullSqlStatementLockTrace,
 ) -> Option<String> {
-    sql_statement_trace
+    let (lock, index) = sql_statement_trace
         .new_locks_taken
         .iter()
         .find(|lock| lock.mode == "ShareLock")
@@ -158,31 +157,36 @@ fn new_index_on_existing_table_is_nonconcurrent(
                     .iter()
                     .find(|obj| obj.relkind == "Index"),
             )
-        })
-        .map(|(lock, index)| {
-            format!(
-                "A new index was created on the table `{}.{}`. \
+        })?;
+    let help = format!(
+        "A new index was created on the table `{}.{}`. \
                 The index {}was created non-concurrently, which blocks all writes to the table. \
                 Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.",
-                lock.schema,
-                lock.object_name,
-                index
-                    .map(|obj| format!("`{}.{}` ", obj.schema, obj.object_name))
-                    .unwrap_or(String::new())
-            )
-        })
+        lock.schema,
+        lock.object_name,
+        index
+            .map(|obj| format!("`{}.{}` ", obj.schema, obj.object_name))
+            .unwrap_or(String::new())
+    );
+    Some(help)
 }
 
 fn new_unique_constraint_created_index(
     sql_statement_trace: &FullSqlStatementLockTrace,
 ) -> Option<String> {
-    sql_statement_trace
+    let (constraint, index) = sql_statement_trace
         .new_constraints
         .iter()
         .find(|constraint| constraint.constraint_type == "UNIQUE")
-        .and_then(|constraint| sql_statement_trace.new_objects.iter().find(|obj| obj.relkind == "Index").map(|index| (constraint, index)))
-        .map(|(constraint, index)|
-            format!(
+        .and_then(|constraint| {
+            sql_statement_trace
+                .new_objects
+                .iter()
+                .find(|obj| obj.relkind == "Index")
+                .map(|index| (constraint, index))
+        })?;
+
+    let help = format!(
                 "A new unique constraint `{}` was added to the table `{}.{}`. \
                 This constraint creates a unique index on the table, and blocks all writes. \
                 Consider creating the index concurrently in a separate transaction, then adding \
@@ -195,8 +199,8 @@ fn new_unique_constraint_created_index(
                 constraint.name,
                 index.schema,
                 index.object_name,
-            )
-        )
+            );
+    Some(help)
 }
 
 fn new_exclusion_constraint_found(
@@ -222,19 +226,22 @@ fn took_dangerous_lock_without_timeout(
     if sql_statement_trace.lock_timeout_millis > 0 {
         None
     } else {
-        sql_statement_trace
-            .new_locks_taken
+        let lock = sql_statement_trace.new_locks_taken.iter().find(|lock| {
+            lock_modes::LOCK_MODES
+                .iter()
+                .any(|mode| mode.to_db_str() == lock.mode && mode.dangerous())
+        })?;
+        let blocked_queries = lock_modes::LockMode::from_db_str(lock.mode.as_str())?
+            .blocked_queries()
             .iter()
-            .find(|lock| lock_modes::LOCK_MODES.iter().any(|mode| mode.to_db_str() == lock.mode && mode.dangerous()))
-            .map(|lock| {
-                (lock, lock_modes::LockMode::from_db_str(lock.mode.as_str()).unwrap().blocked_queries().iter().map(|query| format!("`{query}`")).collect_vec())
-            })
-            .map(|(lock, blocked_queries)| {
-                format!(
+            .map(|query| format!("`{query}`"))
+            .collect_vec();
+
+        let help = format!(
                     "The statement took `{}` on the {} `{}.{}` without a timeout. It blocks {} while waiting to acquire the lock.",
                     lock.mode, lock.relkind, lock.schema, lock.object_name, blocked_queries.join(", "),
-                )
-            })
+                );
+        Some(help)
     }
 }
 

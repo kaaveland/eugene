@@ -1,6 +1,4 @@
 use itertools::Itertools;
-use serde_json::map;
-use std::iter;
 
 use crate::output::FullSqlStatementLockTrace;
 use crate::pg_types::lock_modes;

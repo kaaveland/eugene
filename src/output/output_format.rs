@@ -7,11 +7,11 @@ use crate::tracing::tracer::ColumnMetadata;
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
 pub struct GenericHint {
-    id: String,
-    name: String,
-    condition: String,
-    effect: String,
-    workaround: String,
+    pub id: String,
+    pub name: String,
+    pub condition: String,
+    pub effect: String,
+    pub workaround: String,
 }
 
 impl From<&HintInfo> for GenericHint {
@@ -162,6 +162,7 @@ pub struct FullSqlStatementLockTrace {
     pub altered_constraints: Vec<ModifiedConstraint>,
     pub new_objects: Vec<DbObject>,
     pub lock_timeout_millis: u64,
+    pub triggered_hints: Vec<Hint>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
@@ -184,5 +185,35 @@ mod datefmt {
         S: serde::Serializer,
     {
         serializer.serialize_str(&date.to_rfc3339())
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
+pub struct Hint {
+    pub id: String,
+    pub name: String,
+    pub condition: String,
+    pub effect: String,
+    pub workaround: String,
+    pub help: String,
+}
+
+impl Hint {
+    pub fn new(
+        code: &str,
+        name: &str,
+        condition: &str,
+        effect: &str,
+        workaround: &str,
+        help: String,
+    ) -> Self {
+        Hint {
+            id: code.to_string(),
+            name: name.to_string(),
+            condition: condition.to_string(),
+            effect: effect.to_string(),
+            workaround: workaround.to_string(),
+            help: help.to_string(),
+        }
     }
 }

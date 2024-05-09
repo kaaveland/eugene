@@ -85,7 +85,7 @@ No locks held at the start of this statement.
 
 #### Validating table with a new `NOT NULL` column
 
-ID: `make_column_not_nullable_with_lock`
+ID: `E2`
 
 A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
@@ -98,7 +98,7 @@ The column `title` in the table `public.books` was changed to `NOT NULL`. If the
 
 #### Taking dangerous lock without timeout
 
-ID: `dangerous_lock_without_timeout`
+ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
 
@@ -127,7 +127,7 @@ No new locks taken by this statement.
 
 #### Running more statements after taking `AccessExclusiveLock`
 
-ID: `holding_access_exclusive`
+ID: `E4`
 
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
 
@@ -160,7 +160,7 @@ alter table books add foreign key (author_id) references authors(id)
 
 #### Validating table with a new constraint
 
-ID: `validate_constraint_with_lock`
+ID: `E1`
 
 A new constraint was added and it is already `VALID`. This blocks all table access until all rows are validated. A safer way is: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.
 
@@ -168,7 +168,7 @@ A new constraint `books_author_id_fkey` of type `FOREIGN KEY` was added to the t
 
 #### Running more statements after taking `AccessExclusiveLock`
 
-ID: `holding_access_exclusive`
+ID: `E4`
 
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
 
@@ -176,7 +176,7 @@ The statement is running while holding an `AccessExclusiveLock` on the Table `pu
 
 #### Taking dangerous lock without timeout
 
-ID: `dangerous_lock_without_timeout`
+ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
 
@@ -209,7 +209,7 @@ No new locks taken by this statement.
 
 #### Running more statements after taking `AccessExclusiveLock`
 
-ID: `holding_access_exclusive`
+ID: `E4`
 
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
 

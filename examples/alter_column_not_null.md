@@ -65,7 +65,7 @@ No locks held at the start of this statement.
 
 #### Validating table with a new `NOT NULL` column
 
-ID: `make_column_not_nullable_with_lock`
+ID: `E2`
 
 A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
@@ -78,7 +78,7 @@ The column `title` in the table `public.books` was changed to `NOT NULL`. If the
 
 #### Taking dangerous lock without timeout
 
-ID: `dangerous_lock_without_timeout`
+ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
 
@@ -108,7 +108,7 @@ alter table books add constraint title_unique unique (title)
 
 #### Running more statements after taking `AccessExclusiveLock`
 
-ID: `holding_access_exclusive`
+ID: `E4`
 
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
 
@@ -116,7 +116,7 @@ The statement is running while holding an `AccessExclusiveLock` on the Table `pu
 
 #### Creating a new index on an existing table
 
-ID: `new_index_on_existing_table_is_nonconcurrent`
+ID: `E6`
 
 A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
 
@@ -124,7 +124,7 @@ A new index was created on the table `public.books`. The index `public.title_uni
 
 #### Creating a new unique constraint
 
-ID: `new_unique_constraint_created_index`
+ID: `E7`
 
 Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
@@ -132,7 +132,7 @@ A new unique constraint `title_unique` was added to the table `public.books`. Th
 
 #### Taking dangerous lock without timeout
 
-ID: `dangerous_lock_without_timeout`
+ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
 

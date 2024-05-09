@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use serde::Serialize;
 
+use output_format::Hint;
 pub use output_format::{
     Column, Constraint, FullSqlStatementLockTrace, FullTraceData, ModifiedColumn,
     ModifiedConstraint, TracedLock,
@@ -48,7 +49,11 @@ struct OutputContext {
 }
 
 impl OutputContext {
-    fn output_statement(&mut self, statement: &SqlStatementTrace) -> FullSqlStatementLockTrace {
+    fn output_statement(
+        &mut self,
+        statement: &SqlStatementTrace,
+        hints: &[Hint],
+    ) -> FullSqlStatementLockTrace {
         let locks_at_start: Vec<_> = self
             .held_locks_context
             .iter()
@@ -62,6 +67,7 @@ impl OutputContext {
                 )
             })
             .collect();
+
         let new_locks_taken: Vec<_> = statement
             .locks_taken
             .iter()
@@ -111,6 +117,7 @@ impl OutputContext {
                 .map(DbObject::from)
                 .collect(),
             lock_timeout_millis: statement.lock_timeout_millis,
+            triggered_hints: hints.to_vec(),
         };
         self.statement_number += 1;
         self.held_locks_context
@@ -134,8 +141,8 @@ impl OutputContext {
 pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullTraceData {
     let mut context = OutputContext::new(output_settings);
     let mut statements = vec![];
-    for statement in &trace.statements {
-        statements.push(context.output_statement(statement));
+    for (i, statement) in trace.statements.iter().enumerate() {
+        statements.push(context.output_statement(statement, &trace.triggered_hints[i]));
     }
     context.held_locks_context.sort_by_key(|lock| {
         (
@@ -279,17 +286,14 @@ impl FullTraceData {
         }
         result.push('\n');
 
-        let hints = crate::hints::HINTS
-            .iter()
-            .filter_map(|hint| hint.check(statement))
-            .collect::<Vec<_>>();
+        let hints = statement.triggered_hints.clone();
 
         if !hints.is_empty() {
             result.push_str("### Hints\n\n");
             for hint in hints {
                 result.push_str(&format!(
                     "#### {}\n\nID: `{}`\n\n{}. {}. A safer way is: {}.\n\n{}\n\n",
-                    hint.name, hint.code, hint.condition, hint.effect, hint.workaround, hint.help
+                    hint.name, hint.id, hint.condition, hint.effect, hint.workaround, hint.help
                 ));
             }
         }

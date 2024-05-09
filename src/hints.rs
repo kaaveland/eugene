@@ -1,20 +1,10 @@
+use crate::output::output_format::Hint;
 use itertools::Itertools;
-use serde::Serialize;
 
 use crate::pg_types::contype::Contype;
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::relkinds::RelKind;
 use crate::tracing::tracer::StatementCtx;
-
-#[derive(Debug, Eq, PartialEq, Clone, Serialize)]
-pub struct Hint {
-    pub code: &'static str,
-    pub name: &'static str,
-    pub help: String,
-    pub condition: &'static str,
-    pub workaround: &'static str,
-    pub effect: &'static str,
-}
 
 type HintFn = fn(&StatementCtx) -> Option<String>;
 
@@ -29,13 +19,15 @@ pub struct HintInfo {
 
 impl HintInfo {
     pub(crate) fn check(&self, trace: &StatementCtx) -> Option<Hint> {
-        (self.render_help)(trace).map(|help| Hint {
-            code: self.code,
-            name: self.name,
-            help,
-            condition: self.condition,
-            workaround: self.workaround,
-            effect: self.effect,
+        (self.render_help)(trace).map(|help| {
+            Hint::new(
+                self.code,
+                self.name,
+                self.condition,
+                self.effect,
+                self.workaround,
+                help,
+            )
         })
     }
 }

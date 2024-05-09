@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use serde::Serialize;
 
-use crate::hints::Hint;
+use output_format::Hint;
 pub use output_format::{
     Column, Constraint, FullSqlStatementLockTrace, FullTraceData, ModifiedColumn,
     ModifiedConstraint, TracedLock,
@@ -293,7 +293,7 @@ impl FullTraceData {
             for hint in hints {
                 result.push_str(&format!(
                     "#### {}\n\nID: `{}`\n\n{}. {}. A safer way is: {}.\n\n{}\n\n",
-                    hint.name, hint.code, hint.condition, hint.effect, hint.workaround, hint.help
+                    hint.name, hint.id, hint.condition, hint.effect, hint.workaround, hint.help
                 ));
             }
         }

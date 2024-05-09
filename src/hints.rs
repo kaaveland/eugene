@@ -62,7 +62,7 @@ fn make_column_not_nullable_help(sql_statement_trace: &StatementCtx) -> Option<S
     let already_constrained = sql_statement_trace
         .constraints_on(id.oid)
         .into_iter()
-        .filter(|c| c.constraint_type == Contype::Check)
+        .filter(|c| c.constraint_type == Contype::Check && c.valid)
         .any(|c| {
             c.expression
                 .as_ref()

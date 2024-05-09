@@ -69,7 +69,7 @@ fn make_column_not_nullable_help(sql_statement_trace: &StatementCtx) -> Option<S
                 .map(|e| {
                     e.to_lowercase().contains(&format!(
                         "{} is not null",
-                        column.new.column_name.to_lowercase()
+                        column.old.column_name.to_lowercase()
                     ))
                 })
                 .unwrap_or(false)

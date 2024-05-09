@@ -55,9 +55,31 @@ fn add_new_valid_constraint_help(sql_statement_trace: &StatementCtx) -> Option<S
 }
 
 fn make_column_not_nullable_help(sql_statement_trace: &StatementCtx) -> Option<String> {
-    let column = sql_statement_trace
+    let (id, column) = sql_statement_trace
         .altered_columns()
-        .find(|column| !column.new.nullable && column.old.nullable)?;
+        .find(|(_, column)| !column.new.nullable && column.old.nullable)?;
+
+    let already_constrained = sql_statement_trace
+        .constraints_on(id.oid)
+        .into_iter()
+        .filter(|c| c.constraint_type == Contype::Check)
+        .any(|c| {
+            c.expression
+                .as_ref()
+                .map(|e| {
+                    e.to_lowercase().contains(&format!(
+                        "{} is not null",
+                        column.new.column_name.to_lowercase()
+                    ))
+                })
+                .unwrap_or(false)
+        });
+
+    // postgres knows that the column is not null, so it doesn't need to check,
+    // making this a safe alter column
+    if already_constrained {
+        return None;
+    }
 
     let table_name = format!("{}.{}", column.new.schema_name, column.new.table_name);
     let col_name = column.new.column_name.as_str();
@@ -104,11 +126,11 @@ fn running_statement_while_holding_access_exclusive(
 }
 
 fn type_change_requires_table_rewrite(sql_statement_trace: &StatementCtx) -> Option<String> {
-    let column = sql_statement_trace
+    let (_, column) = sql_statement_trace
         .altered_columns()
         // TODO: This is not true for all type changes, eg. cidr -> inet is safe
         // TODO: The check is also not sufficient, since varchar(10) -> varchar(20) is safe, but the opposite isn't
-        .find(|column| column.new.typename != column.old.typename)?;
+        .find(|(_, column)| column.new.typename != column.old.typename)?;
     let help = format!(
             "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This always requires \
             an `AccessExclusiveLock` that will block all other transactions from using the table, and for some \

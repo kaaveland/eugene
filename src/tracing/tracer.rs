@@ -118,6 +118,8 @@ pub struct Constraint {
     pub(crate) name: String,
     pub(crate) expression: Option<String>,
     pub(crate) valid: bool,
+    pub(crate) target: Oid,
+    pub(crate) fk_target: Option<Oid>,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -162,11 +164,8 @@ impl<'a> StatementCtx<'a> {
     pub fn new_constraints(&self) -> impl Iterator<Item = &Constraint> {
         self.sql_statement_trace.added_constraints.iter()
     }
-    pub fn altered_columns(&self) -> impl Iterator<Item = &ModifiedColumn> {
-        self.sql_statement_trace
-            .modified_columns
-            .iter()
-            .map(|(_, col)| col)
+    pub fn altered_columns(&self) -> impl Iterator<Item = &(ColumnIdentifier, ModifiedColumn)> {
+        self.sql_statement_trace.modified_columns.iter()
     }
     pub fn new_columns(&self) -> impl Iterator<Item = &ColumnMetadata> {
         self.sql_statement_trace
@@ -185,6 +184,14 @@ impl<'a> StatementCtx<'a> {
     }
     pub fn lock_timeout_millis(&self) -> u64 {
         self.sql_statement_trace.lock_timeout_millis
+    }
+
+    pub fn constraints_on(&self, oid: Oid) -> Vec<&Constraint> {
+        self.transaction
+            .constraints
+            .values()
+            .filter(|con| con.target == oid)
+            .collect()
     }
 }
 
@@ -400,7 +407,9 @@ fn fetch_constraints(tx: &mut Transaction, oids: &[Oid]) -> Result<HashMap<Oid, 
            con.conname as constraint_name,
            con.contype as constraint_type,
            con.convalidated as valid,
-           pg_get_constraintdef(con.oid) as expression
+           pg_get_constraintdef(con.oid) as expression,
+           con.conrelid as target,
+           con.confrelid as fk_target
          FROM pg_catalog.pg_constraint con
            JOIN pg_catalog.pg_class c ON con.conrelid = c.oid
            JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
@@ -419,6 +428,8 @@ fn fetch_constraints(tx: &mut Transaction, oids: &[Oid]) -> Result<HashMap<Oid, 
             let constraint_type = Contype::from_char((constraint_type_byte as u8) as char)?;
             let valid: bool = row.try_get(5)?;
             let expression: Option<String> = row.try_get(6)?;
+            let target: Oid = row.try_get(7)?;
+            let fk_target: Option<Oid> = row.try_get(8)?;
             let constraint = Constraint {
                 schema_name,
                 table_name,
@@ -426,6 +437,8 @@ fn fetch_constraints(tx: &mut Transaction, oids: &[Oid]) -> Result<HashMap<Oid, 
                 name: constraint_name,
                 expression,
                 valid,
+                target,
+                fk_target,
             };
             Ok((con_oid, constraint))
         })
@@ -793,5 +806,29 @@ mod tests {
         assert!(trace.triggered_hints[0]
             .iter()
             .any(|hint| hint.id == ids::ADD_JSON_COLUMN));
+    }
+
+    #[test]
+    fn test_that_we_discover_valid_check_not_null_when_modifying_to_null() {
+        let mut client = get_client();
+        client
+            .execute(
+                "alter table books add constraint check_title check (title is not null)",
+                &[],
+            )
+            .unwrap();
+
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["alter table books alter column title set not null"].into_iter(),
+        )
+        .unwrap();
+        let modification = &trace.statements[0].modified_columns[0].1;
+        assert!(!modification.new.nullable);
+        assert!(!trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.id == ids::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK));
     }
 }

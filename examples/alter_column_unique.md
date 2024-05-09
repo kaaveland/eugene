@@ -48,7 +48,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-alter table books add constraint unique_title unique(title);
+alter table books add constraint unique_title unique(title)
 ```
 
 ### Locks at start

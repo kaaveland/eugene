@@ -49,7 +49,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-create table authors(id serial primary key, name text);
+create table authors(id serial primary key, name text)
 ```
 
 ### Locks at start
@@ -66,7 +66,7 @@ No new locks taken by this statement.
 ### SQL
 
 ```sql
-alter table books add column author_id integer null;
+alter table books add column author_id integer null
 ```
 
 ### Locks at start
@@ -94,7 +94,7 @@ The statement took `AccessExclusiveLock` on the Table `public.books` without a t
 ### SQL
 
 ```sql
-alter table books add constraint fk_books_authors foreign key (author_id) references authors(id) not valid;
+alter table books add constraint fk_books_authors foreign key (author_id) references authors(id) not valid
 ```
 
 ### Locks at start

@@ -37,7 +37,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-create index books_title_idx on books(title);
+create index books_title_idx on books(title)
 ```
 
 ### Locks at start

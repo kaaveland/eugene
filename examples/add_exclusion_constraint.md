@@ -48,7 +48,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-alter table books add constraint title_exclusion exclude(title with =);
+alter table books add constraint title_exclusion exclude(title with =)
 ```
 
 ### Locks at start

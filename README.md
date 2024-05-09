@@ -124,11 +124,6 @@ transactions, and you should pass `-c` or `--commit` if this is not what you wan
 `set role ${dba};` can be used by providing `--var dba=postgres` on the command line. Any
 number of vars may be provided by repeating the option.
 
-Note that some SQL scripts contain syntax that breaks `eugene` at the moment, for instance
-`$body$` is not supported and things like comment syntax inside strings may cause problems,
-since the parser is very simple. This will be addressed in future versions, if the tool turns
-out to be useful.
-
 ### Compatibility
 
 `eugene` is tested with postgres versions `>= 12` on linux, and is also tested on macos

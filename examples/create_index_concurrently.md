@@ -27,7 +27,7 @@ No locks acquired on database objects that already exist.
 ### SQL
 
 ```sql
-drop index concurrently if exists books_concurrently_test_idx;
+drop index concurrently if exists books_concurrently_test_idx
 ```
 
 ### Locks at start
@@ -44,7 +44,7 @@ No new locks taken by this statement.
 ### SQL
 
 ```sql
-create index concurrently books_concurrently_test_idx on books(title);
+create index concurrently books_concurrently_test_idx on books(title)
 ```
 
 ### Locks at start

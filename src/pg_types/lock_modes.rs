@@ -1,7 +1,7 @@
 use crate::pg_types::lock_modes::LockMode::*;
 
 /// A lock mode in PostgreSQL, see [the documentation](https://www.postgresql.org/docs/current/explicit-locking.html)
-#[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
 pub enum LockMode {
     AccessShare,
     RowShare,

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
-use crate::hints::HintInfo;
+use crate::hints::{Hint, HintInfo};
 use crate::pg_types::locks::{Lock, LockableTarget};
 use crate::tracing::tracer::ColumnMetadata;
 
@@ -162,6 +162,7 @@ pub struct FullSqlStatementLockTrace {
     pub altered_constraints: Vec<ModifiedConstraint>,
     pub new_objects: Vec<DbObject>,
     pub lock_timeout_millis: u64,
+    pub triggered_hints: Vec<Hint>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]

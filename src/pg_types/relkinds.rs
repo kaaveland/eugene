@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// The kind of relation, as stored in the `pg_class.relkind` column.
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
 pub enum RelKind {
@@ -11,6 +13,12 @@ pub enum RelKind {
     ForeignTable,
     PartitionedTable,
     PartitionedIndex,
+}
+
+impl Display for RelKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 impl RelKind {

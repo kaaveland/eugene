@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+use crate::hints;
+use crate::hints::Hint;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local};
 use itertools::Itertools;
@@ -130,17 +132,20 @@ pub struct TxLockTracer {
     /// The name of the transaction, if any, typically the file name.
     pub(crate) name: Option<String>,
     /// The initial set of objects that are interesting to track locks for.
-    initial_objects: HashSet<Oid>,
+    pub(crate) initial_objects: HashSet<Oid>,
     /// The list of all SQL statements executed so far in the transaction.
     pub(crate) statements: Vec<SqlStatementTrace>,
+
+    /// All hints triggered by statements in this transaction, grouped by statement.
+    pub(crate) triggered_hints: Vec<Vec<Hint>>,
     /// All locks taken so far in the transaction.
-    all_locks: HashSet<Lock>,
+    pub(crate) all_locks: HashSet<Lock>,
     /// The time the trace started
     pub(crate) trace_start: DateTime<Local>,
     /// All columns in the database, along with their metadata
-    columns: HashMap<ColumnIdentifier, ColumnMetadata>,
+    pub(crate) columns: HashMap<ColumnIdentifier, ColumnMetadata>,
     /// All constraints in the database
-    constraints: HashMap<Oid, Constraint>,
+    pub(crate) constraints: HashMap<Oid, Constraint>,
     /// Is the trace from one or more `CONCURRENTLY` statements that must run outside transactions?
     pub(crate) concurrent: bool,
 
@@ -148,9 +153,45 @@ pub struct TxLockTracer {
     pub(crate) created_objects: HashSet<Oid>,
 }
 
+pub(crate) struct StatementCtx<'a> {
+    pub(crate) sql_statement_trace: &'a SqlStatementTrace,
+    pub(crate) transaction: &'a TxLockTracer,
+}
+
+impl<'a> StatementCtx<'a> {
+    pub fn new_constraints(&self) -> impl Iterator<Item = &Constraint> {
+        self.sql_statement_trace.added_constraints.iter()
+    }
+    pub fn altered_columns(&self) -> impl Iterator<Item = &ModifiedColumn> {
+        self.sql_statement_trace
+            .modified_columns
+            .iter()
+            .map(|(_, col)| col)
+    }
+    pub fn new_columns(&self) -> impl Iterator<Item = &ColumnMetadata> {
+        self.sql_statement_trace
+            .added_columns
+            .iter()
+            .map(|(_, col)| col)
+    }
+    pub fn locks_at_start(&self) -> impl Iterator<Item = &Lock> {
+        self.transaction.all_locks.iter()
+    }
+    pub fn new_locks_taken(&self) -> impl Iterator<Item = &Lock> {
+        self.sql_statement_trace.locks_taken.iter()
+    }
+    pub fn new_objects(&self) -> impl Iterator<Item = &LockableTarget> {
+        self.sql_statement_trace.created_objects.iter()
+    }
+    pub fn lock_timeout_millis(&self) -> u64 {
+        self.sql_statement_trace.lock_timeout_millis
+    }
+}
+
 impl TxLockTracer {
     /// Trace a single SQL statement, recording the locks taken and the duration of the statement.
     pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> Result<()> {
+        // TODO: This is too big and should be refactored into more manageable pieces
         let start_time = Instant::now();
         let oid_vec = self.initial_objects.iter().copied().collect_vec();
         let lock_timeout = get_lock_timeout(tx)?;
@@ -159,7 +200,6 @@ impl TxLockTracer {
         let duration = start_time.elapsed();
         let locks_taken = find_relevant_locks_in_current_transaction(tx, &self.initial_objects)?;
         let new_locks = find_new_locks(&self.all_locks, &locks_taken);
-        self.all_locks.extend(locks_taken.iter().cloned());
 
         let columns = fetch_all_columns(tx, &oid_vec)?;
         let mut added_columns = Vec::new();
@@ -208,7 +248,7 @@ impl TxLockTracer {
         self.created_objects
             .extend(new_objects.iter().map(|obj| obj.oid));
 
-        self.statements.push(SqlStatementTrace {
+        let statement = SqlStatementTrace {
             sql: sql.to_string(),
             locks_taken: new_locks.into_iter().collect(),
             start_time,
@@ -219,19 +259,33 @@ impl TxLockTracer {
             modified_constraints,
             created_objects: new_objects,
             lock_timeout_millis: lock_timeout,
-        });
+        };
+        let ctx = StatementCtx {
+            sql_statement_trace: &statement,
+            transaction: self,
+        };
+        let hints: Vec<_> = hints::HINTS.iter().filter_map(|h| h.check(&ctx)).collect();
+        self.triggered_hints.push(hints);
+        self.statements.push(statement);
+        self.all_locks.extend(locks_taken.iter().cloned());
         Ok(())
     }
-
+    /// Start a new lock tracing session.
+    ///
+    /// # Parameters
+    /// * `name` - The name of the transaction, typically the file name.
+    /// * `trace_targets` - The typically `Oid` of relations visible to other transactions.
+    /// * `columns` - Initial columns in the database, to track changes.
+    /// * `constraints` - Initial constraints in the database, to track changes.
     pub fn new(
         name: Option<String>,
-        initial_objects: HashSet<Oid>,
+        trace_targets: HashSet<Oid>,
         columns: HashMap<ColumnIdentifier, ColumnMetadata>,
         constraints: HashMap<Oid, Constraint>,
     ) -> Self {
         Self {
             name,
-            initial_objects,
+            initial_objects: trace_targets,
             statements: vec![],
             all_locks: HashSet::new(),
             trace_start: Local::now(),
@@ -239,14 +293,22 @@ impl TxLockTracer {
             constraints,
             concurrent: false,
             created_objects: Default::default(),
+            triggered_hints: vec![],
         }
     }
 
+    /// Start a new lock tracing session for a `CONCURRENTLY` statement.
+    ///
+    /// # Parameters
+    /// * `name` - The name of the transaction, typically the file name.
+    /// * `statements` - The SQL statements to trace.
+    ///
+    /// This can not really do any tracing, as `CONCURRENTLY` statements must run outside transactions.
     pub fn tracer_for_concurrently<S: AsRef<str>>(
         name: Option<String>,
         statements: impl Iterator<Item = S>,
     ) -> Self {
-        Self {
+        let mut out = Self {
             name,
             initial_objects: HashSet::new(),
             statements: statements
@@ -269,7 +331,10 @@ impl TxLockTracer {
             constraints: HashMap::new(),
             concurrent: true,
             created_objects: Default::default(),
-        }
+            triggered_hints: vec![],
+        };
+        out.triggered_hints = vec![vec![]; out.statements.len()];
+        out
     }
 }
 

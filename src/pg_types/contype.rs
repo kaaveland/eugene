@@ -10,6 +10,12 @@ pub enum Contype {
     ConstraintTrigger,
 }
 
+impl std::fmt::Display for Contype {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.to_display())
+    }
+}
+
 impl Contype {
     pub fn from_char(c: char) -> anyhow::Result<Self> {
         match c {

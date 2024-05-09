@@ -306,7 +306,7 @@ pub const HINTS: [HintInfo; 9] = [
         name: "Taking dangerous lock without timeout",
         code: ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT,
         condition: "A lock that would block many common operations was taken without a timeout",
-        workaround: "Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary",
+        workaround: "Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary",
         effect: "This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`",
         render_help: took_dangerous_lock_without_timeout,
     }

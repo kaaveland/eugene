@@ -66,7 +66,7 @@ No locks held at the start of this statement.
 
 #### Creating a new index on an existing table
 
-ID: `new_index_on_existing_table_is_nonconcurrent`
+ID: `E6`
 
 A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
 
@@ -74,7 +74,7 @@ A new index was created on the table `public.books`. The index `public.unique_ti
 
 #### Creating a new unique constraint
 
-ID: `new_unique_constraint_created_index`
+ID: `E7`
 
 Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
@@ -82,7 +82,7 @@ A new unique constraint `unique_title` was added to the table `public.books`. Th
 
 #### Taking dangerous lock without timeout
 
-ID: `dangerous_lock_without_timeout`
+ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary.
 

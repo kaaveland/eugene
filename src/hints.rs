@@ -2,7 +2,6 @@ use itertools::Itertools;
 use serde::Serialize;
 
 use crate::pg_types::contype::Contype;
-use crate::pg_types::lock_modes;
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::relkinds::RelKind;
 use crate::tracing::tracer::StatementCtx;
@@ -212,11 +211,22 @@ fn took_dangerous_lock_without_timeout(sql_statement_trace: &StatementCtx) -> Op
     }
 }
 
+pub mod ids {
+    pub const VALIDATE_CONSTRAINT_WITH_LOCK: &str = "E1";
+    pub const MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK: &str = "E2";
+    pub const ADD_JSON_COLUMN: &str = "E3";
+    pub const RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE: &str = "E4";
+    pub const TYPE_CHANGE_REQUIRES_TABLE_REWRITE: &str = "E5";
+    pub const NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT: &str = "E6";
+    pub const NEW_UNIQUE_CONSTRAINT_CREATED_INDEX: &str = "E7";
+    pub const NEW_EXCLUSION_CONSTRAINT_FOUND: &str = "E8";
+    pub const TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT: &str = "E9";
+}
 /// All the hints eugene can check statement traces against
 pub const HINTS: [HintInfo; 9] = [
     HintInfo {
         name: "Validating table with a new constraint",
-        code: "validate_constraint_with_lock",
+        code: ids::VALIDATE_CONSTRAINT_WITH_LOCK,
         condition: "A new constraint was added and it is already `VALID`",
         workaround: "Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later",
         effect: "This blocks all table access until all rows are validated",
@@ -224,7 +234,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Validating table with a new `NOT NULL` column",
-        code: "make_column_not_nullable_with_lock",
+        code: ids::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
         condition: "A column was changed from `NULL` to `NOT NULL`",
         workaround: "Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`",
         effect: "This blocks all table access until all rows are validated",
@@ -232,7 +242,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Add a new JSON column",
-        code: "add_json_column",
+        code: ids::ADD_JSON_COLUMN,
         condition: "A new column of type `json` was added to a table",
         workaround: "Use the `jsonb` type instead, it supports all use-cases of `json` and is more robust and compact",
         effect: "This breaks `SELECT DISTINCT` queries or other operations that need equality checks on the column",
@@ -240,7 +250,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Running more statements after taking `AccessExclusiveLock`",
-        code: "holding_access_exclusive",
+        code: ids::RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE,
         condition: "A transaction that holds an `AccessExclusiveLock` started a new statement",
         workaround: "Run this statement in a new transaction",
         effect: "This blocks all access to the table for the duration of this statement",
@@ -248,7 +258,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Type change requiring table rewrite",
-        code: "type_change_requires_table_rewrite",
+        code: ids::TYPE_CHANGE_REQUIRES_TABLE_REWRITE,
         condition: "A column was changed to a data type that isn't binary compatible",
         workaround: "Add a new column, update it in batches, and drop the old column",
         effect: "This causes a full table rewrite while holding a lock that prevents all other use of the table",
@@ -256,7 +266,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Creating a new index on an existing table",
-        code: "new_index_on_existing_table_is_nonconcurrent",
+        code: ids::NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT,
         condition: "A new index was created on an existing table without the `CONCURRENTLY` keyword",
         workaround: "Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`",
         effect: "This blocks all writes to the table while the index is being created",
@@ -264,7 +274,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Creating a new unique constraint",
-        code: "new_unique_constraint_created_index",
+        code: ids::NEW_UNIQUE_CONSTRAINT_CREATED_INDEX,
         condition: "Found a new unique constraint and a new index",
         workaround: "`CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index",
         effect: "This blocks all writes to the table while the index is being created and validated",
@@ -272,7 +282,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Creating a new exclusion constraint",
-        code: "new_exclusion_constraint_created",
+        code: ids::NEW_EXCLUSION_CONSTRAINT_FOUND,
         condition: "Found a new exclusion constraint",
         workaround: "There is no safe way to add an exclusion constraint to an existing table",
         effect: "This blocks all reads and writes to the table while the constraint index is being created",
@@ -280,7 +290,7 @@ pub const HINTS: [HintInfo; 9] = [
     },
     HintInfo {
         name: "Taking dangerous lock without timeout",
-        code: "dangerous_lock_without_timeout",
+        code: ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT,
         condition: "A lock that would block many common operations was taken without a timeout",
         workaround: "Run `SET lock_timeout = '2s';` before the statement and retry the migration if necessary",
         effect: "This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`",

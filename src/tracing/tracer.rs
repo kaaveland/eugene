@@ -1,14 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use crate::hints;
-use crate::hints::Hint;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local};
 use itertools::Itertools;
 use postgres::types::Oid;
 use postgres::Transaction;
 
+use crate::hints;
+use crate::hints::Hint;
 use crate::pg_types::contype::Contype;
 use crate::pg_types::locks::{Lock, LockableTarget};
 
@@ -512,6 +512,7 @@ mod tests {
     use postgres::{Client, NoTls};
 
     use crate::generate_new_test_db;
+    use crate::hints::ids;
     use crate::pg_types::lock_modes::LockMode;
 
     fn get_client() -> Client {
@@ -536,6 +537,9 @@ mod tests {
         let modification = &trace.statements[0].modified_columns[0].1;
         assert!(modification.old.nullable);
         assert!(!modification.new.nullable);
+        assert!(trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.code == ids::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK));
     }
 
     #[test]
@@ -575,6 +579,12 @@ mod tests {
             constraint.expression.clone().unwrap().as_str(),
             "FOREIGN KEY (author_id) REFERENCES authors(id)"
         );
+        assert!(trace.triggered_hints[2]
+            .iter()
+            .any(|hint| hint.code == ids::VALIDATE_CONSTRAINT_WITH_LOCK));
+        assert!(trace.triggered_hints[2]
+            .iter()
+            .any(|hint| hint.code == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
     }
 
     #[test]
@@ -591,6 +601,9 @@ mod tests {
         let constraint = &trace.statements[0].added_constraints[0];
         assert_eq!(constraint.constraint_type, super::Contype::Check);
         assert!(!constraint.valid);
+        assert!(!trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.code == ids::VALIDATE_CONSTRAINT_WITH_LOCK));
     }
 
     #[test]
@@ -622,6 +635,12 @@ mod tests {
         assert_eq!(modification.old.typename, "text");
         assert_eq!(modification.new.typename, "varchar");
         assert_eq!(modification.new.max_len.unwrap(), 255);
+        assert!(trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.code == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
+        assert!(trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.code == ids::TYPE_CHANGE_REQUIRES_TABLE_REWRITE));
     }
 
     #[test]
@@ -693,6 +712,12 @@ mod tests {
             .created_objects
             .iter()
             .any(|obj| obj.object_name == "books_title_idx"));
+        assert!(trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.code == ids::NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT));
+        assert!(trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.code == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
     }
 
     #[test]
@@ -709,7 +734,8 @@ mod tests {
             .into_iter(),
         )
         .unwrap();
-
+        assert!(trace.triggered_hints[0].is_empty());
+        assert!(trace.triggered_hints[1].is_empty());
         assert!(trace.statements[1].locks_taken.is_empty());
     }
 
@@ -728,6 +754,9 @@ mod tests {
         )
         .unwrap();
         assert!(trace.statements[0].created_objects.is_empty());
+        assert!(trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.code == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
     }
 
     #[test]
@@ -745,5 +774,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(trace.statements[1].lock_timeout_millis, 1000);
+        assert!(trace.triggered_hints[0].is_empty());
+        assert!(trace.triggered_hints[1].is_empty());
     }
 }

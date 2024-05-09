@@ -43,7 +43,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-alter table books add constraint check_title_not_null check (title is not null) not valid;
+alter table books add constraint check_title_not_null check (title is not null) not valid
 ```
 
 ### Locks at start
@@ -71,7 +71,7 @@ The statement took `AccessExclusiveLock` on the Table `public.books` without a t
 ### SQL
 
 ```sql
-alter table books validate constraint check_title_not_null;
+alter table books validate constraint check_title_not_null
 ```
 
 ### Locks at start

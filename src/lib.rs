@@ -108,7 +108,7 @@ pub fn perform_trace(
         trace.path.split('/').last().map(|s| s.to_string())
     };
     let sql_script = resolve_placeholders(&script_content, &trace.placeholders)?;
-    let sql_statements = sql_statements(&sql_script);
+    let sql_statements = sql_statements(&sql_script)?;
 
     let all_concurrently = sql_statements.iter().all(sqltext::is_concurrently);
 
@@ -116,7 +116,7 @@ pub fn perform_trace(
 
     let result = if all_concurrently && trace.commit {
         for s in sql_statements.iter() {
-            conn.execute(s, &[])?;
+            conn.execute(*s, &[])?;
         }
         TxLockTracer::tracer_for_concurrently(name, sql_statements.iter())
     } else {

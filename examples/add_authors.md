@@ -51,7 +51,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-create table authors(id serial primary key, name text not null);
+create table authors(id serial primary key, name text not null)
 ```
 
 ### Locks at start
@@ -68,7 +68,7 @@ No new locks taken by this statement.
 ### SQL
 
 ```sql
-alter table books alter column title set not null;
+alter table books alter column title set not null
 ```
 
 ### Locks at start
@@ -109,7 +109,7 @@ The statement took `AccessExclusiveLock` on the Table `public.books` without a t
 ### SQL
 
 ```sql
-alter table books add column author_id integer not null;
+alter table books add column author_id integer not null
 ```
 
 ### Locks at start
@@ -138,7 +138,7 @@ The statement is running while holding an `AccessExclusiveLock` on the Table `pu
 ### SQL
 
 ```sql
-alter table books add foreign key (author_id) references authors(id);
+alter table books add foreign key (author_id) references authors(id)
 ```
 
 ### Locks at start
@@ -187,7 +187,7 @@ The statement took `ShareRowExclusiveLock` on the Table `public.books` without a
 ### SQL
 
 ```sql
-select * from books;
+select * from books
 ```
 
 ### Locks at start

@@ -48,7 +48,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-alter table books alter column title set not null;
+alter table books alter column title set not null
 ```
 
 ### Locks at start
@@ -89,7 +89,7 @@ The statement took `AccessExclusiveLock` on the Table `public.books` without a t
 ### SQL
 
 ```sql
-alter table books add constraint title_unique unique (title);
+alter table books add constraint title_unique unique (title)
 ```
 
 ### Locks at start

@@ -134,9 +134,9 @@ fn type_change_requires_table_rewrite(sql_statement_trace: &StatementCtx) -> Opt
         .find(|obj| obj.rel_kind == RelKind::Table)?;
 
     let help = format!(
-            "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This always requires \
-            an `AccessExclusiveLock` that will block all other transactions from using the table, and for some \
-            type changes, it causes a time-consuming table rewrite.",
+            "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This requires \
+            an `AccessExclusiveLock` that will block all other transactions from using the table while \
+            it is being rewritten.",
             column.new.column_name,
             column.new.schema_name,
             column.new.table_name,

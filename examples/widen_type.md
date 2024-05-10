@@ -111,7 +111,7 @@ ID: `E5`
 
 A column was changed to a data type that isn't binary compatible. This causes a full table rewrite while holding a lock that prevents all other use of the table. A safer way is: Add a new column, update it in batches, and drop the old column.
 
-The column `price` in the table `public.books` was changed from type `int4` to `int8`. This always requires an `AccessExclusiveLock` that will block all other transactions from using the table, and for some type changes, it causes a time-consuming table rewrite.
+The column `price` in the table `public.books` was changed from type `int4` to `int8`. This requires an `AccessExclusiveLock` that will block all other transactions from using the table while it is being rewritten.
 
 #### Creating a new index on an existing table
 

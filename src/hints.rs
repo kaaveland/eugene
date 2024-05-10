@@ -200,6 +200,7 @@ fn new_exclusion_constraint_found(sql_statement_trace: &StatementCtx) -> Option<
     );
     Some(help)
 }
+
 fn took_dangerous_lock_without_timeout(sql_statement_trace: &StatementCtx) -> Option<String> {
     if sql_statement_trace.lock_timeout_millis() > 0 {
         None

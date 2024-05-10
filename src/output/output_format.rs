@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::hints::HintInfo;
 use crate::pg_types::locks::{Lock, LockableTarget};
-use crate::tracing::tracer::ColumnMetadata;
+use crate::tracing::queries::ColumnMetadata;
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
 pub struct GenericHint {
@@ -119,8 +119,8 @@ pub struct Constraint {
     pub definition: Option<String>,
 }
 
-impl From<&crate::tracing::tracer::Constraint> for Constraint {
-    fn from(constraint: &crate::tracing::tracer::Constraint) -> Self {
+impl From<&crate::tracing::queries::Constraint> for Constraint {
+    fn from(constraint: &crate::tracing::queries::Constraint) -> Self {
         Constraint {
             schema_name: constraint.schema_name.clone(),
             table_name: constraint.table_name.clone(),

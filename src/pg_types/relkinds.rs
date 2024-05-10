@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 /// The kind of relation, as stored in the `pg_class.relkind` column.
-#[derive(Eq, PartialEq, Debug, Copy, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
 pub enum RelKind {
     Table,
     Index,

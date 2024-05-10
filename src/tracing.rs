@@ -345,14 +345,11 @@ mod tests {
     #[test]
     fn test_widening_type_causes_rewrite() {
         let mut client = get_client();
-        client
-            .execute("alter table books add column s smallint", &[])
-            .unwrap();
         let mut tx = client.transaction().unwrap();
         let trace = super::trace_transaction(
             None,
             &mut tx,
-            vec!["alter table books alter column s type int"].into_iter(),
+            vec!["alter table books alter column price type bigint"].into_iter(),
         )
         .unwrap();
         assert!(trace.statements[0]

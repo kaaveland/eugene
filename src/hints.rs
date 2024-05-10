@@ -1,5 +1,6 @@
 use crate::output::output_format::Hint;
 use itertools::Itertools;
+use std::cmp::Reverse;
 
 use crate::pg_types::contype::Contype;
 use crate::pg_types::lock_modes::LockMode;
@@ -225,6 +226,39 @@ fn took_dangerous_lock_without_timeout(sql_statement_trace: &StatementCtx) -> Op
     }
 }
 
+fn rewrote_table_or_index(ctx: &StatementCtx) -> Option<String> {
+    let rewritten = ctx
+        .rewritten_objects()
+        .sorted_by_key(|obj| obj.rel_kind) // prioritize tables
+        .find(|obj| matches!(obj.rel_kind, RelKind::Index | RelKind::Table))?;
+    let lock = ctx
+        .locks_at_start()
+        .sorted_by_key(|lock| (Reverse(lock.mode), lock.target.rel_kind))
+        .find(|lock| lock.mode.dangerous())
+        .or_else(|| {
+            ctx.new_locks_taken()
+                .sorted_by_key(|lock| (Reverse(lock.mode), lock.target.rel_kind))
+                .find(|lock| lock.mode.dangerous())
+        })?;
+    let relkind_rewritten = rewritten.rel_kind.as_str();
+    let relkind_locked = lock.target.rel_kind.as_str();
+    let blocked_q = lock
+        .mode
+        .blocked_queries()
+        .iter()
+        .map(|q| format!("`{}`", q))
+        .collect_vec()
+        .join(", ");
+    let locked_obj = format!("{}.{}", lock.target.schema, lock.target.object_name);
+    let rewritten_obj = format!("{}.{}", rewritten.schema_name, rewritten.object_name);
+    let mode = lock.mode.to_db_str();
+    let help = format!(
+        "The {relkind_rewritten} `{rewritten_obj}` was rewritten while holding `{mode}` on the {relkind_locked} `{locked_obj}`\
+        . This blocks {blocked_q} while the rewrite is in progress.",
+    );
+    Some(help)
+}
+
 pub mod ids {
     pub const VALIDATE_CONSTRAINT_WITH_LOCK: &str = "E1";
     pub const MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK: &str = "E2";
@@ -235,9 +269,10 @@ pub mod ids {
     pub const NEW_UNIQUE_CONSTRAINT_CREATED_INDEX: &str = "E7";
     pub const NEW_EXCLUSION_CONSTRAINT_FOUND: &str = "E8";
     pub const TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT: &str = "E9";
+    pub const REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK: &str = "E10";
 }
 /// All the hints eugene can check statement traces against
-pub const HINTS: [HintInfo; 9] = [
+pub const HINTS: [HintInfo; 10] = [
     HintInfo {
         name: "Validating table with a new constraint",
         code: ids::VALIDATE_CONSTRAINT_WITH_LOCK,
@@ -309,5 +344,13 @@ pub const HINTS: [HintInfo; 9] = [
         workaround: "Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary",
         effect: "This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`",
         render_help: took_dangerous_lock_without_timeout,
+    },
+    HintInfo {
+        name: "Rewrote table or index while holding dangerous lock",
+        code: ids::REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK,
+        condition: "A table or index was rewritten while holding a lock that blocks many operations",
+        workaround: "Build a new table or index, write to both, then swap them",
+        effect: "This blocks many operations on the table or index while the rewrite is in progress",
+        render_help: rewrote_table_or_index,
     }
 ];

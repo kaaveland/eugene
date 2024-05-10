@@ -7,7 +7,8 @@ CREATE DATABASE "snapshot-test";
 CREATE TABLE books
 (
     id    SERIAL PRIMARY KEY,
-    title text
+    title text,
+    price integer
 );
 
 CREATE TABLE for_checking_modified_constraints (
@@ -29,6 +30,7 @@ CREATE TABLE books
 CREATE TABLE books
 (
     id    SERIAL PRIMARY KEY,
-    title text
+    title text,
+    price integer
 );
 

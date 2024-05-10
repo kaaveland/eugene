@@ -6,9 +6,10 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use postgres::{Client, NoTls};
+use tracing::trace_transaction;
 
 use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
-use crate::tracing::{trace_transaction, TxLockTracer};
+use crate::tracing::TxLockTracer;
 
 /// Hints that can help avoid dangerous migrations, by minimizing time spent holding dangerous locks.
 pub mod hints;

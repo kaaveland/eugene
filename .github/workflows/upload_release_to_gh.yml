@@ -53,21 +53,27 @@ jobs:
           - toolchain: x86_64-unknown-linux-gnu
             platform: linux/amd64
             runs-on: ubuntu-latest
-          - toolchain: aarch64-unknown-linux-gnu
-            platform: linux/arm64
-            runs-on: ubuntu-latest
+            cargo: cargo
+#   A `libclang` function was called that is not supported by the loaded `libclang` instance.
+#          - toolchain: aarch64-unknown-linux-gnu
+#            platform: linux/arm64
+#            runs-on: ubuntu-latest
           - toolchain: x86_64-unknown-linux-musl
             platform: linux/amd64
             runs-on: ubuntu-latest
+            cargo: cross
           - toolchain: aarch64-unknown-linux-musl
             platform: linux/arm64
             runs-on: ubuntu-latest
+            cargo: cross
           - toolchain: x86_64-apple-darwin
             platform: darwin/amd64
             runs-on: macos-latest
+            cargo: cross
           - toolchain: aarch64-apple-darwin
             platform: darwin/arm64
             runs-on: macos-latest
+            cargo: cross
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain for ${{ matrix.target.toolchain }}
@@ -118,7 +124,7 @@ jobs:
           version="$(cargo read-manifest | jq -r .version)"
           gh release download "$version" 
           cp eugene-x86_64-unknown-linux-gnu eugene-amd64
-          cp eugene-aarch64-unknown-linux-gnu eugene-arm64
+          cp eugene-aarch64-unknown-linux-musl eugene-arm64
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2
         with:

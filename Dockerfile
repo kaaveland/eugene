@@ -1,4 +1,4 @@
-FROM debian:stable-slim
+FROM alpine
 
 ARG TARGETARCH
 COPY ./eugene-${TARGETARCH} /usr/local/bin/eugene

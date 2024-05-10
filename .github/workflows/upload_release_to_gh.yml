@@ -48,12 +48,14 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     strategy:
+      fail-fast: false
       matrix:
         target:
-          - toolchain: x86_64-unknown-linux-gnu
-            platform: linux/amd64
-            runs-on: ubuntu-latest
-            cargo: cargo
+#   A `libclang` function was called that is not supported by the loaded `libclang` instance.-
+#          - toolchain: x86_64-unknown-linux-gnu
+#            platform: linux/amd64
+#            runs-on: ubuntu-latest
+#            cargo: cargo
 #   A `libclang` function was called that is not supported by the loaded `libclang` instance.
 #          - toolchain: aarch64-unknown-linux-gnu
 #            platform: linux/arm64
@@ -123,7 +125,7 @@ jobs:
         run: |
           version="$(cargo read-manifest | jq -r .version)"
           gh release download "$version" 
-          cp eugene-x86_64-unknown-linux-gnu eugene-amd64
+          cp eugene-x86_64-unknown-linux-musl eugene-amd64
           cp eugene-aarch64-unknown-linux-musl eugene-arm64
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v2

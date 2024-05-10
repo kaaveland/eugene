@@ -128,9 +128,11 @@ fn running_statement_while_holding_access_exclusive(
 fn type_change_requires_table_rewrite(sql_statement_trace: &StatementCtx) -> Option<String> {
     let (_, column) = sql_statement_trace
         .altered_columns()
-        // TODO: This is not true for all type changes, eg. cidr -> inet is safe
-        // TODO: The check is also not sufficient, since varchar(10) -> varchar(20) is safe, but the opposite isn't
         .find(|(_, column)| column.new.typename != column.old.typename)?;
+    let _ = sql_statement_trace
+        .rewritten_objects()
+        .find(|obj| obj.rel_kind == RelKind::Table)?;
+
     let help = format!(
             "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This always requires \
             an `AccessExclusiveLock` that will block all other transactions from using the table, and for some \

@@ -186,12 +186,11 @@ impl<'a> StatementCtx<'a> {
         self.sql_statement_trace.lock_timeout_millis
     }
 
-    pub fn constraints_on(&self, oid: Oid) -> Vec<&Constraint> {
+    pub fn constraints_on(&self, oid: Oid) -> impl Iterator<Item = &Constraint> {
         self.transaction
             .constraints
             .values()
-            .filter(|con| con.target == oid)
-            .collect()
+            .filter(move |con| con.target == oid)
     }
 }
 

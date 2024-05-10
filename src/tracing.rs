@@ -1,9 +1,33 @@
 use postgres::Transaction;
 use std::collections::HashSet;
 pub use tracer::{SqlStatementTrace, TxLockTracer};
+pub mod queries;
 /// Implementation details of the lock tracer.
 pub mod tracer;
-pub mod queries;
+
+/// Trace a transaction, executing a series of SQL statements and recording the locks taken.
+pub fn trace_transaction<S: AsRef<str>>(
+    name: Option<String>,
+    tx: &mut Transaction,
+    sql_statements: impl Iterator<Item = S>,
+) -> anyhow::Result<TxLockTracer> {
+    let initial_objects: HashSet<_> = queries::fetch_lockable_objects(tx, &[])?
+        .into_iter()
+        .map(|obj| obj.oid)
+        .collect();
+    let oid_vec: Vec<_> = initial_objects.iter().copied().collect();
+    let columns = queries::fetch_all_columns(tx, &oid_vec)?;
+    let constraints = queries::fetch_constraints(tx, &oid_vec)?;
+    let relfile_ids = queries::fetch_all_rel_file_ids(tx, &oid_vec)?
+        .into_iter()
+        .map(|(oid, relfile_id)| (oid, relfile_id.relfilenode))
+        .collect();
+    let mut trace = TxLockTracer::new(name, initial_objects, columns, constraints, relfile_ids);
+    for sql in sql_statements {
+        trace.trace_sql_statement(tx, sql.as_ref().trim())?;
+    }
+    Ok(trace)
+}
 
 #[cfg(test)]
 mod tests {
@@ -317,24 +341,39 @@ mod tests {
             .iter()
             .any(|hint| hint.id == ids::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK));
     }
-}
 
-/// Trace a transaction, executing a series of SQL statements and recording the locks taken.
-pub fn trace_transaction<S: AsRef<str>>(
-    name: Option<String>,
-    tx: &mut Transaction,
-    sql_statements: impl Iterator<Item = S>,
-) -> anyhow::Result<TxLockTracer> {
-    let initial_objects: HashSet<_> = queries::fetch_lockable_objects(tx, &[])?
-        .into_iter()
-        .map(|obj| obj.oid)
-        .collect();
-    let oid_vec: Vec<_> = initial_objects.iter().copied().collect();
-    let columns = queries::fetch_all_columns(tx, &oid_vec)?;
-    let constraints = queries::fetch_constraints(tx, &oid_vec)?;
-    let mut trace = TxLockTracer::new(name, initial_objects, columns, constraints);
-    for sql in sql_statements {
-        trace.trace_sql_statement(tx, sql.as_ref().trim())?;
+    #[test]
+    fn test_widening_type_causes_rewrite() {
+        let mut client = get_client();
+        client
+            .execute("alter table books add column s smallint", &[])
+            .unwrap();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["alter table books alter column s type int"].into_iter(),
+        )
+        .unwrap();
+        assert!(trace.statements[0]
+            .rewritten_objects
+            .iter()
+            .any(|obj| obj.object_name == "books" && obj.schema_name == "public"));
     }
-    Ok(trace)
+
+    #[test]
+    fn test_dropping_column_does_not_cause_rewrite() {
+        let mut client = get_client();
+        client
+            .execute("insert into books (title) values ('hello')", &[])
+            .unwrap();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["alter table books drop column title"].into_iter(),
+        )
+        .unwrap();
+        assert!(trace.statements[0].rewritten_objects.is_empty());
+    }
 }

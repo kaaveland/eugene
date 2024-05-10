@@ -11,7 +11,7 @@ use crate::hints;
 use crate::output::output_format::Hint;
 use crate::pg_types::locks::{Lock, LockableTarget};
 use crate::tracing::queries;
-use crate::tracing::queries::{ColumnIdentifier, ColumnMetadata, Constraint};
+use crate::tracing::queries::{ColumnIdentifier, ColumnMetadata, Constraint, RelfileId};
 
 /// A trace of a single SQL statement, including the locks taken and the duration of the statement.
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -36,6 +36,9 @@ pub struct SqlStatementTrace {
     pub(crate) created_objects: Vec<LockableTarget>,
     /// The `lock_timeout` that was active in postgres when `sql` started to execute
     pub(crate) lock_timeout_millis: u64,
+
+    /// Rewritten database objects
+    pub(crate) rewritten_objects: Vec<RelfileId>,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -75,7 +78,7 @@ pub struct TxLockTracer {
 
     /// Database objects that have been created in the transaction
     pub(crate) created_objects: HashSet<Oid>,
-    
+
     /// The relation file IDs of all relations in the database
     pub(crate) relfile_ids: HashMap<Oid, u32>,
 }
@@ -110,12 +113,14 @@ impl<'a> StatementCtx<'a> {
     pub fn lock_timeout_millis(&self) -> u64 {
         self.sql_statement_trace.lock_timeout_millis
     }
-
     pub fn constraints_on(&self, oid: Oid) -> impl Iterator<Item = &Constraint> {
         self.transaction
             .constraints
             .values()
             .filter(move |con| con.target == oid)
+    }
+    pub fn rewritten_objects(&self) -> impl Iterator<Item = &RelfileId> {
+        self.sql_statement_trace.rewritten_objects.iter()
     }
 }
 
@@ -129,8 +134,18 @@ impl TxLockTracer {
         tx.execute(sql, &[])
             .map_err(|err| anyhow!("{err} while executing {}", sql.to_owned()))?;
         let duration = start_time.elapsed();
-        let locks_taken = queries::find_relevant_locks_in_current_transaction(tx, &self.initial_objects)?;
+        let locks_taken =
+            queries::find_relevant_locks_in_current_transaction(tx, &self.initial_objects)?;
         let new_locks = queries::find_new_locks(&self.all_locks, &locks_taken);
+        let relfile_ids = queries::fetch_all_rel_file_ids(tx, &oid_vec)?;
+
+        let changed_ids: Vec<_> = relfile_ids
+            .into_iter()
+            .filter(|(oid, id)| self.relfile_ids.get(oid) != Some(&id.relfilenode))
+            .map(|(_, id)| id)
+            .collect();
+        self.relfile_ids
+            .extend(changed_ids.iter().map(|id| (id.oid, id.relfilenode)));
 
         let columns = queries::fetch_all_columns(tx, &oid_vec)?;
         let mut added_columns = Vec::new();
@@ -190,6 +205,7 @@ impl TxLockTracer {
             modified_constraints,
             created_objects: new_objects,
             lock_timeout_millis: lock_timeout,
+            rewritten_objects: changed_ids,
         };
         let ctx = StatementCtx {
             sql_statement_trace: &statement,
@@ -213,6 +229,7 @@ impl TxLockTracer {
         trace_targets: HashSet<Oid>,
         columns: HashMap<ColumnIdentifier, ColumnMetadata>,
         constraints: HashMap<Oid, Constraint>,
+        relfile_ids: HashMap<Oid, u32>,
     ) -> Self {
         Self {
             name,
@@ -225,7 +242,7 @@ impl TxLockTracer {
             concurrent: false,
             created_objects: Default::default(),
             triggered_hints: vec![],
-            relfile_ids: Default::default(),
+            relfile_ids,
         }
     }
 
@@ -255,6 +272,7 @@ impl TxLockTracer {
                     modified_constraints: vec![],
                     created_objects: vec![],
                     lock_timeout_millis: 0,
+                    rewritten_objects: vec![],
                 })
                 .collect(),
             all_locks: HashSet::new(),

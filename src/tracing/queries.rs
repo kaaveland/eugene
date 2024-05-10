@@ -1,9 +1,12 @@
-use postgres::Transaction;
-use postgres::types::Oid;
 use std::collections::{HashMap, HashSet};
-use anyhow::anyhow;
+
+use anyhow::{anyhow, Context};
+use postgres::types::Oid;
+use postgres::Transaction;
+
 use crate::pg_types::contype::Contype;
 use crate::pg_types::locks::{Lock, LockableTarget};
+use crate::pg_types::relkinds::RelKind;
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
 pub struct ColumnIdentifier {
@@ -36,8 +39,9 @@ pub struct Constraint {
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct RelfileId {
     pub(crate) schema_name: String,
-    pub(crate) table_name: String,
+    pub(crate) object_name: String,
     pub(crate) relfilenode: u32,
+    pub(crate) rel_kind: RelKind,
     pub(crate) oid: Oid,
 }
 
@@ -146,7 +150,10 @@ pub fn fetch_all_columns(
 }
 
 /// Fetch all non-system constraints in the database that match an `oid`
-pub fn fetch_constraints(tx: &mut Transaction, oids: &[Oid]) -> anyhow::Result<HashMap<Oid, Constraint>> {
+pub fn fetch_constraints(
+    tx: &mut Transaction,
+    oids: &[Oid],
+) -> anyhow::Result<HashMap<Oid, Constraint>> {
     let sql = "SELECT
            n.nspname as schema_name,
            c.relname as table_name,
@@ -225,9 +232,12 @@ pub fn fetch_lockable_objects(
 }
 
 /// Fetch all non-system relation file ids in the database
-pub fn fetch_all_rel_file_ids(tx: &mut Transaction, tracked_objects: &[Oid]) -> anyhow::Result<HashMap<Oid, RelfileId>> {
+pub fn fetch_all_rel_file_ids(
+    tx: &mut Transaction,
+    tracked_objects: &[Oid],
+) -> anyhow::Result<HashMap<Oid, RelfileId>> {
     // select schema, name, relfilenode, oid from pg_class where oid = any($1)
-    let query = "SELECT c.oid, c.relfilenode, n.nspname, c.relname
+    let query = "SELECT c.oid, c.relfilenode, n.nspname, c.relname, c.relkind
          FROM pg_catalog.pg_class c
            JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
          WHERE c.oid = ANY($1)";
@@ -238,12 +248,19 @@ pub fn fetch_all_rel_file_ids(tx: &mut Transaction, tracked_objects: &[Oid]) -> 
             let relfilenode: u32 = row.try_get(1)?;
             let schema_name: String = row.try_get(2)?;
             let table_name: String = row.try_get(3)?;
-            Ok((oid, RelfileId {
-                schema_name,
-                table_name,
-                relfilenode,
+            let relkind = row.try_get::<_, i8>(4)?;
+            let relkind = (relkind as u8) as char;
+            let relkind = RelKind::from_db_code(relkind).context("Invalid relkind")?;
+            Ok((
                 oid,
-            }))
+                RelfileId {
+                    schema_name,
+                    object_name: table_name,
+                    relfilenode,
+                    oid,
+                    rel_kind: relkind,
+                },
+            ))
         })
         .collect()
 }
@@ -270,4 +287,3 @@ pub fn get_lock_timeout(tx: &mut Transaction) -> anyhow::Result<u64> {
         _ => Err(anyhow!("Invalid unit: {unit}")),
     }
 }
-

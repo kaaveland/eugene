@@ -201,7 +201,7 @@ pub fn generate_new_test_db() -> String {
 mod tests {
     use postgres::NoTls;
 
-    use crate::{ConnectionSettings, generate_new_test_db};
+    use crate::{generate_new_test_db, ConnectionSettings};
 
     #[test]
     fn test_with_commit_we_can_run_concurrently_statements() {

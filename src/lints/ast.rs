@@ -1,6 +1,6 @@
 use anyhow::Context;
 use pg_query::protobuf::{
-    AlterTableCmd, AlterTableType, ColumnDef, CreateStmt, CreateTableAsStmt, IndexStmt,
+    AlterTableCmd, AlterTableType, ColumnDef, ConstrType, CreateStmt, CreateTableAsStmt, IndexStmt,
     VariableSetStmt,
 };
 
@@ -39,7 +39,11 @@ impl StatementSummary {
             } => vec![(schema, idxname)],
             StatementSummary::CreateTable { schema, name } => vec![(schema, name)],
             StatementSummary::CreateTableAs { schema, name } => vec![(schema, name)],
-            _ => vec![],
+            StatementSummary::Ignored
+            | StatementSummary::LockTimeout
+            | StatementSummary::AlterTable { .. } => {
+                vec![]
+            }
         }
     }
     /// Returns a list of (schema, name) tuples for objects locked by this statement
@@ -56,7 +60,9 @@ impl StatementSummary {
             StatementSummary::CreateTable { schema, name } => vec![(schema, name)],
             StatementSummary::CreateTableAs { schema, name } => vec![(schema, name)],
             StatementSummary::AlterTable { schema, name, .. } => vec![(schema, name)],
-            _ => vec![],
+            StatementSummary::Ignored | StatementSummary::LockTimeout => {
+                vec![]
+            }
         }
     }
 }
@@ -64,8 +70,19 @@ impl StatementSummary {
 /// Represents an action taken in an ALTER TABLE statement, such as setting a column type
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AlterTableAction {
-    SetType { column: String, type_name: String },
-    SetNotNull { column: String },
+    SetType {
+        column: String,
+        type_name: String,
+    },
+    SetNotNull {
+        column: String,
+    },
+    AddConstraint {
+        name: String,
+        use_index: bool,
+        constraint_type: ConstrType,
+        valid: bool,
+    },
     Unrecognized,
 }
 
@@ -139,7 +156,46 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableA
         AlterTableType::AtSetNotNull => Ok(AlterTableAction::SetNotNull {
             column: child.name.clone(),
         }),
+        AlterTableType::AtAddConstraint => {
+            let def = expect_constraint_def(child)?;
+            let name = def.conname.clone();
+
+            let constraint_type = def.contype;
+            let constraint_type = ConstrType::from_i32(constraint_type)
+                .context(format!("Invalid constraint type: {}", constraint_type))?;
+            let use_index = !def.indexname.is_empty();
+            let valid = !def.skip_validation;
+            Ok(AlterTableAction::AddConstraint {
+                name,
+                use_index,
+                constraint_type,
+                valid,
+            })
+        }
         _ => Ok(AlterTableAction::Unrecognized),
+    }
+}
+
+fn expect_constraint_def(child: &AlterTableCmd) -> anyhow::Result<&pg_query::protobuf::Constraint> {
+    if let Some(def) = &child.def {
+        let next = def.node.as_ref();
+        if let Some(n) = next {
+            if let pg_query::NodeRef::Constraint(constraint) = n.to_ref() {
+                Ok(constraint)
+            } else {
+                Err(anyhow::anyhow!(
+                    "AlterTableCmd Expected constraint def, found: {n:?}"
+                ))
+            }
+        } else {
+            Err(anyhow::anyhow!(
+                "AlterTableCmd expected constraint def node, found none"
+            ))
+        }
+    } else {
+        Err(anyhow::anyhow!(
+            "AlterTableCmd expected constraint def, found none"
+        ))
     }
 }
 
@@ -352,6 +408,57 @@ mod tests {
                 name: "bar".to_string(),
                 actions: vec![super::AlterTableAction::SetNotNull {
                     column: "baz".to_string()
+                }]
+            }
+        );
+    }
+
+    #[test]
+    fn test_adding_not_valid_fkey() {
+        assert_eq!(
+            parse_s("ALTER TABLE foo ADD CONSTRAINT fkey FOREIGN KEY (bar) REFERENCES baz (id) NOT VALID"),
+            StatementSummary::AlterTable {
+                schema: "".to_string(),
+                name: "foo".to_string(),
+                actions: vec![super::AlterTableAction::AddConstraint {
+                    name: "fkey".to_string(),
+                    use_index: false,
+                    constraint_type: pg_query::protobuf::ConstrType::ConstrForeign,
+                    valid: false
+                }]
+            }
+        );
+    }
+
+    #[test]
+    fn test_adding_unique_using_index() {
+        assert_eq!(
+            parse_s("ALTER TABLE foo ADD CONSTRAINT unique_fkey UNIQUE USING INDEX idx"),
+            StatementSummary::AlterTable {
+                schema: "".to_string(),
+                name: "foo".to_string(),
+                actions: vec![super::AlterTableAction::AddConstraint {
+                    name: "unique_fkey".to_string(),
+                    use_index: true,
+                    constraint_type: pg_query::protobuf::ConstrType::ConstrUnique,
+                    valid: true
+                }]
+            }
+        );
+    }
+
+    #[test]
+    fn test_adding_check_not_valid() {
+        assert_eq!(
+            parse_s("ALTER TABLE foo ADD CONSTRAINT check_fkey CHECK (bar > 0) NOT VALID"),
+            StatementSummary::AlterTable {
+                schema: "".to_string(),
+                name: "foo".to_string(),
+                actions: vec![super::AlterTableAction::AddConstraint {
+                    name: "check_fkey".to_string(),
+                    use_index: false,
+                    constraint_type: pg_query::protobuf::ConstrType::ConstrCheck,
+                    valid: false
                 }]
             }
         );

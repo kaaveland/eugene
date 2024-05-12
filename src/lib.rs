@@ -13,6 +13,8 @@ use crate::tracing::TxLockTracer;
 
 /// Hints that can help avoid dangerous migrations, by minimizing time spent holding dangerous locks.
 pub mod hints;
+/// Hints that can be trigged only by looking at the SQL script, without running it.
+pub mod lints;
 /// Generate output structures for lock traces and static data like lock modes.
 /// This module is used by the binary to generate output in various formats is currently
 /// the best documentation of output format, and can be considered a public api

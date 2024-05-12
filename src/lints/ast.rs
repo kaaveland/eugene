@@ -1,0 +1,359 @@
+use anyhow::Context;
+use pg_query::protobuf::{
+    AlterTableCmd, AlterTableType, ColumnDef, CreateStmt, CreateTableAsStmt, IndexStmt,
+    VariableSetStmt,
+};
+
+/// A simpler, linter-rule friendly representation of the postgres parse tree
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StatementSummary {
+    Ignored,
+    LockTimeout,
+    CreateTable {
+        schema: String,
+        name: String,
+    },
+    CreateTableAs {
+        schema: String,
+        name: String,
+    },
+    CreateIndex {
+        schema: String,
+        idxname: String,
+        concurrently: bool,
+        target: String,
+    },
+    AlterTable {
+        schema: String,
+        name: String,
+        actions: Vec<AlterTableAction>,
+    },
+}
+
+impl StatementSummary {
+    /// Returns a list of (schema, name) tuples for objects created by this statement
+    pub fn created_objects(&self) -> Vec<(&str, &str)> {
+        match self {
+            StatementSummary::CreateIndex {
+                schema, idxname, ..
+            } => vec![(schema, idxname)],
+            StatementSummary::CreateTable { schema, name } => vec![(schema, name)],
+            StatementSummary::CreateTableAs { schema, name } => vec![(schema, name)],
+            _ => vec![],
+        }
+    }
+    /// Returns a list of (schema, name) tuples for objects locked by this statement
+    ///
+    /// For CREATE INDEX, the index and the table/matview are both locked
+    pub fn lock_targets(&self) -> Vec<(&str, &str)> {
+        match self {
+            StatementSummary::CreateIndex {
+                schema,
+                idxname,
+                target,
+                ..
+            } => vec![(schema, idxname), (schema, target)],
+            StatementSummary::CreateTable { schema, name } => vec![(schema, name)],
+            StatementSummary::CreateTableAs { schema, name } => vec![(schema, name)],
+            StatementSummary::AlterTable { schema, name, .. } => vec![(schema, name)],
+            _ => vec![],
+        }
+    }
+}
+
+/// Represents an action taken in an ALTER TABLE statement, such as setting a column type
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AlterTableAction {
+    SetType { column: String, type_name: String },
+    SetNotNull { column: String },
+    Unrecognized,
+}
+
+fn set_statement(child: &VariableSetStmt) -> anyhow::Result<StatementSummary> {
+    if child.name.eq_ignore_ascii_case("lock_timeout") {
+        Ok(StatementSummary::LockTimeout)
+    } else {
+        Ok(StatementSummary::Ignored)
+    }
+}
+
+fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
+    if let Some(rel) = &child.relation {
+        let schema = rel.schemaname.clone();
+        let name = rel.relname.clone();
+        Ok(StatementSummary::CreateTable { schema, name })
+    } else {
+        Err(anyhow::anyhow!(
+            "CREATE TABLE statement does not have a relation"
+        ))
+    }
+}
+
+fn create_table_as(child: &CreateTableAsStmt) -> anyhow::Result<StatementSummary> {
+    if let Some(dest) = &child.into {
+        if let Some(rel) = &dest.rel {
+            let schema = rel.schemaname.clone();
+            let name = rel.relname.clone();
+            Ok(StatementSummary::CreateTableAs { schema, name })
+        } else {
+            Err(anyhow::anyhow!(
+                "CREATE TABLE AS statement does not have a relation"
+            ))
+        }
+    } else {
+        Err(anyhow::anyhow!(
+            "CREATE TABLE AS statement does not have a destination"
+        ))
+    }
+}
+
+fn create_index(child: &IndexStmt) -> anyhow::Result<StatementSummary> {
+    if let Some(rel) = &child.relation {
+        let schema = rel.schemaname.clone();
+        let idxname = child.idxname.clone();
+        Ok(StatementSummary::CreateIndex {
+            concurrently: child.concurrent,
+            target: rel.relname.to_string(),
+            schema,
+            idxname,
+        })
+    } else {
+        Err(anyhow::anyhow!(
+            "CREATE INDEX statement does not have a relation"
+        ))
+    }
+}
+
+fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableAction> {
+    let subtype = AlterTableType::from_i32(child.subtype)
+        .context(format!("Invalid AlterTableCmd subtype: {}", child.subtype))?;
+    match subtype {
+        AlterTableType::AtAlterColumnType => {
+            let col = expect_coldef(child)?;
+            // TODO: Parse the type name
+            Ok(AlterTableAction::SetType {
+                column: col.colname.clone(),
+                type_name: format!("{:?}", col.type_name),
+            })
+        }
+        AlterTableType::AtSetNotNull => Ok(AlterTableAction::SetNotNull {
+            column: child.name.clone(),
+        }),
+        _ => Ok(AlterTableAction::Unrecognized),
+    }
+}
+
+fn expect_coldef(child: &AlterTableCmd) -> anyhow::Result<&ColumnDef> {
+    if let Some(def) = &child.def {
+        let next = def.node.as_ref();
+        if let Some(n) = next {
+            if let pg_query::NodeRef::ColumnDef(colddef) = n.to_ref() {
+                Ok(colddef)
+            } else {
+                Err(anyhow::anyhow!(
+                    "AlterTableCmd Expected column def, found: {n:?}"
+                ))
+            }
+        } else {
+            Err(anyhow::anyhow!(
+                "AlterTableCmd expected column def node, found none"
+            ))
+        }
+    } else {
+        Err(anyhow::anyhow!(
+            "AlterTableCmd expected column def, found none"
+        ))
+    }
+}
+
+fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<StatementSummary> {
+    if let Some(rel) = &child.relation {
+        let schema = rel.schemaname.clone();
+        let name = rel.relname.clone();
+        let actions: anyhow::Result<Vec<_>> = child
+            .cmds
+            .iter()
+            .map(|cmd| {
+                if let Some(cmd_node) = &cmd.node {
+                    let node_ref = &cmd_node.to_ref();
+                    if let pg_query::NodeRef::AlterTableCmd(child) = node_ref {
+                        parse_alter_table_action(child)
+                    } else {
+                        Err(anyhow::anyhow!(
+                            "ALTER TABLE statement has an unrecognized command node: {node_ref:?}"
+                        ))
+                    }
+                } else {
+                    Err(anyhow::anyhow!("ALTER TABLE statement has no command node"))
+                }
+            })
+            .collect();
+        Ok(StatementSummary::AlterTable {
+            schema,
+            name,
+            actions: actions?,
+        })
+    } else {
+        Err(anyhow::anyhow!(
+            "ALTER TABLE statement does not have a relation"
+        ))
+    }
+}
+
+/// Describes a statement in a linter-friendly way by simplifying the parse tree
+///
+/// Will return `Ok(StatementSummary::Ignored)` if the statement is not recognized
+///
+/// # Errors
+///
+/// If the parse tree has an unexpected structure, an error can be returned. This could be for example,
+/// a parse tree that represents an `alter column set type` command, but without a new type declaration.
+pub fn describe(statement: &pg_query::NodeRef) -> anyhow::Result<StatementSummary> {
+    match statement {
+        pg_query::NodeRef::VariableSetStmt(child) => set_statement(child),
+        // CREATE TABLE
+        pg_query::NodeRef::CreateStmt(child) => create_table(child),
+        // CREATE TABLE AS
+        pg_query::NodeRef::CreateTableAsStmt(child) => create_table_as(child),
+        // CREATE INDEX
+        pg_query::NodeRef::IndexStmt(child) => create_index(child),
+        pg_query::NodeRef::AlterTableStmt(child) => alter_table(child),
+        _ => Ok(StatementSummary::Ignored),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lints::StatementSummary;
+
+    fn parse_s(s: &str) -> StatementSummary {
+        super::describe(
+            &pg_query::parse(s).unwrap().protobuf.stmts[0]
+                .stmt
+                .as_ref()
+                .unwrap()
+                .node
+                .as_ref()
+                .unwrap()
+                .to_ref(),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn test_set_locktimeout() {
+        assert_eq!(
+            parse_s("SET lock_timeout = 1000"),
+            StatementSummary::LockTimeout
+        );
+        assert_eq!(
+            parse_s("SET LOCAL lock_timeout = '2s'"),
+            StatementSummary::LockTimeout
+        );
+    }
+
+    #[test]
+    fn test_create_table() {
+        assert_eq!(
+            parse_s("CREATE TABLE foo (id INT)"),
+            StatementSummary::CreateTable {
+                schema: "".to_string(),
+                name: "foo".to_string()
+            }
+        );
+        assert_eq!(
+            parse_s("CREATE TABLE IF NOT EXISTS public.foo (id INT)"),
+            StatementSummary::CreateTable {
+                schema: "public".to_string(),
+                name: "foo".to_string()
+            }
+        );
+        assert_eq!(
+            parse_s("CREATE TABLE foo.bar (id INT)"),
+            StatementSummary::CreateTable {
+                schema: "foo".to_string(),
+                name: "bar".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_create_table_as() {
+        assert_eq!(
+            parse_s("CREATE TABLE foo AS SELECT * FROM bar"),
+            StatementSummary::CreateTableAs {
+                schema: "".to_string(),
+                name: "foo".to_string()
+            }
+        );
+        assert_eq!(
+            parse_s("CREATE TABLE IF NOT EXISTS public.foo AS SELECT * FROM bar"),
+            StatementSummary::CreateTableAs {
+                schema: "public".to_string(),
+                name: "foo".to_string()
+            }
+        );
+        assert_eq!(
+            parse_s("CREATE TABLE foo.bar AS SELECT * FROM bar"),
+            StatementSummary::CreateTableAs {
+                schema: "foo".to_string(),
+                name: "bar".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_create_index() {
+        assert_eq!(
+            parse_s("CREATE INDEX idx ON foo (bar)"),
+            StatementSummary::CreateIndex {
+                schema: "".to_string(),
+                idxname: "idx".to_string(),
+                concurrently: false,
+                target: "foo".to_string()
+            }
+        );
+        assert_eq!(
+            parse_s("CREATE INDEX CONCURRENTLY idx ON foo (bar)"),
+            StatementSummary::CreateIndex {
+                schema: "".to_string(),
+                idxname: "idx".to_string(),
+                concurrently: true,
+                target: "foo".to_string()
+            }
+        );
+        assert_eq!(
+            parse_s("CREATE INDEX idx ON foo.bar (baz)"),
+            StatementSummary::CreateIndex {
+                schema: "foo".to_string(),
+                idxname: "idx".to_string(),
+                concurrently: false,
+                target: "bar".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_set_not_null() {
+        assert_eq!(
+            parse_s("ALTER TABLE foo ALTER COLUMN bar SET NOT NULL"),
+            StatementSummary::AlterTable {
+                schema: "".to_string(),
+                name: "foo".to_string(),
+                actions: vec![super::AlterTableAction::SetNotNull {
+                    column: "bar".to_string()
+                }]
+            }
+        );
+        assert_eq!(
+            parse_s("ALTER TABLE foo.bar ALTER COLUMN baz SET NOT NULL"),
+            StatementSummary::AlterTable {
+                schema: "foo".to_string(),
+                name: "bar".to_string(),
+                actions: vec![super::AlterTableAction::SetNotNull {
+                    column: "baz".to_string()
+                }]
+            }
+        );
+    }
+}

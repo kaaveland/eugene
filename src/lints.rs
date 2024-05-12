@@ -1,4 +1,5 @@
 pub use crate::lints::ast::StatementSummary;
+use pg_query::protobuf::ConstrType;
 
 /// The `ast` module provides a way to describe a parsed SQL statement in a structured way,
 /// using simpler trees than the ones provided by `pg_query`.
@@ -53,6 +54,64 @@ pub fn emit_locktimeout_warning(ctx: &LintContext, summary: &StatementSummary) -
         .iter()
         .any(|(schema, name)| !ctx.has_created_object(schema, name));
     takes_lock && lock_visible_outside_tx && !ctx.has_locktimeout()
+}
+
+pub fn emit_constraint_creates_implicit_index(
+    ctx: &LintContext,
+    summary: &StatementSummary,
+) -> bool {
+    if let StatementSummary::AlterTable {
+        schema,
+        name,
+        actions,
+    } = summary
+    {
+        !ctx.has_created_object(schema, name)
+            && actions.iter().any(|action| {
+                matches!(
+                    action,
+                    ast::AlterTableAction::AddConstraint {
+                        constraint_type: ConstrType::ConstrExclusion,
+                        ..
+                    }
+                ) || matches!(
+                    action,
+                    ast::AlterTableAction::AddConstraint {
+                        constraint_type: ConstrType::ConstrUnique | ConstrType::ConstrPrimary,
+                        use_index: false,
+                        ..
+                    }
+                )
+            })
+    } else {
+        false
+    }
+}
+
+pub fn emit_constraint_does_costly_validation_with_lock(
+    ctx: &LintContext,
+    summary: &StatementSummary,
+) -> bool {
+    if let StatementSummary::AlterTable {
+        schema,
+        name,
+        actions,
+    } = summary
+    {
+        !ctx.has_created_object(schema, name)
+            && actions.iter().any(|action| {
+                matches!(
+                    action,
+                    ast::AlterTableAction::AddConstraint {
+                        constraint_type: ConstrType::ConstrCheck | ConstrType::ConstrForeign,
+                        valid: true,
+                        ..
+                    }
+                )
+            })
+    } else {
+        false
+    }
 }
 
 /// Summarize a SQL script into a list of `StatementSummary` trees.
@@ -122,5 +181,71 @@ mod tests {
             name: "books".to_string(),
         };
         assert!(!emit_locktimeout_warning(&ctx, &create_table));
+    }
+
+    #[test]
+    fn test_adding_check_constraint() {
+        let sql = "ALTER TABLE public.books ADD CONSTRAINT check_price CHECK (price > 0)";
+        let summary = summarize(sql).unwrap();
+        let ctx = LintContext::default();
+        assert!(emit_constraint_does_costly_validation_with_lock(
+            &ctx,
+            &summary[0]
+        ));
+        let sql = "ALTER TABLE public.books ADD CONSTRAINT check_price CHECK (price > 0) NOT VALID";
+        let summary = summarize(sql).unwrap();
+        assert!(!emit_constraint_does_costly_validation_with_lock(
+            &ctx,
+            &summary[0]
+        ));
+    }
+
+    #[test]
+    fn test_adding_fkey_constraint() {
+        let sql = "ALTER TABLE public.books ADD CONSTRAINT fkey_author FOREIGN KEY (author_id) REFERENCES public.authors (id)";
+        let summary = summarize(sql).unwrap();
+        let ctx = LintContext::default();
+        assert!(emit_constraint_does_costly_validation_with_lock(
+            &ctx,
+            &summary[0]
+        ));
+        let sql = "ALTER TABLE public.books ADD CONSTRAINT fkey_author FOREIGN KEY (author_id) REFERENCES public.authors (id) NOT VALID";
+        let summary = summarize(sql).unwrap();
+        assert!(!emit_constraint_does_costly_validation_with_lock(
+            &ctx,
+            &summary[0]
+        ));
+    }
+
+    #[test]
+    fn test_adding_exclusion_constraint() {
+        let sql = "ALTER TABLE public.books ADD CONSTRAINT exclude_title EXCLUDE(title WITH =)";
+        let summary = summarize(sql).unwrap();
+        let mut ctx = LintContext::default();
+        assert!(emit_constraint_creates_implicit_index(&ctx, &summary[0]));
+        ctx.update_from(&StatementSummary::CreateTable {
+            schema: "public".to_string(),
+            name: "books".to_string(),
+        });
+        assert!(!emit_constraint_creates_implicit_index(&ctx, &summary[0]));
+    }
+
+    #[test]
+    fn test_adding_unique_constraint() {
+        let sql = "ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE (title)";
+        let summary = summarize(sql).unwrap();
+        let mut ctx = LintContext::default();
+        assert!(emit_constraint_creates_implicit_index(&ctx, &summary[0]));
+        let sql =
+            "ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE using index title_uq_idx";
+        let summary = summarize(sql).unwrap();
+        assert!(!emit_constraint_creates_implicit_index(&ctx, &summary[0]));
+        ctx.update_from(&StatementSummary::CreateTable {
+            schema: "public".to_string(),
+            name: "books".to_string(),
+        });
+        let sql = "ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE (title)";
+        let summary = summarize(sql).unwrap();
+        assert!(!emit_constraint_creates_implicit_index(&ctx, &summary[0]));
     }
 }

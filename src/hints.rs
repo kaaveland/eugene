@@ -1,3 +1,5 @@
+use crate::hint_data;
+use crate::hint_data::StaticHintData;
 use crate::output::output_format::Hint;
 use itertools::Itertools;
 use std::cmp::Reverse;
@@ -10,23 +12,37 @@ use crate::tracing::tracer::StatementCtx;
 type HintFn = fn(&StatementCtx) -> Option<String>;
 
 pub struct HintInfo {
-    pub(crate) code: &'static str,
-    pub(crate) name: &'static str,
-    pub(crate) condition: &'static str,
-    pub(crate) workaround: &'static str,
-    pub(crate) effect: &'static str,
+    meta: &'static StaticHintData,
     render_help: HintFn,
+}
+
+impl HintInfo {
+    pub fn code(&self) -> &'static str {
+        self.meta.id
+    }
+    pub fn name(&self) -> &'static str {
+        self.meta.name
+    }
+    pub fn condition(&self) -> &'static str {
+        self.meta.condition
+    }
+    pub fn workaround(&self) -> &'static str {
+        self.meta.workaround
+    }
+    pub fn effect(&self) -> &'static str {
+        self.meta.effect
+    }
 }
 
 impl HintInfo {
     pub(crate) fn check(&self, trace: &StatementCtx) -> Option<Hint> {
         (self.render_help)(trace).map(|help| {
             Hint::new(
-                self.code,
-                self.name,
-                self.condition,
-                self.effect,
-                self.workaround,
+                self.code(),
+                self.name(),
+                self.condition(),
+                self.effect(),
+                self.workaround(),
                 help,
             )
         })
@@ -134,9 +150,9 @@ fn type_change_requires_table_rewrite(sql_statement_trace: &StatementCtx) -> Opt
         .find(|obj| obj.rel_kind == RelKind::Table)?;
 
     let help = format!(
-            "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This always requires \
-            an `AccessExclusiveLock` that will block all other transactions from using the table, and for some \
-            type changes, it causes a time-consuming table rewrite.",
+            "The column `{}` in the table `{}.{}` was changed from type `{}` to `{}`. This requires \
+            an `AccessExclusiveLock` that will block all other transactions from using the table while \
+            it is being rewritten.",
             column.new.column_name,
             column.new.schema_name,
             column.new.table_name,
@@ -261,98 +277,77 @@ fn rewrote_table_or_index(ctx: &StatementCtx) -> Option<String> {
     Some(help)
 }
 
-pub mod ids {
-    pub const VALIDATE_CONSTRAINT_WITH_LOCK: &str = "E1";
-    pub const MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK: &str = "E2";
-    pub const ADD_JSON_COLUMN: &str = "E3";
-    pub const RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE: &str = "E4";
-    pub const TYPE_CHANGE_REQUIRES_TABLE_REWRITE: &str = "E5";
-    pub const NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT: &str = "E6";
-    pub const NEW_UNIQUE_CONSTRAINT_CREATED_INDEX: &str = "E7";
-    pub const NEW_EXCLUSION_CONSTRAINT_FOUND: &str = "E8";
-    pub const TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT: &str = "E9";
-    pub const REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK: &str = "E10";
-}
 /// All the hints eugene can check statement traces against
-pub const HINTS: [HintInfo; 10] = [
-    HintInfo {
-        name: "Validating table with a new constraint",
-        code: ids::VALIDATE_CONSTRAINT_WITH_LOCK,
-        condition: "A new constraint was added and it is already `VALID`",
-        workaround: "Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later",
-        effect: "This blocks all table access until all rows are validated",
-        render_help: add_new_valid_constraint_help,
-    },
-    HintInfo {
-        name: "Validating table with a new `NOT NULL` column",
-        code: ids::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
-        condition: "A column was changed from `NULL` to `NOT NULL`",
-        workaround: "Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`",
-        effect: "This blocks all table access until all rows are validated",
-        render_help: make_column_not_nullable_help,
-    },
-    HintInfo {
-        name: "Add a new JSON column",
-        code: ids::ADD_JSON_COLUMN,
-        condition: "A new column of type `json` was added to a table",
-        workaround: "Use the `jsonb` type instead, it supports all use-cases of `json` and is more robust and compact",
-        effect: "This breaks `SELECT DISTINCT` queries or other operations that need equality checks on the column",
-        render_help: add_json_column,
-    },
-    HintInfo {
-        name: "Running more statements after taking `AccessExclusiveLock`",
-        code: ids::RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE,
-        condition: "A transaction that holds an `AccessExclusiveLock` started a new statement",
-        workaround: "Run this statement in a new transaction",
-        effect: "This blocks all access to the table for the duration of this statement",
-        render_help: running_statement_while_holding_access_exclusive,
-    },
-    HintInfo {
-        name: "Type change requiring table rewrite",
-        code: ids::TYPE_CHANGE_REQUIRES_TABLE_REWRITE,
-        condition: "A column was changed to a data type that isn't binary compatible",
-        workaround: "Add a new column, update it in batches, and drop the old column",
-        effect: "This causes a full table rewrite while holding a lock that prevents all other use of the table",
-        render_help: type_change_requires_table_rewrite,
-    },
-    HintInfo {
-        name: "Creating a new index on an existing table",
-        code: ids::NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT,
-        condition: "A new index was created on an existing table without the `CONCURRENTLY` keyword",
-        workaround: "Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`",
-        effect: "This blocks all writes to the table while the index is being created",
-        render_help: new_index_on_existing_table_is_nonconcurrent,
-    },
-    HintInfo {
-        name: "Creating a new unique constraint",
-        code: ids::NEW_UNIQUE_CONSTRAINT_CREATED_INDEX,
-        condition: "Found a new unique constraint and a new index",
-        workaround: "`CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index",
-        effect: "This blocks all writes to the table while the index is being created and validated",
-        render_help: new_unique_constraint_created_index,
-    },
-    HintInfo {
-        name: "Creating a new exclusion constraint",
-        code: ids::NEW_EXCLUSION_CONSTRAINT_FOUND,
-        condition: "Found a new exclusion constraint",
-        workaround: "There is no safe way to add an exclusion constraint to an existing table",
-        effect: "This blocks all reads and writes to the table while the constraint index is being created",
-        render_help: new_exclusion_constraint_found,
-    },
-    HintInfo {
-        name: "Taking dangerous lock without timeout",
-        code: ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT,
-        condition: "A lock that would block many common operations was taken without a timeout",
-        workaround: "Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary",
-        effect: "This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`",
-        render_help: took_dangerous_lock_without_timeout,
-    },
-    HintInfo {
-        name: "Rewrote table or index while holding dangerous lock",
-        code: ids::REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK,
-        condition: "A table or index was rewritten while holding a lock that blocks many operations",
-        workaround: "Build a new table or index, write to both, then swap them",
-        effect: "This blocks many operations on the table or index while the rewrite is in progress",
-        render_help: rewrote_table_or_index,
-    }
+pub fn all_hints() -> &'static [HintInfo] {
+    HINTS
+}
+
+/// Run all hints against a statement trace and return the ones that apply
+pub fn run_hints<'a>(trace: &'a StatementCtx) -> impl Iterator<Item = Hint> + 'a {
+    HINTS.iter().filter_map(|hint| hint.check(trace))
+}
+pub const VALIDATE_CONSTRAINT_WITH_LOCK: HintInfo = HintInfo {
+    meta: &hint_data::VALIDATE_CONSTRAINT_WITH_LOCK,
+    render_help: add_new_valid_constraint_help,
+};
+pub const MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK: HintInfo = HintInfo {
+    meta: &hint_data::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
+    render_help: make_column_not_nullable_help,
+};
+pub const ADD_JSON_COLUMN: HintInfo = HintInfo {
+    meta: &hint_data::ADD_JSON_COLUMN,
+    render_help: add_json_column,
+};
+pub const RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE: HintInfo = HintInfo {
+    meta: &hint_data::RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE,
+    render_help: running_statement_while_holding_access_exclusive,
+};
+pub const TYPE_CHANGE_REQUIRES_TABLE_REWRITE: HintInfo = HintInfo {
+    meta: &hint_data::TYPE_CHANGE_REQUIRES_TABLE_REWRITE,
+    render_help: type_change_requires_table_rewrite,
+};
+pub const NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT: HintInfo = HintInfo {
+    meta: &hint_data::NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT,
+    render_help: new_index_on_existing_table_is_nonconcurrent,
+};
+pub const NEW_UNIQUE_CONSTRAINT_CREATED_INDEX: HintInfo = HintInfo {
+    meta: &hint_data::NEW_UNIQUE_CONSTRAINT_CREATED_INDEX,
+    render_help: new_unique_constraint_created_index,
+};
+pub const NEW_EXCLUSION_CONSTRAINT_FOUND: HintInfo = HintInfo {
+    meta: &hint_data::NEW_EXCLUSION_CONSTRAINT_FOUND,
+    render_help: new_exclusion_constraint_found,
+};
+pub const TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT: HintInfo = HintInfo {
+    meta: &hint_data::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT,
+    render_help: took_dangerous_lock_without_timeout,
+};
+pub const REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK: HintInfo = HintInfo {
+    meta: &hint_data::REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK,
+    render_help: rewrote_table_or_index,
+};
+
+/// All the hints eugene can check statement traces against
+const HINTS: &[HintInfo] = &[
+    VALIDATE_CONSTRAINT_WITH_LOCK,
+    MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
+    ADD_JSON_COLUMN,
+    RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE,
+    TYPE_CHANGE_REQUIRES_TABLE_REWRITE,
+    NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT,
+    NEW_UNIQUE_CONSTRAINT_CREATED_INDEX,
+    NEW_EXCLUSION_CONSTRAINT_FOUND,
+    TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT,
+    REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK,
 ];
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_no_duplicated_ids() {
+        let ids: HashSet<_> = super::all_hints().iter().map(|hint| hint.meta.id).collect();
+        assert_eq!(ids.len(), super::all_hints().len());
+    }
+}

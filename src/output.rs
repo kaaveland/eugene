@@ -3,12 +3,11 @@ use serde::Serialize;
 
 use output_format::Hint;
 pub use output_format::{
-    Column, Constraint, FullSqlStatementLockTrace, FullTraceData, ModifiedColumn,
-    ModifiedConstraint, TracedLock,
+    Column, Constraint, DbObject, FullSqlStatementLockTrace, FullTraceData, GenericHint, Lint,
+    LintReport, ModifiedColumn, ModifiedConstraint, TracedLock,
 };
 
 use crate::output::markdown_helpers::{theader, trow};
-use crate::output::output_format::DbObject;
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::locks::Lock;
 use crate::tracing::{SqlStatementTrace, TxLockTracer};

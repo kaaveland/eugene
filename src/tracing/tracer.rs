@@ -83,7 +83,7 @@ pub struct TxLockTracer {
     pub(crate) relfile_ids: HashMap<Oid, u32>,
 }
 
-pub(crate) struct StatementCtx<'a> {
+pub struct StatementCtx<'a> {
     pub(crate) sql_statement_trace: &'a SqlStatementTrace,
     pub(crate) transaction: &'a TxLockTracer,
 }
@@ -211,7 +211,7 @@ impl TxLockTracer {
             sql_statement_trace: &statement,
             transaction: self,
         };
-        let hints: Vec<_> = hints::HINTS.iter().filter_map(|h| h.check(&ctx)).collect();
+        let hints: Vec<_> = hints::run_hints(&ctx).collect();
         self.triggered_hints.push(hints);
         self.statements.push(statement);
         self.all_locks.extend(locks_taken.iter().cloned());

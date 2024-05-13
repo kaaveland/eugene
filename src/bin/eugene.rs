@@ -2,16 +2,18 @@ use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use serde::Serialize;
 
+use eugene::lints::apply_ignore_list;
 use eugene::output::output_format::GenericHint;
 use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
-use eugene::{output, perform_trace, ConnectionSettings, TraceSettings};
+use eugene::sqltext::{read_sql_statements, resolve_placeholders};
+use eugene::{output, parse_placeholders, perform_trace, ConnectionSettings, TraceSettings};
 
 #[derive(Parser)]
 #[command(name = "eugene")]
 #[command(about = "Careful with That Lock, Eugene")]
-#[command(version = "0.1.0")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(
     long_about = "eugene is a proof of concept tool for detecting dangerous locks taken by SQL migration scripts
 
@@ -28,6 +30,27 @@ struct Eugene {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Lint SQL migration script by analyzing syntax tree and matching rules instead of running it.
+    Lint {
+        /// Path to SQL migration script, or '-' to read from stdin
+        path: String,
+        /// Provide name=value for replacing ${name} with value in the SQL script. Can be used multiple times.
+        #[arg(short = 'v', long = "var")]
+        placeholders: Vec<String>,
+        /// Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+        ///
+        /// Example: `eugene lint -i E3 -i E4`
+        ///
+        /// For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+        ///
+        /// -- eugene-ignore: E3, E4
+        ///
+        /// alter table foo add column bar json;
+        ///
+        /// This will ignore hints E3 and E4 for this statement only.
+        #[arg(short = 'i', long = "ignore")]
+        ignored_hints: Vec<String>,
+    },
     /// Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable.
     Trace {
         /// Path to SQL migration script, or '-' to read from stdin
@@ -108,8 +131,7 @@ impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
         let password = if let Ok(password) = std::env::var("PGPASS") {
             password
         } else {
-            let pgpass = read_pgpass_file()?;
-            pgpass
+            read_pgpass_file()?
                 .find_password(&value.host, value.port, &value.database, &value.user)
                 .context("No password found, provide PGPASS as environment variable or set up pgpassfile: https://www.postgresql.org/docs/current/libpq-pgpass.html")?
                 .to_string()
@@ -176,6 +198,20 @@ impl TryFrom<String> for TraceFormat {
 pub fn main() -> Result<()> {
     let args = Eugene::parse();
     match args.command {
+        Some(Commands::Lint {
+            path,
+            placeholders,
+            ignored_hints,
+        }) => {
+            let sql = read_sql_statements(&path)?;
+            let placeholders = parse_placeholders(&placeholders)?;
+            let sql = resolve_placeholders(&sql, &placeholders)?;
+            let report = eugene::lints::lint(sql)?;
+            let report = apply_ignore_list(&report, &ignored_hints);
+            let out = serde_json::to_string_pretty(&report)?;
+            println!("{}", out);
+            Ok(())
+        }
         Some(Commands::Trace {
             user,
             database,
@@ -219,7 +255,10 @@ pub fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Hints { .. }) => {
-            let hints: Vec<_> = eugene::hints::HINTS.iter().map(GenericHint::from).collect();
+            let hints: Vec<_> = eugene::hints::all_hints()
+                .iter()
+                .map(GenericHint::from)
+                .collect();
             let hints = HintContainer { hints };
             println!("{}", serde_json::to_string_pretty(&hints)?);
             Ok(())

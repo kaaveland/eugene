@@ -34,7 +34,7 @@ mod tests {
     use postgres::{Client, NoTls};
 
     use crate::generate_new_test_db;
-    use crate::hints::ids;
+    use crate::hint_data;
     use crate::pg_types::contype::Contype;
     use crate::pg_types::lock_modes::LockMode;
 
@@ -62,7 +62,7 @@ mod tests {
         assert!(!modification.new.nullable);
         assert!(trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK));
+            .any(|hint| hint.id == hint_data::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK.id));
     }
 
     #[test]
@@ -104,10 +104,10 @@ mod tests {
         );
         assert!(trace.triggered_hints[2]
             .iter()
-            .any(|hint| hint.id == ids::VALIDATE_CONSTRAINT_WITH_LOCK));
+            .any(|hint| hint.id == hint_data::VALIDATE_CONSTRAINT_WITH_LOCK.id));
         assert!(trace.triggered_hints[2]
             .iter()
-            .any(|hint| hint.id == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
+            .any(|hint| hint.id == hint_data::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT.id));
     }
 
     #[test]
@@ -126,7 +126,7 @@ mod tests {
         assert!(!constraint.valid);
         assert!(!trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::VALIDATE_CONSTRAINT_WITH_LOCK));
+            .any(|hint| hint.id == hint_data::VALIDATE_CONSTRAINT_WITH_LOCK.id));
     }
 
     #[test]
@@ -160,10 +160,10 @@ mod tests {
         assert_eq!(modification.new.max_len.unwrap(), 255);
         assert!(trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
+            .any(|hint| hint.id == hint_data::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT.id));
         assert!(trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::TYPE_CHANGE_REQUIRES_TABLE_REWRITE));
+            .any(|hint| hint.id == hint_data::TYPE_CHANGE_REQUIRES_TABLE_REWRITE.id));
     }
 
     #[test]
@@ -237,10 +237,10 @@ mod tests {
             .any(|obj| obj.object_name == "books_title_idx"));
         assert!(trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT));
+            .any(|hint| hint.id == hint_data::NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT.id));
         assert!(trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
+            .any(|hint| hint.id == hint_data::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT.id));
     }
 
     #[test]
@@ -279,7 +279,7 @@ mod tests {
         assert!(trace.statements[0].created_objects.is_empty());
         assert!(trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT));
+            .any(|hint| hint.id == hint_data::TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT.id));
     }
 
     #[test]
@@ -315,7 +315,7 @@ mod tests {
         assert_eq!(modification.typename, "json");
         assert!(trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::ADD_JSON_COLUMN));
+            .any(|hint| hint.id == hint_data::ADD_JSON_COLUMN.id));
     }
 
     #[test]
@@ -339,7 +339,7 @@ mod tests {
         assert!(!modification.new.nullable);
         assert!(!trace.triggered_hints[0]
             .iter()
-            .any(|hint| hint.id == ids::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK));
+            .any(|hint| hint.id == hint_data::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK.id));
     }
 
     #[test]

@@ -12,16 +12,18 @@ pub struct GenericHint {
     pub condition: String,
     pub effect: String,
     pub workaround: String,
+    pub has_lint: bool,
 }
 
 impl From<&HintInfo> for GenericHint {
     fn from(value: &HintInfo) -> Self {
         GenericHint {
-            id: value.code.to_string(),
-            name: value.name.to_string(),
-            condition: value.condition.to_string(),
-            effect: value.effect.to_string(),
-            workaround: value.workaround.to_string(),
+            id: value.code().to_string(),
+            name: value.name().to_string(),
+            condition: value.condition().to_string(),
+            effect: value.effect().to_string(),
+            workaround: value.workaround().to_string(),
+            has_lint: crate::lints::rules::all_rules().any(|rule| rule.id() == value.code()),
         }
     }
 }
@@ -216,4 +218,16 @@ impl Hint {
             help: help.to_string(),
         }
     }
+}
+
+#[derive(Debug, Serialize, Clone, Eq, PartialEq)]
+pub struct Lint {
+    pub statement_number: usize,
+    pub sql: String,
+    pub lints: Vec<Hint>,
+}
+
+#[derive(Debug, Serialize, Clone, Eq, PartialEq)]
+pub struct LintReport {
+    pub lints: Vec<Lint>,
 }

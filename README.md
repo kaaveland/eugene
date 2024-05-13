@@ -83,6 +83,47 @@ eugene explain AccessExclusive
 Use `eugene modes` or refer to [the postgres documentation](https://www.postgresql.org/docs/current/explicit-locking.html) 
 to learn more about lock modes.
 
+## Lint reports
+
+You can use `eugene lint` to check a SQL script for common problems that can cause unexpected
+downtime when running the script in a production database, in this repository:
+
+```shell
+eugene lint --ignore E9 examples/add_check_constraint.sql
+```
+Which should produce output like this:
+
+```json
+{
+  "lints": [
+    {
+      "statement_number": 1,
+      "sql": "alter table books add constraint check_title_not_null check (title is not null) not valid",
+      "lints": []
+    },
+    {
+      "statement_number": 2,
+      "sql": "alter table books validate constraint check_title_not_null",
+      "lints": [
+        {
+          "id": "E4",
+          "name": "Running more statements after taking `AccessExclusiveLock`",
+          "condition": "A transaction that holds an `AccessExclusiveLock` started a new statement",
+          "effect": "This blocks all access to the table for the duration of this statement",
+          "workaround": "Run this statement in a new transaction",
+          "help": "Running more statements after taking `AccessExclusiveLock`"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`eugene lint` works by parsing the SQL script with [pg_query.rs](https://github.com/pganalyze/pg_query.rs),
+which is the actual postgres parser. However it can't know the state of your database, since it only does
+syntax tree analysis, so it is more prone to false positives than the other option, which is to run the
+migration script and investigate its effects, before rolling back.
+
 ## Lock tracing reports
 
 `eugene` can produce reports in a verbose markdown that is suitable for human reading. Take a look

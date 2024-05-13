@@ -31,6 +31,8 @@ struct Eugene {
 #[derive(Subcommand)]
 enum Commands {
     /// Lint SQL migration script by analyzing syntax tree and matching rules instead of running it.
+    /// 
+    /// `eugene lint` fails if any lint is detected.
     Lint {
         /// Path to SQL migration script, or '-' to read from stdin
         path: String,
@@ -208,9 +210,14 @@ pub fn main() -> Result<()> {
             let sql = resolve_placeholders(&sql, &placeholders)?;
             let report = eugene::lints::lint(sql)?;
             let report = apply_ignore_list(&report, &ignored_hints);
+            let failed = report.lints.iter().any(|stmt| !stmt.lints.is_empty());
             let out = serde_json::to_string_pretty(&report)?;
             println!("{}", out);
-            Ok(())
+            if failed {
+                Err(anyhow!("Lint detected"))
+            } else {
+                Ok(())
+            }
         }
         Some(Commands::Trace {
             user,

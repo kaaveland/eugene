@@ -106,18 +106,17 @@ pub fn lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
     let mut lints = Vec::new();
     let mut no: usize = 1;
     for stmt in statements {
-        let m = eugene_comment_regex.find(stmt);
+        let m = eugene_comment_regex.captures(stmt);
         let action: anyhow::Result<_> = if let Some(eugene_instruction) = m {
-            match eugene_instruction.as_str() {
-                "ignore" => Ok(LintAction::SkipAll),
-                ids if ids.starts_with("ignore ") => {
+            match eugene_instruction.get(1).map(|m| m.as_str()) {
+                Some("ignore") => Ok(LintAction::SkipAll),
+                Some(ids) if ids.starts_with("ignore ") => {
                     let rem = &ids["ignore ".len()..];
-                    Ok(LintAction::Skip(rem.split(',').collect()))
+                    Ok(LintAction::Skip(
+                        rem.split(',').map(|id| id.trim()).collect(),
+                    ))
                 }
-                _ => Err(anyhow!(
-                    "Invalid eugene instruction: {}",
-                    eugene_instruction.as_str()
-                ))?,
+                s => Err(anyhow!("Invalid eugene instruction: {s:?}")),
             }
         } else {
             Ok(LintAction::Continue)
@@ -374,5 +373,13 @@ mod tests {
     fn test_sets_new_data_type_to_column() {
         let report = lint("alter table books alter column data type jsonb;").unwrap();
         assert!(matched_lint_rule(&report, rules::CHANGE_COLUMN_TYPE.id()));
+    }
+
+    #[test]
+    fn test_ignore_json_rule_id() {
+        let id = rules::SET_COLUMN_TYPE_TO_JSON.id();
+        let sql = format!("-- eugene: ignore {id}\nalter table books add column data json;");
+        let report = lint(sql).unwrap();
+        assert!(!matched_lint_rule(&report, id));
     }
 }

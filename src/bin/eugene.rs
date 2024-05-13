@@ -38,6 +38,16 @@ enum Commands {
         #[arg(short = 'v', long = "var")]
         placeholders: Vec<String>,
         /// Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+        ///
+        /// Example: `eugene lint -i E3 -i E4`
+        ///
+        /// For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+        ///
+        /// -- eugene-ignore: E3, E4
+        ///
+        /// alter table foo add column bar json;
+        ///
+        /// This will ignore hints E3 and E4 for this statement only.
         #[arg(short = 'i', long = "ignore")]
         ignored_hints: Vec<String>,
     },

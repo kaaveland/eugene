@@ -11,6 +11,8 @@ use tracing::trace_transaction;
 use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
 use crate::tracing::TxLockTracer;
 
+/// Static data for hints and lints, used to identify them in output or input.
+pub mod hint_data;
 /// Hints that can help avoid dangerous migrations, by minimizing time spent holding dangerous locks.
 pub mod hints;
 /// Hints that can be trigged only by looking at the SQL script, without running it.

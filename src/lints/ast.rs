@@ -51,18 +51,10 @@ impl StatementSummary {
     /// For CREATE INDEX, the index and the table/matview are both locked
     pub fn lock_targets(&self) -> Vec<(&str, &str)> {
         match self {
-            StatementSummary::CreateIndex {
-                schema,
-                idxname,
-                target,
-                ..
-            } => vec![(schema, idxname), (schema, target)],
-            StatementSummary::CreateTable { schema, name } => vec![(schema, name)],
-            StatementSummary::CreateTableAs { schema, name } => vec![(schema, name)],
+            StatementSummary::CreateIndex { schema, target, .. } => vec![(schema, target)],
+            StatementSummary::CreateTable { .. } | StatementSummary::CreateTableAs { .. } => vec![],
             StatementSummary::AlterTable { schema, name, .. } => vec![(schema, name)],
-            StatementSummary::Ignored | StatementSummary::LockTimeout => {
-                vec![]
-            }
+            StatementSummary::Ignored | StatementSummary::LockTimeout => vec![],
         }
     }
 }
@@ -82,6 +74,10 @@ pub enum AlterTableAction {
         use_index: bool,
         constraint_type: ConstrType,
         valid: bool,
+    },
+    AddColumn {
+        column: String,
+        type_name: String,
     },
     Unrecognized,
 }
@@ -141,6 +137,22 @@ fn create_index(child: &IndexStmt) -> anyhow::Result<StatementSummary> {
     }
 }
 
+fn col_type_as_string(coldef: &ColumnDef) -> anyhow::Result<String> {
+    if let Some(tp) = &coldef.type_name {
+        let names: anyhow::Result<Vec<String>> = tp
+            .names
+            .iter()
+            .map(|n| match n.node.as_ref() {
+                Some(pg_query::protobuf::node::Node::String(tn)) => Ok(tn.sval.to_owned()),
+                _ => Err(anyhow::anyhow!("Column definition has no type name")),
+            })
+            .collect();
+        Ok(names?.join(" "))
+    } else {
+        Err(anyhow::anyhow!("Column definition has no type name"))
+    }
+}
+
 fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableAction> {
     let subtype = AlterTableType::from_i32(child.subtype)
         .context(format!("Invalid AlterTableCmd subtype: {}", child.subtype))?;
@@ -149,8 +161,15 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableA
             let col = expect_coldef(child)?;
             // TODO: Parse the type name
             Ok(AlterTableAction::SetType {
+                column: child.name.clone(),
+                type_name: col_type_as_string(col)?,
+            })
+        }
+        AlterTableType::AtAddColumn => {
+            let col = expect_coldef(child)?;
+            Ok(AlterTableAction::AddColumn {
                 column: col.colname.clone(),
-                type_name: format!("{:?}", col.type_name),
+                type_name: col_type_as_string(col)?,
             })
         }
         AlterTableType::AtSetNotNull => Ok(AlterTableAction::SetNotNull {
@@ -459,6 +478,36 @@ mod tests {
                     use_index: false,
                     constraint_type: pg_query::protobuf::ConstrType::ConstrCheck,
                     valid: false
+                }]
+            }
+        );
+    }
+
+    #[test]
+    fn test_set_type_to_json() {
+        assert_eq!(
+            parse_s("ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE json"),
+            StatementSummary::AlterTable {
+                schema: "".to_string(),
+                name: "foo".to_string(),
+                actions: vec![super::AlterTableAction::SetType {
+                    column: "bar".to_string(),
+                    type_name: "json".to_string()
+                }]
+            }
+        );
+    }
+
+    #[test]
+    fn test_add_json_column() {
+        assert_eq!(
+            parse_s("ALTER TABLE foo ADD COLUMN bar json"),
+            StatementSummary::AlterTable {
+                schema: "".to_string(),
+                name: "foo".to_string(),
+                actions: vec![super::AlterTableAction::AddColumn {
+                    column: "bar".to_string(),
+                    type_name: "json".to_string()
                 }]
             }
         );

@@ -1,9 +1,14 @@
+use anyhow::anyhow;
+use itertools::Itertools;
+
 pub use crate::lints::ast::StatementSummary;
-use pg_query::protobuf::ConstrType;
+use crate::output::output_format::{Lint, LintReport};
 
 /// The `ast` module provides a way to describe a parsed SQL statement in a structured way,
 /// using simpler trees than the ones provided by `pg_query`.
 pub mod ast;
+/// The `rules` module contains lint rules that can be matched to `LintedStatement`
+pub mod rules;
 
 /// Represents mutable state for linting through a single SQL script.
 ///
@@ -14,6 +19,7 @@ pub mod ast;
 pub struct LintContext {
     locktimeout: bool,
     created_objects: Vec<(String, String)>,
+    has_access_exclusive: bool,
 }
 
 impl LintContext {
@@ -27,7 +33,7 @@ impl LintContext {
     pub fn has_locktimeout(&self) -> bool {
         self.locktimeout
     }
-    /// Update the context with the information from a new statement.
+    /// Update the context with the information from a new statement, logging new objects and lock timeouts.
     pub fn update_from(&mut self, summary: &StatementSummary) {
         if let StatementSummary::LockTimeout = summary {
             self.locktimeout = true;
@@ -36,216 +42,337 @@ impl LintContext {
             self.created_objects
                 .push((schema.to_string(), name.to_string()))
         });
-    }
-}
-
-/// Emit a warning if a statement takes a lock that is visible to other transactions without a timeout
-pub fn emit_locktimeout_warning(ctx: &LintContext, summary: &StatementSummary) -> bool {
-    let takes_lock = matches!(
-        summary,
-        StatementSummary::AlterTable { .. }
-            | StatementSummary::CreateIndex {
-                concurrently: false,
-                ..
+        match summary {
+            StatementSummary::AlterTable { schema, name, .. }
+                if !self.has_created_object(schema, name) =>
+            {
+                self.has_access_exclusive = true;
             }
-    );
-    let lock_visible_outside_tx = summary
-        .lock_targets()
-        .iter()
-        .any(|(schema, name)| !ctx.has_created_object(schema, name));
-    takes_lock && lock_visible_outside_tx && !ctx.has_locktimeout()
-}
-
-pub fn emit_constraint_creates_implicit_index(
-    ctx: &LintContext,
-    summary: &StatementSummary,
-) -> bool {
-    if let StatementSummary::AlterTable {
-        schema,
-        name,
-        actions,
-    } = summary
-    {
-        !ctx.has_created_object(schema, name)
-            && actions.iter().any(|action| {
-                matches!(
-                    action,
-                    ast::AlterTableAction::AddConstraint {
-                        constraint_type: ConstrType::ConstrExclusion,
-                        ..
-                    }
-                ) || matches!(
-                    action,
-                    ast::AlterTableAction::AddConstraint {
-                        constraint_type: ConstrType::ConstrUnique | ConstrType::ConstrPrimary,
-                        use_index: false,
-                        ..
-                    }
-                )
-            })
-    } else {
-        false
+            _ => {}
+        }
     }
 }
 
-pub fn emit_constraint_does_costly_validation_with_lock(
-    ctx: &LintContext,
-    summary: &StatementSummary,
-) -> bool {
-    if let StatementSummary::AlterTable {
-        schema,
-        name,
-        actions,
-    } = summary
-    {
-        !ctx.has_created_object(schema, name)
-            && actions.iter().any(|action| {
-                matches!(
-                    action,
-                    ast::AlterTableAction::AddConstraint {
-                        constraint_type: ConstrType::ConstrCheck | ConstrType::ConstrForeign,
-                        valid: true,
-                        ..
-                    }
-                )
-            })
-    } else {
-        false
+#[derive(Copy, Clone)]
+pub struct LintedStatement<'a> {
+    pub(crate) ctx: &'a LintContext,
+    pub(crate) statement: &'a StatementSummary,
+}
+
+impl<'a> LintedStatement<'a> {
+    pub fn new(ctx: &'a LintContext, statement: &'a StatementSummary) -> Self {
+        LintedStatement { ctx, statement }
+    }
+    /// Locks taken by the statement that were not created in the same transaction.
+    pub fn locks_visible_outside_tx(&self) -> Vec<(&str, &str)> {
+        self.statement
+            .lock_targets()
+            .iter()
+            .filter(|(schema, name)| !self.ctx.has_created_object(schema, name))
+            .copied()
+            .collect()
+    }
+    /// True if the statement takes a lock on the given schema and name.
+    pub fn takes_lock(&self, target_schema: &str, target_name: &str) -> bool {
+        self.statement
+            .lock_targets()
+            .iter()
+            .contains(&(target_schema, target_name))
+    }
+    /// True if the transaction has set a lock timeout.
+    pub fn has_lock_timeout(&self) -> bool {
+        self.ctx.has_locktimeout()
+    }
+    /// True if the lock target was created in another transaction
+    pub fn is_visible(&self, schema: &str, name: &str) -> bool {
+        !self.ctx.has_created_object(schema, name)
+    }
+    pub fn holding_access_exclusive(&self) -> bool {
+        self.ctx.has_access_exclusive
     }
 }
 
-/// Summarize a SQL script into a list of `StatementSummary` trees.
-pub fn summarize<S: AsRef<str>>(sql: S) -> anyhow::Result<Vec<StatementSummary>> {
+enum LintAction<'a> {
+    SkipAll,
+    Skip(Vec<&'a str>),
+    Continue,
+}
+
+/// Lint a SQL script and return a report with all matched lints for each statement.
+pub fn lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
     let statements = pg_query::split_with_parser(sql.as_ref())?;
-    let mut parsed = Vec::new();
-    for statement in statements {
-        let tree = pg_query::parse(statement)?;
+    let eugene_comment_regex = regex::Regex::new(r"-- eugene: ([^\n]+)")?;
+    let mut ctx = LintContext::default();
+    let mut lints = Vec::new();
+    let mut no: usize = 1;
+    for stmt in statements {
+        let m = eugene_comment_regex.find(stmt);
+        let action: anyhow::Result<_> = if let Some(eugene_instruction) = m {
+            match eugene_instruction.as_str() {
+                "ignore" => Ok(LintAction::SkipAll),
+                ids if ids.starts_with("ignore ") => {
+                    let rem = &ids["ignore ".len()..];
+                    Ok(LintAction::Skip(rem.split(',').collect()))
+                }
+                _ => Err(anyhow!(
+                    "Invalid eugene instruction: {}",
+                    eugene_instruction.as_str()
+                ))?,
+            }
+        } else {
+            Ok(LintAction::Continue)
+        };
+        let action = action?;
+        let tree = pg_query::parse(stmt)?;
         for raw in tree.protobuf.stmts.iter() {
             if let Some(node) = &raw.stmt {
                 if let Some(node_ref) = &node.node {
-                    parsed.push(ast::describe(&node_ref.to_ref())?);
+                    let summary = ast::describe(&node_ref.to_ref())?;
+                    let lint_line = LintedStatement::new(&ctx, &summary);
+
+                    let matched_lints = if matches!(action, LintAction::SkipAll) {
+                        vec![]
+                    } else {
+                        rules::all_rules()
+                            .filter_map(|rule| rule.check(lint_line))
+                            .filter(|hint| {
+                                if let LintAction::Skip(ids) = &action {
+                                    !ids.contains(&hint.id.as_str())
+                                } else {
+                                    true
+                                }
+                            })
+                            .collect()
+                    };
+                    lints.push(Lint {
+                        statement_number: no,
+                        sql: stmt.trim().to_string(),
+                        lints: matched_lints,
+                    });
+                    ctx.update_from(&summary);
+                    no += 1;
                 }
             }
         }
     }
-    Ok(parsed)
+    Ok(LintReport { lints })
+}
+
+/// Skip the ignored lint IDs
+pub fn apply_ignore_list(report: &LintReport, ignored_hints: &[String]) -> LintReport {
+    let lints = report
+        .lints
+        .iter()
+        .map(|stmt| Lint {
+            lints: stmt
+                .lints
+                .iter()
+                .filter(|hint| !ignored_hints.contains(&hint.id))
+                .cloned()
+                .collect(),
+            ..stmt.clone()
+        })
+        .collect();
+    LintReport { lints }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lints::StatementSummary;
 
-    #[test]
-    fn test_lock_timeout_visibility_rule() {
-        let mut ctx = LintContext::default();
-        let create = StatementSummary::CreateIndex {
-            concurrently: false,
-            schema: "public".to_string(),
-            target: "books".to_string(),
-            idxname: "books_title_idx".to_string(),
-        };
-        // Locks table
-        assert!(emit_locktimeout_warning(&ctx, &create));
-        ctx.update_from(&StatementSummary::CreateTable {
-            schema: "public".to_string(),
-            name: "books".to_string(),
-        });
-        // Locks index
-        assert!(emit_locktimeout_warning(&ctx, &create));
-        ctx.update_from(&create);
-        // No locktimeout, but only lock objects visible to this tx
-        assert!(!emit_locktimeout_warning(&ctx, &create));
-    }
-    #[test]
-    fn test_lock_timeout_with_locktimeout() {
-        let mut ctx = LintContext::default();
-        let create = StatementSummary::CreateIndex {
-            concurrently: false,
-            schema: "public".to_string(),
-            target: "books".to_string(),
-            idxname: "books_title_idx".to_string(),
-        };
-        // Locks table
-        assert!(emit_locktimeout_warning(&ctx, &create));
-        ctx.update_from(&StatementSummary::LockTimeout);
-        // Locktimeout, no warning
-        assert!(!emit_locktimeout_warning(&ctx, &create));
+    fn matched_lint_rule(report: &LintReport, rule_id: &str) -> bool {
+        report
+            .lints
+            .iter()
+            .any(|lint| lint.lints.iter().any(|hint| hint.id == rule_id))
     }
 
     #[test]
-    fn test_locktimeout_without_taking_lock() {
-        let ctx: LintContext = LintContext::default();
-        let create_table = StatementSummary::CreateTable {
-            schema: "public".to_string(),
-            name: "books".to_string(),
-        };
-        assert!(!emit_locktimeout_warning(&ctx, &create_table));
+    fn test_no_locktimeout_create_index() {
+        let report = lint("create index books_title_idx on books(title);").unwrap();
+        assert!(matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
     }
 
     #[test]
-    fn test_adding_check_constraint() {
-        let sql = "ALTER TABLE public.books ADD CONSTRAINT check_price CHECK (price > 0)";
-        let summary = summarize(sql).unwrap();
-        let ctx = LintContext::default();
-        assert!(emit_constraint_does_costly_validation_with_lock(
-            &ctx,
-            &summary[0]
-        ));
-        let sql = "ALTER TABLE public.books ADD CONSTRAINT check_price CHECK (price > 0) NOT VALID";
-        let summary = summarize(sql).unwrap();
-        assert!(!emit_constraint_does_costly_validation_with_lock(
-            &ctx,
-            &summary[0]
+    fn test_locktimeout_create_index_on_new_table() {
+        let report = lint(
+            "create table books(id serial primary key, title text); \
+            create index books_title_idx on books(title);",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
+    }
+
+    #[test]
+    fn test_locktimeout_alter_table_without_timeout() {
+        let report =
+            lint("alter table books add constraint check_price check (price > 0);").unwrap();
+        assert!(matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
+    }
+
+    #[test]
+    fn test_locktimeout_alter_table_with_timeout() {
+        let report =
+            lint("set lock_timeout = '2s'; create index books_title_idx on books(title);").unwrap();
+        assert!(!matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
+    }
+
+    #[test]
+    fn test_create_index_on_new_table() {
+        let report = lint(
+            "create table books(id serial primary key, title text); \
+            create index books_title_idx on books(title);",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::CREATE_INDEX_NONCONCURRENTLY.id()
         ));
     }
 
     #[test]
-    fn test_adding_fkey_constraint() {
-        let sql = "ALTER TABLE public.books ADD CONSTRAINT fkey_author FOREIGN KEY (author_id) REFERENCES public.authors (id)";
-        let summary = summarize(sql).unwrap();
-        let ctx = LintContext::default();
-        assert!(emit_constraint_does_costly_validation_with_lock(
-            &ctx,
-            &summary[0]
-        ));
-        let sql = "ALTER TABLE public.books ADD CONSTRAINT fkey_author FOREIGN KEY (author_id) REFERENCES public.authors (id) NOT VALID";
-        let summary = summarize(sql).unwrap();
-        assert!(!emit_constraint_does_costly_validation_with_lock(
-            &ctx,
-            &summary[0]
+    fn test_create_index_on_existing_table() {
+        let report = lint("create index books_title_idx on books(title);").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::CREATE_INDEX_NONCONCURRENTLY.id()
         ));
     }
 
     #[test]
-    fn test_adding_exclusion_constraint() {
-        let sql = "ALTER TABLE public.books ADD CONSTRAINT exclude_title EXCLUDE(title WITH =)";
-        let summary = summarize(sql).unwrap();
-        let mut ctx = LintContext::default();
-        assert!(emit_constraint_creates_implicit_index(&ctx, &summary[0]));
-        ctx.update_from(&StatementSummary::CreateTable {
-            schema: "public".to_string(),
-            name: "books".to_string(),
-        });
-        assert!(!emit_constraint_creates_implicit_index(&ctx, &summary[0]));
+    fn test_add_check_constraint_to_existing_table() {
+        let report =
+            lint("alter table books add constraint check_price check (price > 0);").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::ADDING_VALID_CONSTRAINT.id()
+        ));
+    }
+
+    #[test]
+    fn test_add_check_constraint_to_new_table() {
+        let report = lint(
+            "create table books(id serial primary key, title text); \
+            alter table books add constraint check_price check (price > 0);",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::ADDING_VALID_CONSTRAINT.id()
+        ));
+    }
+
+    #[test]
+    fn test_add_not_valid_constraint_to_existing_table() {
+        let report =
+            lint("alter table books add constraint check_price check (price > 0) not valid;")
+                .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::ADDING_VALID_CONSTRAINT.id()
+        ));
+    }
+
+    #[test]
+    fn test_adding_exclusion_constraint_to_existing_table() {
+        let report =
+            lint("alter table books add constraint exclude_price exclude (price with =);").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::ADDING_EXCLUSION_CONSTRAINT.id()
+        ));
+    }
+
+    #[test]
+    fn test_adding_exclusion_constraint_on_new_table() {
+        let report = lint(
+            "create table books(id serial primary key, title text);\
+             alter table books add constraint exclude_price exclude (price with =);",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::ADDING_EXCLUSION_CONSTRAINT.id()
+        ));
+    }
+
+    #[test]
+    fn test_adding_unique_constraint_using_idx() {
+        let report = lint(
+            "alter table books add constraint unique_title unique using index unique_title_idx;",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()
+        ));
     }
 
     #[test]
     fn test_adding_unique_constraint() {
-        let sql = "ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE (title)";
-        let summary = summarize(sql).unwrap();
-        let mut ctx = LintContext::default();
-        assert!(emit_constraint_creates_implicit_index(&ctx, &summary[0]));
-        let sql =
-            "ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE using index title_uq_idx";
-        let summary = summarize(sql).unwrap();
-        assert!(!emit_constraint_creates_implicit_index(&ctx, &summary[0]));
-        ctx.update_from(&StatementSummary::CreateTable {
-            schema: "public".to_string(),
-            name: "books".to_string(),
-        });
-        let sql = "ALTER TABLE public.books ADD CONSTRAINT unique_title UNIQUE (title)";
-        let summary = summarize(sql).unwrap();
-        assert!(!emit_constraint_creates_implicit_index(&ctx, &summary[0]));
+        let report = lint("alter table books add constraint unique_title unique (title);").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()
+        ));
+    }
+
+    #[test]
+    fn test_adding_unique_constraint_on_new_table() {
+        let report = lint(
+            "create table books(id serial primary key, title text);\
+             alter table books add constraint unique_title unique (title);",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()
+        ));
+    }
+
+    #[test]
+    fn test_sets_column_to_not_null_on_visible_table() {
+        let report = lint("alter table books alter column title set not null;").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK.id()
+        ));
+    }
+
+    #[test]
+    fn test_sets_column_to_not_null_on_new_table() {
+        let report = lint(
+            "create table books(id serial primary key, title text);\
+             alter table books alter column title set not null;",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK.id()
+        ));
+    }
+
+    #[test]
+    fn test_adding_json_column() {
+        let report = lint("alter table books add column data json;").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::SET_COLUMN_TYPE_TO_JSON.id()
+        ));
+    }
+
+    #[test]
+    fn test_alter_to_json_type() {
+        let report = lint("alter table books alter column data type json;").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::SET_COLUMN_TYPE_TO_JSON.id()
+        ));
+    }
+
+    #[test]
+    fn test_sets_new_data_type_to_column() {
+        let report = lint("alter table books alter column data type jsonb;").unwrap();
+        assert!(matched_lint_rule(&report, rules::CHANGE_COLUMN_TYPE.id()));
     }
 }

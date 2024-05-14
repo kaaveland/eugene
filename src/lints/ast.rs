@@ -57,6 +57,7 @@ impl StatementSummary {
     /// For CREATE INDEX, the index and the table/matview are both locked
     pub fn lock_targets(&self) -> Vec<(&str, &str)> {
         match self {
+            StatementSummary::CreateIndex { concurrently, .. } if *concurrently => vec![],
             StatementSummary::CreateIndex { schema, target, .. } => vec![(schema, target)],
             StatementSummary::CreateTable { .. } | StatementSummary::CreateTableAs { .. } => vec![],
             StatementSummary::AlterTable { schema, name, .. } => vec![(schema, name)],

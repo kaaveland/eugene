@@ -237,6 +237,13 @@ mod tests {
     }
 
     #[test]
+    fn test_create_index_concurrently_is_not_dangerous_lock() {
+        let report =
+            anon_lint("create index concurrently books_title_idx on books(title);").unwrap();
+        assert!(!matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
+    }
+
+    #[test]
     fn test_create_index_on_existing_table() {
         let report = anon_lint("create index books_title_idx on books(title);").unwrap();
         assert!(matched_lint_rule(

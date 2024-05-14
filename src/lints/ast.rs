@@ -4,6 +4,11 @@ use pg_query::protobuf::{
     VariableSetStmt,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColDefSummary {
+    pub name: String,
+    pub type_name: String,
+}
 /// A simpler, linter-rule friendly representation of the postgres parse tree
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StatementSummary {
@@ -12,6 +17,7 @@ pub enum StatementSummary {
     CreateTable {
         schema: String,
         name: String,
+        columns: Vec<ColDefSummary>,
     },
     CreateTableAs {
         schema: String,
@@ -37,7 +43,7 @@ impl StatementSummary {
             StatementSummary::CreateIndex {
                 schema, idxname, ..
             } => vec![(schema, idxname)],
-            StatementSummary::CreateTable { schema, name } => vec![(schema, name)],
+            StatementSummary::CreateTable { schema, name, .. } => vec![(schema, name)],
             StatementSummary::CreateTableAs { schema, name } => vec![(schema, name)],
             StatementSummary::Ignored
             | StatementSummary::LockTimeout
@@ -94,7 +100,27 @@ fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
     if let Some(rel) = &child.relation {
         let schema = rel.schemaname.clone();
         let name = rel.relname.clone();
-        Ok(StatementSummary::CreateTable { schema, name })
+        let elts: anyhow::Result<Vec<_>> = child
+            .table_elts
+            .iter()
+            .map(|node| {
+                let inner = node.node.as_ref().map(|node| node.to_ref());
+                if let Some(pg_query::NodeRef::ColumnDef(coldef)) = inner {
+                    let name = coldef.colname.clone();
+                    let type_name = col_type_as_string(coldef)?;
+                    Ok(ColDefSummary { name, type_name })
+                } else {
+                    Err(anyhow::anyhow!(
+                        "CREATE TABLE statement has an unrecognized column definition"
+                    ))
+                }
+            })
+            .collect();
+        Ok(StatementSummary::CreateTable {
+            schema,
+            name,
+            columns: elts?,
+        })
     } else {
         Err(anyhow::anyhow!(
             "CREATE TABLE statement does not have a relation"
@@ -147,7 +173,7 @@ fn col_type_as_string(coldef: &ColumnDef) -> anyhow::Result<String> {
                 _ => Err(anyhow::anyhow!("Column definition has no type name")),
             })
             .collect();
-        Ok(names?.join(" "))
+        Ok(names?.join("."))
     } else {
         Err(anyhow::anyhow!("Column definition has no type name"))
     }
@@ -333,21 +359,33 @@ mod tests {
             parse_s("CREATE TABLE foo (id INT)"),
             StatementSummary::CreateTable {
                 schema: "".to_string(),
-                name: "foo".to_string()
+                name: "foo".to_string(),
+                columns: vec![super::ColDefSummary {
+                    name: "id".to_string(),
+                    type_name: "pg_catalog.int4".to_string()
+                }]
             }
         );
         assert_eq!(
             parse_s("CREATE TABLE IF NOT EXISTS public.foo (id INT)"),
             StatementSummary::CreateTable {
                 schema: "public".to_string(),
-                name: "foo".to_string()
+                name: "foo".to_string(),
+                columns: vec![super::ColDefSummary {
+                    name: "id".to_string(),
+                    type_name: "pg_catalog.int4".to_string()
+                }]
             }
         );
         assert_eq!(
             parse_s("CREATE TABLE foo.bar (id INT)"),
             StatementSummary::CreateTable {
                 schema: "foo".to_string(),
-                name: "bar".to_string()
+                name: "bar".to_string(),
+                columns: vec![super::ColDefSummary {
+                    name: "id".to_string(),
+                    type_name: "pg_catalog.int4".to_string()
+                }]
             }
         );
     }
@@ -507,6 +545,21 @@ mod tests {
                 name: "foo".to_string(),
                 actions: vec![super::AlterTableAction::AddColumn {
                     column: "bar".to_string(),
+                    type_name: "json".to_string()
+                }]
+            }
+        );
+    }
+
+    #[test]
+    fn test_create_table_with_json_column() {
+        assert_eq!(
+            parse_s("CREATE TABLE foo (bar json)"),
+            StatementSummary::CreateTable {
+                schema: "".to_string(),
+                name: "foo".to_string(),
+                columns: vec![super::ColDefSummary {
+                    name: "bar".to_string(),
                     type_name: "json".to_string()
                 }]
             }

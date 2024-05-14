@@ -3,8 +3,8 @@ use serde::ser::SerializeStruct;
 use serde::Serialize;
 
 pub use output_format::{
-    Column, Constraint, DbObject, FullSqlStatementLockTrace, FullTraceData, GenericHint, Lint,
-    LintReport, ModifiedColumn, ModifiedConstraint, TracedLock, Hint 
+    Column, Constraint, DbObject, FullSqlStatementLockTrace, FullTraceData, GenericHint, Hint,
+    Lint, LintReport, ModifiedColumn, ModifiedConstraint, TracedLock,
 };
 
 use crate::pg_types::lock_modes::LockMode;

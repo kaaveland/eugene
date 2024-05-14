@@ -51,13 +51,13 @@ mod snapshot_tests {
             }
 
             let markdown_report = full_trace.to_markdown().unwrap();
-            let markdown_report_name = format!("examples/{}-traced.md", file_title);
+            let markdown_report_name = format!("examples/{}_traced.md", file_title);
             std::fs::write(markdown_report_name, markdown_report).unwrap();
 
             let script_path = format!("examples/{file_name}");
             let script = std::fs::read_to_string(&script_path).unwrap();
             let lint_report = eugene::lints::lint(Some(script_path), &script).unwrap();
-            let lint_report_name = format!("examples/{}-lints.md", file_title);
+            let lint_report_name = format!("examples/{}_lints.md", file_title);
             let md = eugene::output::markdown::lint_report_to_markdown(&lint_report);
             std::fs::write(lint_report_name, md).unwrap();
         }

@@ -12,7 +12,7 @@ The migration script did not pass all the checks ❌
 set local lock_timeout = '2s'
 ```
 
-### Lints
+No checks matched for this statement. ✅
 
 ## Statement number 2
 

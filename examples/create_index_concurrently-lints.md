@@ -12,7 +12,7 @@ The migration script did not pass all the checks ❌
 drop index concurrently if exists books_concurrently_test_idx
 ```
 
-### Lints
+No checks matched for this statement. ✅
 
 ## Statement number 2
 

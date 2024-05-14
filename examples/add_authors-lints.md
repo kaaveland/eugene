@@ -12,7 +12,7 @@ The migration script did not pass all the checks ❌
 create table authors(id serial primary key, name text not null)
 ```
 
-### Lints
+No checks matched for this statement. ✅
 
 ## Statement number 2
 

@@ -147,12 +147,16 @@ pub fn lint_report_to_markdown(report: &LintReport) -> String {
         result.push_str("```sql\n");
         result.push_str(&statement.sql);
         result.push_str("\n```\n\n");
-        result.push_str("### Lints\n\n");
-        for lint in statement.lints.iter() {
-            result.push_str(&format!(
-                "#### {}\n\nID: `{}`\n\n{}. {}. A safer way is: {}.\n\n{}\n\n",
-                lint.name, lint.id, lint.condition, lint.effect, lint.workaround, lint.help
-            ));
+        if statement.lints.is_empty() {
+            result.push_str("No checks matched for this statement. ✅\n\n");
+        } else {
+            result.push_str("### Lints\n\n");
+            for lint in statement.lints.iter() {
+                result.push_str(&format!(
+                    "#### {}\n\nID: `{}`\n\n{}. {}. A safer way is: {}.\n\n{}\n\n",
+                    lint.name, lint.id, lint.condition, lint.effect, lint.workaround, lint.help
+                ));
+            }
         }
     }
 

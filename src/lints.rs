@@ -97,9 +97,8 @@ enum LintAction<'a> {
     Skip(Vec<&'a str>),
     Continue,
 }
-
 /// Lint a SQL script and return a report with all matched lints for each statement.
-pub fn lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
+pub fn lint<S: AsRef<str>>(name: Option<String>, sql: S) -> anyhow::Result<LintReport> {
     let statements = pg_query::split_with_parser(sql.as_ref())?;
     let eugene_comment_regex = regex::Regex::new(r"-- eugene: ([^\n]+)")?;
     let mut ctx = LintContext::default();
@@ -154,7 +153,7 @@ pub fn lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
             }
         }
     }
-    Ok(LintReport { lints })
+    Ok(LintReport { name, lints })
 }
 
 /// Skip the ignored lint IDs
@@ -172,7 +171,14 @@ pub fn apply_ignore_list(report: &LintReport, ignored_hints: &[String]) -> LintR
             ..stmt.clone()
         })
         .collect();
-    LintReport { lints }
+    LintReport {
+        lints,
+        ..report.clone()
+    }
+}
+
+pub fn anon_lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
+    lint(None, sql)
 }
 
 #[cfg(test)]
@@ -188,13 +194,13 @@ mod tests {
 
     #[test]
     fn test_no_locktimeout_create_index() {
-        let report = lint("create index books_title_idx on books(title);").unwrap();
+        let report = anon_lint("create index books_title_idx on books(title);").unwrap();
         assert!(matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
     }
 
     #[test]
     fn test_locktimeout_create_index_on_new_table() {
-        let report = lint(
+        let report = anon_lint(
             "create table books(id serial primary key, title text); \
             create index books_title_idx on books(title);",
         )
@@ -205,20 +211,21 @@ mod tests {
     #[test]
     fn test_locktimeout_alter_table_without_timeout() {
         let report =
-            lint("alter table books add constraint check_price check (price > 0);").unwrap();
+            anon_lint("alter table books add constraint check_price check (price > 0);").unwrap();
         assert!(matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
     }
 
     #[test]
     fn test_locktimeout_alter_table_with_timeout() {
         let report =
-            lint("set lock_timeout = '2s'; create index books_title_idx on books(title);").unwrap();
+            anon_lint("set lock_timeout = '2s'; create index books_title_idx on books(title);")
+                .unwrap();
         assert!(!matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
     }
 
     #[test]
     fn test_create_index_on_new_table() {
-        let report = lint(
+        let report = anon_lint(
             "create table books(id serial primary key, title text); \
             create index books_title_idx on books(title);",
         )
@@ -230,8 +237,15 @@ mod tests {
     }
 
     #[test]
+    fn test_create_index_concurrently_is_not_dangerous_lock() {
+        let report =
+            anon_lint("create index concurrently books_title_idx on books(title);").unwrap();
+        assert!(!matched_lint_rule(&report, rules::LOCKTIMEOUT_WARNING.id()));
+    }
+
+    #[test]
     fn test_create_index_on_existing_table() {
-        let report = lint("create index books_title_idx on books(title);").unwrap();
+        let report = anon_lint("create index books_title_idx on books(title);").unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::CREATE_INDEX_NONCONCURRENTLY.id()
@@ -241,7 +255,7 @@ mod tests {
     #[test]
     fn test_add_check_constraint_to_existing_table() {
         let report =
-            lint("alter table books add constraint check_price check (price > 0);").unwrap();
+            anon_lint("alter table books add constraint check_price check (price > 0);").unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::ADDING_VALID_CONSTRAINT.id()
@@ -250,7 +264,7 @@ mod tests {
 
     #[test]
     fn test_add_check_constraint_to_new_table() {
-        let report = lint(
+        let report = anon_lint(
             "create table books(id serial primary key, title text); \
             alter table books add constraint check_price check (price > 0);",
         )
@@ -264,7 +278,7 @@ mod tests {
     #[test]
     fn test_add_not_valid_constraint_to_existing_table() {
         let report =
-            lint("alter table books add constraint check_price check (price > 0) not valid;")
+            anon_lint("alter table books add constraint check_price check (price > 0) not valid;")
                 .unwrap();
         assert!(!matched_lint_rule(
             &report,
@@ -275,7 +289,8 @@ mod tests {
     #[test]
     fn test_adding_exclusion_constraint_to_existing_table() {
         let report =
-            lint("alter table books add constraint exclude_price exclude (price with =);").unwrap();
+            anon_lint("alter table books add constraint exclude_price exclude (price with =);")
+                .unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::ADDING_EXCLUSION_CONSTRAINT.id()
@@ -284,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_adding_exclusion_constraint_on_new_table() {
-        let report = lint(
+        let report = anon_lint(
             "create table books(id serial primary key, title text);\
              alter table books add constraint exclude_price exclude (price with =);",
         )
@@ -297,7 +312,7 @@ mod tests {
 
     #[test]
     fn test_adding_unique_constraint_using_idx() {
-        let report = lint(
+        let report = anon_lint(
             "alter table books add constraint unique_title unique using index unique_title_idx;",
         )
         .unwrap();
@@ -309,7 +324,8 @@ mod tests {
 
     #[test]
     fn test_adding_unique_constraint() {
-        let report = lint("alter table books add constraint unique_title unique (title);").unwrap();
+        let report =
+            anon_lint("alter table books add constraint unique_title unique (title);").unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()
@@ -318,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_adding_unique_constraint_on_new_table() {
-        let report = lint(
+        let report = anon_lint(
             "create table books(id serial primary key, title text);\
              alter table books add constraint unique_title unique (title);",
         )
@@ -331,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_sets_column_to_not_null_on_visible_table() {
-        let report = lint("alter table books alter column title set not null;").unwrap();
+        let report = anon_lint("alter table books alter column title set not null;").unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK.id()
@@ -340,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_sets_column_to_not_null_on_new_table() {
-        let report = lint(
+        let report = anon_lint(
             "create table books(id serial primary key, title text);\
              alter table books alter column title set not null;",
         )
@@ -353,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_adding_json_column() {
-        let report = lint("alter table books add column data json;").unwrap();
+        let report = anon_lint("alter table books add column data json;").unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::SET_COLUMN_TYPE_TO_JSON.id()
@@ -362,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_alter_to_json_type() {
-        let report = lint("alter table books alter column data type json;").unwrap();
+        let report = anon_lint("alter table books alter column data type json;").unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::SET_COLUMN_TYPE_TO_JSON.id()
@@ -371,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_sets_new_data_type_to_column() {
-        let report = lint("alter table books alter column data type jsonb;").unwrap();
+        let report = anon_lint("alter table books alter column data type jsonb;").unwrap();
         assert!(matched_lint_rule(&report, rules::CHANGE_COLUMN_TYPE.id()));
     }
 
@@ -379,13 +395,13 @@ mod tests {
     fn test_ignore_json_rule_id() {
         let id = rules::SET_COLUMN_TYPE_TO_JSON.id();
         let sql = format!("-- eugene: ignore {id}\nalter table books add column data json;");
-        let report = lint(sql).unwrap();
+        let report = anon_lint(sql).unwrap();
         assert!(!matched_lint_rule(&report, id));
     }
 
     #[test]
     fn test_creates_table_with_json_column() {
-        let report = lint("create table books(id serial primary key, data json);").unwrap();
+        let report = anon_lint("create table books(id serial primary key, data json);").unwrap();
         assert!(matched_lint_rule(
             &report,
             rules::SET_COLUMN_TYPE_TO_JSON.id()

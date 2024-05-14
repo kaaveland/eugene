@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use eugene::lints::apply_ignore_list;
 use eugene::output::output_format::GenericHint;
-use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
+use eugene::output::{DetailedLockMode, LintReport, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
 use eugene::sqltext::{read_sql_statements, resolve_placeholders};
@@ -52,6 +52,9 @@ enum Commands {
         /// This will ignore hints E3 and E4 for this statement only.
         #[arg(short = 'i', long = "ignore")]
         ignored_hints: Vec<String>,
+        /// Output format, plain, json or markdown
+        #[arg(short = 'f', long = "format", default_value = "json")]
+        format: String,
     },
     /// Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable.
     Trace {
@@ -204,14 +207,20 @@ pub fn main() -> Result<()> {
             path,
             placeholders,
             ignored_hints,
+            format,
         }) => {
+            let format: TraceFormat = format.try_into()?;
             let sql = read_sql_statements(&path)?;
             let placeholders = parse_placeholders(&placeholders)?;
             let sql = resolve_placeholders(&sql, &placeholders)?;
-            let report = eugene::lints::lint(sql)?;
-            let report = apply_ignore_list(&report, &ignored_hints);
+            let report = eugene::lints::lint(if path == "-" { None } else { Some(path) }, sql)?;
+            let report: LintReport = apply_ignore_list(&report, &ignored_hints);
             let failed = report.lints.iter().any(|stmt| !stmt.lints.is_empty());
-            let out = serde_json::to_string_pretty(&report)?;
+            let out = if matches!(format, TraceFormat::Json) {
+                serde_json::to_string_pretty(&report)?
+            } else {
+                output::markdown::lint_report_to_markdown(&report)
+            };
             println!("{}", out);
             if failed {
                 Err(anyhow!("Lint detected"))

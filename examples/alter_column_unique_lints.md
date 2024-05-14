@@ -14,14 +14,6 @@ alter table books add constraint unique_title unique(title)
 
 ### Lints
 
-#### Taking dangerous lock without timeout
-
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-Statement takes lock on `public.books`, but does not set a lock timeout
-
 #### Creating a new unique constraint
 
 ID: `E7`
@@ -29,4 +21,12 @@ ID: `E7`
 Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
 New constraint unique_title creates implicit index on `public.books`, blocking writes until index is created and validated
+
+#### Taking dangerous lock without timeout
+
+ID: `E9`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+Statement takes lock on `public.books`, but does not set a lock timeout
 

@@ -14,14 +14,6 @@ alter table books add constraint title_exclusion exclude(title with =)
 
 ### Lints
 
-#### Taking dangerous lock without timeout
-
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-Statement takes lock on `public.books`, but does not set a lock timeout
-
 #### Creating a new exclusion constraint
 
 ID: `E8`
@@ -29,4 +21,12 @@ ID: `E8`
 Found a new exclusion constraint. This blocks all reads and writes to the table while the constraint index is being created. A safer way is: There is no safe way to add an exclusion constraint to an existing table.
 
 Statement takes `AccessExclusiveLock` on `public.books`, blocking reads and writes until constraint `title_exclusion` is validated and has created index
+
+#### Taking dangerous lock without timeout
+
+ID: `E9`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+Statement takes lock on `public.books`, but does not set a lock timeout
 

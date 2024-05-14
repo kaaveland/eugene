@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use pg_query::protobuf::ConstrType;
 
 use crate::hint_data::StaticHintData;
@@ -351,7 +352,7 @@ const RULES: &[LintRule] = &[
 
 /// Get all available lint rules
 pub fn all_rules() -> impl Iterator<Item = &'static LintRule> {
-    RULES.iter()
+    RULES.iter().sorted_by_key(|rule| rule.id())
 }
 
 #[cfg(test)]

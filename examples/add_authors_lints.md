@@ -24,14 +24,6 @@ alter table books alter column title set not null
 
 ### Lints
 
-#### Taking dangerous lock without timeout
-
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-Statement takes lock on `public.books`, but does not set a lock timeout
-
 #### Validating table with a new `NOT NULL` column
 
 ID: `E2`
@@ -39,6 +31,14 @@ ID: `E2`
 A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
 Statement takes `AccessExclusiveLock` on `public.books` by setting `title` to `NOT NULL` blocking reads until all rows are validated
+
+#### Taking dangerous lock without timeout
+
+ID: `E9`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+Statement takes lock on `public.books`, but does not set a lock timeout
 
 ## Statement number 3
 
@@ -50,14 +50,6 @@ alter table books add column author_id integer not null
 
 ### Lints
 
-#### Taking dangerous lock without timeout
-
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-Statement takes lock on `public.books`, but does not set a lock timeout
-
 #### Running more statements after taking `AccessExclusiveLock`
 
 ID: `E4`
@@ -65,6 +57,14 @@ ID: `E4`
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
 
 Running more statements after taking `AccessExclusiveLock`
+
+#### Taking dangerous lock without timeout
+
+ID: `E9`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+Statement takes lock on `public.books`, but does not set a lock timeout
 
 ## Statement number 4
 
@@ -75,14 +75,6 @@ alter table books add foreign key (author_id) references authors(id)
 ```
 
 ### Lints
-
-#### Taking dangerous lock without timeout
-
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-Statement takes lock on `public.books`, but does not set a lock timeout
 
 #### Validating table with a new constraint
 
@@ -99,6 +91,14 @@ ID: `E4`
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
 
 Running more statements after taking `AccessExclusiveLock`
+
+#### Taking dangerous lock without timeout
+
+ID: `E9`
+
+A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
+
+Statement takes lock on `public.books`, but does not set a lock timeout
 
 ## Statement number 5
 

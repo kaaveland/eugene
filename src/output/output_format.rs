@@ -227,5 +227,6 @@ pub struct Lint {
 
 #[derive(Debug, Serialize, Clone, Eq, PartialEq)]
 pub struct LintReport {
+    pub name: Option<String>,
     pub lints: Vec<Lint>,
 }

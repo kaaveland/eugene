@@ -382,4 +382,13 @@ mod tests {
         let report = lint(sql).unwrap();
         assert!(!matched_lint_rule(&report, id));
     }
+
+    #[test]
+    fn test_creates_table_with_json_column() {
+        let report = lint("create table books(id serial primary key, data json);").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::SET_COLUMN_TYPE_TO_JSON.id()
+        ));
+    }
 }

@@ -261,7 +261,6 @@ pub const MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK: LintRule = LintRule {
 
 fn sets_column_type_to_json(stmt: LintedStatement) -> Option<String> {
     match stmt.statement {
-        // TODO: Create table also
         StatementSummary::AlterTable {
             schema,
             name,
@@ -281,6 +280,21 @@ fn sets_column_type_to_json(stmt: LintedStatement) -> Option<String> {
                 .next();
             added_json.map(|column| format!(
                     "Set type of column `{column}` to `json` in `{schema}.{name}`. \
+                    The `json` type does not support equality and should not be used, use `jsonb` instead"))
+        }
+        StatementSummary::CreateTable { columns, .. } => {
+            let added_json = columns
+                .iter()
+                .filter_map(|column| {
+                    if column.type_name == "json" {
+                        Some(&column.name)
+                    } else {
+                        None
+                    }
+                })
+                .next();
+            added_json.map(|column| format!(
+                    "Created column `{column}` with type `json`. \
                     The `json` type does not support equality and should not be used, use `jsonb` instead"))
         }
         _ => None,

@@ -31,7 +31,7 @@ struct Eugene {
 #[derive(Subcommand)]
 enum Commands {
     /// Lint SQL migration script by analyzing syntax tree and matching rules instead of running it.
-    /// 
+    ///
     /// `eugene lint` fails if any lint is detected.
     Lint {
         /// Path to SQL migration script, or '-' to read from stdin

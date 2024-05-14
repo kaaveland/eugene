@@ -56,7 +56,6 @@ pub struct TracedLock {
     pub oid: u32,
     pub maybe_dangerous: bool,
     pub blocked_queries: Vec<&'static str>,
-    pub blocked_ddl: Vec<&'static str>,
 }
 
 impl From<&Lock> for TracedLock {
@@ -69,7 +68,6 @@ impl From<&Lock> for TracedLock {
             oid: lock.target().oid,
             maybe_dangerous: lock.mode.dangerous(),
             blocked_queries: lock.blocked_queries(),
-            blocked_ddl: lock.blocked_ddl(),
         }
     }
 }

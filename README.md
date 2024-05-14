@@ -6,15 +6,12 @@
 ![release](https://img.shields.io/github/release-date/kaaveland/eugene)
 ![GitHub License](https://img.shields.io/github/license/kaaveland/eugene)
 
-`eugene` is a proof of concept command line tool for reviewing locks taken by SQL
-migration scripts in postgres. 
-
-It is currently an experiment inspired by the observation that postgres has
-transactional DDL, and therefore it is possible to inspect the locks held by the
-current transaction in the `pg_locks` view.
+`eugene` is a linter and command line tool for reviewing SQL migration scripts for postgres. 
 
 [Careful with That Lock, Eugene: Part 2](https://kaveland.no/careful-with-that-lock-eugene-part-2.html)
-is a blog post that serves as an introduction to the tool and the problem it is trying to solve.
+is a blog post that serves as an introduction to the tool and the problem it is trying to 
+solve. Since that was written, `eugene` has gained SQL parser support and can do syntax tree 
+analysis to discover some problematic migration patterns without running the SQL scripts.
 
 ## Installation
 
@@ -24,6 +21,12 @@ You can install `eugene` from [crates.io](https://crates.io/crates/eugene) using
 ```bash
 cargo install eugene --bin
 ```
+
+Releases are published to github as a binary with no dependencies, so you can
+also download the binary from the [release page](https://github.com/kaaveland/eugene/releases)
+
+The binary isn't signed and notarized, so on macos it'll give you a warning. If you
+want to proceed anyway, you can use `xattr -d com.apple.quarantine eugene` to remove it.
 
 To perform a local installation of your checkout out repository, you can use:
 
@@ -46,11 +49,9 @@ You can use the docker image `ghcr.io/kaaveland/eugene` to run the tool. For exa
 ```shell
 docker run --rm -it \
   -ePGPASS=postgres \
-  -v./examples/add_authors.sql:/add_authors.sql \
-  ghcr.io/kaaveland/eugene:0.1.2 \
-  trace --format markdown \
-  --host pg-test --database test-db \
-  /add_authors.sql
+  -v./examples/:/examples \
+  ghcr.io/kaaveland/eugene:latest \
+  lint /examples/alter_column_not_null.sql
 ```
 
 ## Viewing migration hints
@@ -212,6 +213,8 @@ To release a new version:
 
 ## High level design
 
+### Lock tracing
+
 The central idea is to run the SQL script statements in a transaction, and check what effects
 they have on the state of the database:
 - What locks are taken
@@ -227,6 +230,14 @@ in a transaction. Other principles are:
 4. We prefer not to expose public fields of anything in `tracing`
 5. That means we need to map from `tracing` to `output` to serialize output or expose fields
    - We `.clone()` liberally for this purpose, because eventually we'd like make the structs `Deserialize`.
+
+### Linting
+
+[pg_query.rs](https://github.com/pganalyze/pg_query.rs) breaks the script into statements and we convert
+each statement into its syntax tree. These trees are pretty complex, because they can contain all possible
+syntax in postgres, so they're converted to a more lightweight representation that fits better
+for writing linting rules, see `src/linting/ast.rs`. Lint rules need a context, which is built gradually
+from statements within each script, in addition to the lightweight syntax tree to work.
 
 ## Tests
 

@@ -6,11 +6,12 @@ pub mod queries;
 pub mod tracer;
 
 /// Trace a transaction, executing a series of SQL statements and recording the locks taken.
-pub fn trace_transaction<S: AsRef<str>>(
+pub fn trace_transaction<'a, S: AsRef<str>>(
     name: Option<String>,
     tx: &mut Transaction,
     sql_statements: impl Iterator<Item = S>,
-) -> anyhow::Result<TxLockTracer> {
+    ignored_hints: &'a [&'a str],
+) -> anyhow::Result<TxLockTracer<'a>> {
     let initial_objects: HashSet<_> = queries::fetch_lockable_objects(tx, &[])?
         .into_iter()
         .map(|obj| obj.oid)
@@ -22,7 +23,14 @@ pub fn trace_transaction<S: AsRef<str>>(
         .into_iter()
         .map(|(oid, relfile_id)| (oid, relfile_id.relfilenode))
         .collect();
-    let mut trace = TxLockTracer::new(name, initial_objects, columns, constraints, relfile_ids);
+    let mut trace = TxLockTracer::new(
+        name,
+        initial_objects,
+        columns,
+        constraints,
+        relfile_ids,
+        ignored_hints,
+    );
     for sql in sql_statements {
         trace.trace_sql_statement(tx, sql.as_ref().trim())?;
     }
@@ -55,6 +63,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books alter column title set not null"].into_iter(),
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -73,6 +82,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books add constraint check_title check (title <> '')"].into_iter(),
+            &[],
         )
         .unwrap();
         let constraint = &trace.statements[0].added_constraints[0];
@@ -94,6 +104,7 @@ mod tests {
                 "alter table books add column author_id integer;",
                 "alter table books add constraint fk_author foreign key (author_id) references authors(id)",
             ].into_iter(),
+            &[]
         ).unwrap();
         let constraint = &trace.statements[2].added_constraints[0];
         assert_eq!(constraint.constraint_type, Contype::ForeignKey);
@@ -119,6 +130,7 @@ mod tests {
             &mut tx,
             vec!["alter table books add constraint check_title check (title <> '') not valid"]
                 .into_iter(),
+            &[],
         )
         .unwrap();
         let constraint = &trace.statements[0].added_constraints[0];
@@ -137,6 +149,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books rename column title to book_title"].into_iter(),
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -152,6 +165,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books alter column title type varchar(255)"].into_iter(),
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -171,7 +185,7 @@ mod tests {
         let mut client = get_client();
         let mut tx = client.transaction().unwrap();
         let trace =
-            super::trace_transaction(None, &mut tx, vec!["select * from books"].into_iter())
+            super::trace_transaction(None, &mut tx, vec!["select * from books"].into_iter(), &[])
                 .unwrap();
         let lock = &trace.statements[0].locks_taken[0];
         assert_eq!(lock.mode, LockMode::AccessShare);
@@ -191,6 +205,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books add column metadata text"].into_iter(),
+            &[],
         )
         .unwrap();
         let lock = trace
@@ -210,6 +225,7 @@ mod tests {
             None,
             &mut tx,
             vec!["create index on books (title)"].into_iter(),
+            &[],
         )
         .unwrap();
         let lock = trace
@@ -228,6 +244,7 @@ mod tests {
             None,
             &mut tx,
             vec!["create index on books (title)"].into_iter(),
+            &[],
         )
         .unwrap();
 
@@ -255,6 +272,7 @@ mod tests {
                 "create index papers_title_idx on papers (title)",
             ]
             .into_iter(),
+            &[],
         )
         .unwrap();
         assert!(trace.triggered_hints[0].is_empty());
@@ -274,6 +292,7 @@ mod tests {
             &mut tx,
             vec!["alter table books add constraint unique_title unique using index books_title_uq"]
                 .into_iter(),
+            &[],
         )
         .unwrap();
         assert!(trace.statements[0].created_objects.is_empty());
@@ -294,6 +313,7 @@ mod tests {
                 "alter table books add column metadata text",
             ]
             .into_iter(),
+            &[],
         )
         .unwrap();
         assert_eq!(trace.statements[1].lock_timeout_millis, 1000);
@@ -309,6 +329,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books add column metadata json"].into_iter(),
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].added_columns[0].1;
@@ -333,6 +354,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books alter column title set not null"].into_iter(),
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -350,6 +372,7 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books alter column price type bigint"].into_iter(),
+            &[],
         )
         .unwrap();
         assert!(trace.statements[0]
@@ -369,8 +392,44 @@ mod tests {
             None,
             &mut tx,
             vec!["alter table books drop column title"].into_iter(),
+            &[],
         )
         .unwrap();
         assert!(trace.statements[0].rewritten_objects.is_empty());
+    }
+
+    #[test]
+    fn test_ignore_all_triggers_no_hints() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec!["-- eugene: ignore\nalter table books add column meta json;"].into_iter(),
+            &[],
+        )
+        .unwrap();
+        assert!(trace.triggered_hints[0].is_empty());
+    }
+
+    #[test]
+    fn test_ignore_specific_hint_triggers_other_hints() {
+        let mut client = get_client();
+        let mut tx = client.transaction().unwrap();
+        let json_id = hint_data::ADD_JSON_COLUMN.id;
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec![&format!(
+                "-- eugene: ignore {json_id}\nalter table books add column meta json;"
+            )]
+            .into_iter(),
+            &[],
+        )
+        .unwrap();
+        assert!(!trace.triggered_hints[0]
+            .iter()
+            .any(|hint| hint.id == hint_data::ADD_JSON_COLUMN.id));
+        assert!(!trace.triggered_hints.is_empty())
     }
 }

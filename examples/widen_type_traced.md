@@ -16,7 +16,7 @@ There is a summary section for the entire script at the start of the report and 
 
 | Started at | Total duration (ms) | Number of dangerous locks |
 |------------|---------------------|---------------------------|
-| 2021-01-01T01:00:00+01:00 | 20 | 4 ❌ |
+| 2021-01-01T01:00:00+01:00 | 20 | 3 ❌ |
 
 ### All locks found
 
@@ -24,7 +24,6 @@ There is a summary section for the entire script at the start of the report and 
 |--------|--------|------|---------|-----|------|--------------------|
 | `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 | `public` | `books` | `ShareLock` | Table | 1 | ❌ | 10 |
-| `public` | `books_concurrently_test_idx` | `AccessExclusiveLock` | Index | 1 | ❌ | 10 |
 | `public` | `books_pkey` | `AccessExclusiveLock` | Index | 1 | ❌ | 10 |
 
 ### Dangerous locks found
@@ -40,16 +39,6 @@ There is a summary section for the entire script at the start of the report and 
   + `INSERT`
   + `MERGE`
 - `ShareLock` would block the following operations on `public.books`:
-  + `UPDATE`
-  + `DELETE`
-  + `INSERT`
-  + `MERGE`
-- `AccessExclusiveLock` would block the following operations on `public.books_concurrently_test_idx`:
-  + `SELECT`
-  + `FOR UPDATE`
-  + `FOR NO KEY UPDATE`
-  + `FOR SHARE`
-  + `FOR KEY SHARE`
   + `UPDATE`
   + `DELETE`
   + `INSERT`
@@ -100,7 +89,6 @@ No locks held at the start of this statement.
 |--------|--------|------|---------|-----|------|
 | `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
 | `public` | `books` | `ShareLock` | Table | 1 | ❌ |
-| `public` | `books_concurrently_test_idx` | `AccessExclusiveLock` | Index | 1 | ❌ |
 | `public` | `books_pkey` | `AccessExclusiveLock` | Index | 1 | ❌ |
 
 ### Hints

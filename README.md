@@ -92,6 +92,7 @@ downtime when running the script in a production database, in this repository:
 ```shell
 eugene lint --ignore E9 examples/add_check_constraint.sql
 ```
+
 Which should produce output like this:
 
 ```json
@@ -121,9 +122,18 @@ Which should produce output like this:
 ```
 
 `eugene lint` works by parsing the SQL script with [pg_query.rs](https://github.com/pganalyze/pg_query.rs),
-which is the actual postgres parser. However it can't know the state of your database, since it only does
+which is the actual postgres parser. However, it can't know the state of your database, since it only does
 syntax tree analysis, so it is more prone to false positives than the other option, which is to run the
 migration script and investigate its effects, before rolling back.
+
+Lints can also be ignored by commenting the SQL statement that triggers it:
+
+```sql
+-- eugene: ignore E3, E4
+alter table books add column meta json; -- would normally trigger E3 adding a json column
+```
+
+Note that such comments must appear _before_ the statement they're affecting.
 
 ## Lock tracing reports
 
@@ -159,6 +169,9 @@ You should see some output that looks like this, but with a lot more details:
 Note that `eugene` only logs locks that target relations visible to other transactions, so it does 
 not log any lock for the `author` table in this instance. By default, `eugene trace` will roll back 
 transactions, and you should pass `-c` or `--commit` if this is not what you want.
+
+Like `eugene lint`, `eugene trace` can also ignore lints by commenting the SQL statement that triggers it,
+or by providing `--ignore E3,E4` on the command line.
 
 ### Complex SQL scripts and variables
 
@@ -237,7 +250,10 @@ in a transaction. Other principles are:
 each statement into its syntax tree. These trees are pretty complex, because they can contain all possible
 syntax in postgres, so they're converted to a more lightweight representation that fits better
 for writing linting rules, see `src/linting/ast.rs`. Lint rules need a context, which is built gradually
-from statements within each script, in addition to the lightweight syntax tree to work.
+from statements within each script, in addition to the lightweight syntax tree to work. This avoids some
+false positives, by allowing the lints to skip checking statements that affect objects that can't be visible
+to concurrent transactions. This means that `eugene lint` will not trigger on a `create index` statement
+where the table was created in the same transaction.
 
 ## Tests
 

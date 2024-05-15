@@ -13,6 +13,7 @@ pub struct GenericHint {
     pub effect: String,
     pub workaround: String,
     pub has_lint: bool,
+    pub has_trace: bool,
 }
 
 impl From<&HintInfo> for GenericHint {
@@ -24,6 +25,9 @@ impl From<&HintInfo> for GenericHint {
             effect: value.effect().to_string(),
             workaround: value.workaround().to_string(),
             has_lint: crate::lints::rules::all_rules().any(|rule| rule.id() == value.code()),
+            has_trace: crate::hints::all_hints()
+                .iter()
+                .any(|hint| hint.code() == value.code()),
         }
     }
 }

@@ -34,13 +34,7 @@ impl Settings {
     }
 }
 
-impl Default for Settings {
-    fn default() -> Self {
-        Self::new(true, false)
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Default)]
+#[derive(Debug, Eq, PartialEq)]
 struct OutputContext {
     output_settings: Settings,
     statement_number: usize,
@@ -133,7 +127,8 @@ impl OutputContext {
         OutputContext {
             output_settings,
             statement_number: 1,
-            ..OutputContext::default()
+            held_locks_context: vec![],
+            duration_millis_so_far: 0,
         }
     }
 }

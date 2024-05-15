@@ -1,5 +1,5 @@
 use crate::hint_data;
-use crate::hint_data::StaticHintData;
+use crate::hint_data::{HintId, StaticHintData};
 use crate::output::output_format::Hint;
 use itertools::Itertools;
 use std::cmp::Reverse;
@@ -14,6 +14,12 @@ type HintFn = fn(&StatementCtx) -> Option<String>;
 pub struct HintInfo {
     meta: &'static StaticHintData,
     render_help: HintFn,
+}
+
+impl HintId for HintInfo {
+    fn id(&self) -> &str {
+        self.meta.id
+    }
 }
 
 impl HintInfo {

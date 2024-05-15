@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use pg_query::protobuf::ConstrType;
 
-use crate::hint_data::StaticHintData;
+use crate::hint_data::{HintId, StaticHintData};
 use crate::lints::ast::AlterTableAction;
 use crate::lints::{LintedStatement, StatementSummary};
 use crate::output::output_format::Hint;
@@ -9,6 +9,12 @@ use crate::output::output_format::Hint;
 pub struct LintRule {
     meta: &'static StaticHintData,
     check: fn(LintedStatement) -> Option<String>,
+}
+
+impl HintId for LintRule {
+    fn id(&self) -> &str {
+        self.meta.id
+    }
 }
 
 impl LintRule {

@@ -1,12 +1,14 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+use crate::comments::{filter_rules, find_comment_action};
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local};
 use itertools::Itertools;
 use postgres::types::Oid;
 use postgres::Transaction;
 
+use crate::hint_data::HintId;
 use crate::hints;
 use crate::output::output_format::Hint;
 use crate::pg_types::locks::{Lock, LockableTarget};
@@ -55,7 +57,7 @@ pub struct ModifiedConstraint {
 
 /// A trace of a transaction, including all SQL statements executed and the locks taken by each one.
 #[derive(Eq, PartialEq, Debug, Clone)]
-pub struct TxLockTracer {
+pub struct TxLockTracer<'a> {
     /// The name of the transaction, if any, typically the file name.
     pub(crate) name: Option<String>,
     /// The initial set of objects that are interesting to track locks for.
@@ -81,11 +83,13 @@ pub struct TxLockTracer {
 
     /// The relation file IDs of all relations in the database
     pub(crate) relfile_ids: HashMap<Oid, u32>,
+    /// Hint ids to ignore across all statements
+    pub(crate) ignored_hints: &'a [&'a str],
 }
 
 pub struct StatementCtx<'a> {
     pub(crate) sql_statement_trace: &'a SqlStatementTrace,
-    pub(crate) transaction: &'a TxLockTracer,
+    pub(crate) transaction: &'a TxLockTracer<'a>,
 }
 
 impl<'a> StatementCtx<'a> {
@@ -124,7 +128,7 @@ impl<'a> StatementCtx<'a> {
     }
 }
 
-impl TxLockTracer {
+impl<'a> TxLockTracer<'a> {
     /// Trace a single SQL statement, recording the locks taken and the duration of the statement.
     pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> Result<()> {
         // TODO: This is too big and should be refactored into more manageable pieces
@@ -211,7 +215,16 @@ impl TxLockTracer {
             sql_statement_trace: &statement,
             transaction: self,
         };
-        let hints: Vec<_> = hints::run_hints(&ctx).collect();
+        let hint_action = find_comment_action(sql)?;
+        let hints: Vec<_> = filter_rules(
+            &hint_action,
+            hints::all_hints()
+                .iter()
+                .filter(|hint| !self.ignored_hints.contains(&hint.id())),
+        )
+        .filter_map(|hint| hint.check(&ctx))
+        .collect();
+
         self.triggered_hints.push(hints);
         self.statements.push(statement);
         self.all_locks.extend(locks_taken.iter().cloned());
@@ -224,12 +237,15 @@ impl TxLockTracer {
     /// * `trace_targets` - The typically `Oid` of relations visible to other transactions.
     /// * `columns` - Initial columns in the database, to track changes.
     /// * `constraints` - Initial constraints in the database, to track changes.
+    /// * `relfile_ids` - Initial relation file IDs in the database, to track changes.
+    /// * `ignored_hints` - Hints to ignore across all statements.
     pub fn new(
         name: Option<String>,
         trace_targets: HashSet<Oid>,
         columns: HashMap<ColumnIdentifier, ColumnMetadata>,
         constraints: HashMap<Oid, Constraint>,
         relfile_ids: HashMap<Oid, u32>,
+        ignored_hints: &'a [&'a str],
     ) -> Self {
         Self {
             name,
@@ -243,6 +259,7 @@ impl TxLockTracer {
             created_objects: Default::default(),
             triggered_hints: vec![],
             relfile_ids,
+            ignored_hints,
         }
     }
 
@@ -251,11 +268,13 @@ impl TxLockTracer {
     /// # Parameters
     /// * `name` - The name of the transaction, typically the file name.
     /// * `statements` - The SQL statements to trace.
+    /// * `ignored_hints` - Hints to ignore across all statements.
     ///
     /// This can not really do any tracing, as `CONCURRENTLY` statements must run outside transactions.
     pub fn tracer_for_concurrently<S: AsRef<str>>(
         name: Option<String>,
         statements: impl Iterator<Item = S>,
+        ignored_hints: &'a [&'a str],
     ) -> Self {
         let mut out = Self {
             name,
@@ -283,6 +302,7 @@ impl TxLockTracer {
             created_objects: Default::default(),
             triggered_hints: vec![],
             relfile_ids: Default::default(),
+            ignored_hints,
         };
         out.triggered_hints = vec![vec![]; out.statements.len()];
         out

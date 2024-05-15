@@ -32,6 +32,9 @@ pub mod sqltext;
 /// internal to the crate, their fields are not part of the public API.
 pub mod tracing;
 
+/// Internal module for parsing eugene comment intstructions
+pub(crate) mod comments;
+
 /// Connection settings for connecting to a PostgreSQL database.
 pub struct ConnectionSettings {
     user: String,
@@ -102,10 +105,11 @@ pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&st
 
 /// Perform a lock trace of a SQL script and optionally commit the transaction, depending on
 /// trace_settings.
-pub fn perform_trace(
+pub fn perform_trace<'a>(
     trace: &TraceSettings,
     connection_settings: &ConnectionSettings,
-) -> anyhow::Result<TxLockTracer> {
+    ignored_hints: &'a [&'a str],
+) -> anyhow::Result<TxLockTracer<'a>> {
     let script_content = read_sql_statements(&trace.path)?;
     let name = if trace.path == "-" {
         None
@@ -123,14 +127,14 @@ pub fn perform_trace(
         for s in sql_statements.iter() {
             conn.execute(*s, &[])?;
         }
-        TxLockTracer::tracer_for_concurrently(name, sql_statements.iter())
+        TxLockTracer::tracer_for_concurrently(name, sql_statements.iter(), ignored_hints)
     } else {
         let mut tx = conn.transaction()?;
 
         // TODO: We probably need to special case create index concurrently here, since it's
         // illegal to run concurrently in a transaction, eg. we'd need to run it with auto-commit.
 
-        let trace_result = trace_transaction(name, &mut tx, sql_statements.iter())?;
+        let trace_result = trace_transaction(name, &mut tx, sql_statements.iter(), ignored_hints)?;
 
         if trace.commit {
             tx.commit()?;
@@ -227,7 +231,7 @@ mod tests {
         // drop the index if it is already there
         conn.execute("DROP INDEX IF EXISTS books_concurrently_test_idx", &[])
             .unwrap();
-        super::perform_trace(&trace_settings, &connection_settings).unwrap();
+        super::perform_trace(&trace_settings, &connection_settings, &[]).unwrap();
 
         let exists: bool = conn
             .query_one(

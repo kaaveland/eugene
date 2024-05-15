@@ -1,10 +1,10 @@
 use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
+use itertools::Itertools;
 use serde::Serialize;
 
-use eugene::lints::apply_ignore_list;
 use eugene::output::output_format::GenericHint;
-use eugene::output::{DetailedLockMode, LintReport, LockModesWrapper, TerseLockMode};
+use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
 use eugene::sqltext::{read_sql_statements, resolve_placeholders};
@@ -88,6 +88,19 @@ enum Commands {
         /// Output format, plain, json or markdown
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
+        /// Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+        ///
+        /// Example: `eugene trace -i E3 -i E4`
+        ///
+        /// For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+        ///
+        /// -- eugene: ignore E4
+        ///
+        /// alter table foo add column bar json;
+        ///
+        /// Use `-- eugene: ignore` to ignore all hints for a statement.
+        #[arg(short = 'i', long = "ignore")]
+        ignored_hints: Vec<String>,
     },
     /// List postgres lock modes
     Modes {
@@ -151,6 +164,8 @@ impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
     }
 }
 
+// TODO: bundle some of these arguments into some kind of "Settings" or "Configuration" struct
+#[allow(clippy::too_many_arguments)]
 fn trace(
     provided_connection_settings: ProvidedConnectionSettings,
     placeholders: Vec<String>,
@@ -159,10 +174,12 @@ fn trace(
     extra: bool,
     skip_summary: bool,
     trace_format: TraceFormat,
+    ignored_hints: Vec<String>,
 ) -> Result<String> {
     let connection_settings = provided_connection_settings.try_into()?;
     let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
-    let trace_result = perform_trace(&trace_settings, &connection_settings)?;
+    let ignore_list = ignored_hints.iter().map(|id| id.as_str()).collect_vec();
+    let trace_result = perform_trace(&trace_settings, &connection_settings, &ignore_list)?;
     let full_trace =
         output::full_trace_data(&trace_result, output::Settings::new(!extra, skip_summary));
     match trace_format {
@@ -213,8 +230,11 @@ pub fn main() -> Result<()> {
             let sql = read_sql_statements(&path)?;
             let placeholders = parse_placeholders(&placeholders)?;
             let sql = resolve_placeholders(&sql, &placeholders)?;
-            let report = eugene::lints::lint(if path == "-" { None } else { Some(path) }, sql)?;
-            let report: LintReport = apply_ignore_list(&report, &ignored_hints);
+            let report = eugene::lints::lint(
+                if path == "-" { None } else { Some(path) },
+                sql,
+                &ignored_hints.iter().map(|s| s.as_str()).collect_vec(),
+            )?;
             let failed = report.lints.iter().any(|stmt| !stmt.lints.is_empty());
             let out = if matches!(format, TraceFormat::Json) {
                 serde_json::to_string_pretty(&report)?
@@ -239,6 +259,7 @@ pub fn main() -> Result<()> {
             extra,
             skip_summary,
             format,
+            ignored_hints,
         }) => {
             let out = trace(
                 ProvidedConnectionSettings::new(user, database, host, port),
@@ -248,6 +269,7 @@ pub fn main() -> Result<()> {
                 extra,
                 skip_summary,
                 format.try_into()?,
+                ignored_hints,
             )?;
             println!("{}", out);
             Ok(())

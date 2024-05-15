@@ -1,3 +1,7 @@
+pub trait HintId {
+    fn id(&self) -> &str;
+}
+
 pub struct StaticHintData {
     pub id: &'static str,
     pub name: &'static str,
@@ -5,6 +9,13 @@ pub struct StaticHintData {
     pub effect: &'static str,
     pub workaround: &'static str,
 }
+
+impl HintId for StaticHintData {
+    fn id(&self) -> &str {
+        self.id
+    }
+}
+
 pub const VALIDATE_CONSTRAINT_WITH_LOCK: StaticHintData = StaticHintData {
     id: "E1",
     name: "Validating table with a new constraint",

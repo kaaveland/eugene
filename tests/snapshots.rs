@@ -32,7 +32,7 @@ mod snapshot_tests {
 
             let output_settings = eugene::output::Settings::new(false, false);
             let trace_result =
-                eugene::perform_trace(&trace_settings, &connection_settings).unwrap();
+                eugene::perform_trace(&trace_settings, &connection_settings, &[]).unwrap();
             let mut full_trace = eugene::output::full_trace_data(&trace_result, output_settings);
 
             full_trace.start_time = DateTime::from_str("2021-01-01T00:00:00Z").unwrap();
@@ -56,7 +56,7 @@ mod snapshot_tests {
 
             let script_path = format!("examples/{file_name}");
             let script = std::fs::read_to_string(&script_path).unwrap();
-            let lint_report = eugene::lints::lint(Some(script_path), &script).unwrap();
+            let lint_report = eugene::lints::lint(Some(script_path), &script, &[]).unwrap();
             let lint_report_name = format!("examples/{}_lints.md", file_title);
             let md = eugene::output::markdown::lint_report_to_markdown(&lint_report);
             std::fs::write(lint_report_name, md).unwrap();

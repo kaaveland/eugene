@@ -1,6 +1,6 @@
-use anyhow::anyhow;
 use itertools::Itertools;
 
+use crate::comments::filter_rules;
 pub use crate::lints::ast::StatementSummary;
 use crate::output::output_format::{Lint, LintReport};
 
@@ -92,56 +92,29 @@ impl<'a> LintedStatement<'a> {
     }
 }
 
-enum LintAction<'a> {
-    SkipAll,
-    Skip(Vec<&'a str>),
-    Continue,
-}
 /// Lint a SQL script and return a report with all matched lints for each statement.
-pub fn lint<S: AsRef<str>>(name: Option<String>, sql: S) -> anyhow::Result<LintReport> {
+pub fn lint<S: AsRef<str>>(
+    name: Option<String>,
+    sql: S,
+    ignored_lints: &[&str],
+) -> anyhow::Result<LintReport> {
     let statements = pg_query::split_with_parser(sql.as_ref())?;
-    let eugene_comment_regex = regex::Regex::new(r"-- eugene: ([^\n]+)")?;
     let mut ctx = LintContext::default();
     let mut lints = Vec::new();
     let mut no: usize = 1;
     for stmt in statements {
-        let m = eugene_comment_regex.captures(stmt);
-        let action: anyhow::Result<_> = if let Some(eugene_instruction) = m {
-            match eugene_instruction.get(1).map(|m| m.as_str()) {
-                Some("ignore") => Ok(LintAction::SkipAll),
-                Some(ids) if ids.starts_with("ignore ") => {
-                    let rem = &ids["ignore ".len()..];
-                    Ok(LintAction::Skip(
-                        rem.split(',').map(|id| id.trim()).collect(),
-                    ))
-                }
-                s => Err(anyhow!("Invalid eugene instruction: {s:?}")),
-            }
-        } else {
-            Ok(LintAction::Continue)
-        };
-        let action = action?;
+        let action = crate::comments::find_comment_action(sql.as_ref())?;
         let tree = pg_query::parse(stmt)?;
         for raw in tree.protobuf.stmts.iter() {
             if let Some(node) = &raw.stmt {
                 if let Some(node_ref) = &node.node {
                     let summary = ast::describe(&node_ref.to_ref())?;
                     let lint_line = LintedStatement::new(&ctx, &summary);
+                    let matched_lints = filter_rules(&action, rules::all_rules())
+                        .filter(|rule| !ignored_lints.contains(&rule.id()))
+                        .filter_map(|rule| rule.check(lint_line))
+                        .collect();
 
-                    let matched_lints = if matches!(action, LintAction::SkipAll) {
-                        vec![]
-                    } else {
-                        rules::all_rules()
-                            .filter_map(|rule| rule.check(lint_line))
-                            .filter(|hint| {
-                                if let LintAction::Skip(ids) = &action {
-                                    !ids.contains(&hint.id.as_str())
-                                } else {
-                                    true
-                                }
-                            })
-                            .collect()
-                    };
                     lints.push(Lint {
                         statement_number: no,
                         sql: stmt.trim().to_string(),
@@ -156,29 +129,8 @@ pub fn lint<S: AsRef<str>>(name: Option<String>, sql: S) -> anyhow::Result<LintR
     Ok(LintReport { name, lints })
 }
 
-/// Skip the ignored lint IDs
-pub fn apply_ignore_list(report: &LintReport, ignored_hints: &[String]) -> LintReport {
-    let lints = report
-        .lints
-        .iter()
-        .map(|stmt| Lint {
-            lints: stmt
-                .lints
-                .iter()
-                .filter(|hint| !ignored_hints.contains(&hint.id))
-                .cloned()
-                .collect(),
-            ..stmt.clone()
-        })
-        .collect();
-    LintReport {
-        lints,
-        ..report.clone()
-    }
-}
-
 pub fn anon_lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
-    lint(None, sql)
+    lint(None, sql, &[])
 }
 
 #[cfg(test)]

@@ -25,7 +25,6 @@ There is a summary section for the entire script at the start of the report and 
 | `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 40 |
 | `public` | `books` | `AccessShareLock` | Table | 1 | ✅ | 20 |
 | `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ | 20 |
-| `public` | `books_concurrently_test_idx` | `AccessShareLock` | Index | 1 | ✅ | 20 |
 | `public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅ | 20 |
 
 ### Dangerous locks found
@@ -153,7 +152,6 @@ alter table books add foreign key (author_id) references authors(id)
 |--------|--------|------|---------|-----|------|
 | `public` | `books` | `AccessShareLock` | Table | 1 | ✅ |
 | `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ |
-| `public` | `books_concurrently_test_idx` | `AccessShareLock` | Index | 1 | ✅ |
 | `public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅ |
 
 ### Hints
@@ -197,7 +195,6 @@ select * from books
 | `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
 | `public` | `books` | `AccessShareLock` | Table | 1 | ✅ |
 | `public` | `books` | `ShareRowExclusiveLock` | Table | 1 | ❌ |
-| `public` | `books_concurrently_test_idx` | `AccessShareLock` | Index | 1 | ✅ |
 | `public` | `books_pkey` | `AccessShareLock` | Index | 1 | ✅ |
 
 ### New locks taken

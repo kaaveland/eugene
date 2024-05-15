@@ -129,6 +129,10 @@ impl<'a> StatementCtx<'a> {
 }
 
 impl<'a> TxLockTracer<'a> {
+    /// True if no hints were triggered
+    pub fn success(&self) -> bool {
+        self.triggered_hints.iter().all(|hints| hints.is_empty())
+    }
     /// Trace a single SQL statement, recording the locks taken and the duration of the statement.
     pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> Result<()> {
         // TODO: This is too big and should be refactored into more manageable pieces

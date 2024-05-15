@@ -55,6 +55,9 @@ enum Commands {
         /// Output format, plain, json or markdown
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
+        /// Exit successfully even if problems are detected. Will still fail for invalid SQL.
+        #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
+        accept_failures: bool,
     },
     /// Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable.
     Trace {
@@ -101,6 +104,9 @@ enum Commands {
         /// Use `-- eugene: ignore` to ignore all hints for a statement.
         #[arg(short = 'i', long = "ignore")]
         ignored_hints: Vec<String>,
+        /// Exit successfully even if problems are detected. Will still fail for invalid SQL.
+        #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
+        accept_failures: bool,
     },
     /// List postgres lock modes
     Modes {
@@ -164,31 +170,43 @@ impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
     }
 }
 
-// TODO: bundle some of these arguments into some kind of "Settings" or "Configuration" struct
-#[allow(clippy::too_many_arguments)]
+#[derive(Debug, PartialEq, Eq)]
+struct TraceConfiguration {
+    trace_format: TraceFormat,
+    extra_lock_info: bool,
+    skip_summary: bool,
+    ignored_hints: Vec<String>,
+}
+
 fn trace(
     provided_connection_settings: ProvidedConnectionSettings,
     placeholders: Vec<String>,
     commit: bool,
     path: String,
-    extra: bool,
-    skip_summary: bool,
-    trace_format: TraceFormat,
-    ignored_hints: Vec<String>,
-) -> Result<String> {
+    config: TraceConfiguration,
+) -> Result<(bool, String)> {
     let connection_settings = provided_connection_settings.try_into()?;
     let trace_settings = TraceSettings::new(path, commit, &placeholders)?;
-    let ignore_list = ignored_hints.iter().map(|id| id.as_str()).collect_vec();
+    let ignore_list = config
+        .ignored_hints
+        .iter()
+        .map(|id| id.as_str())
+        .collect_vec();
     let trace_result = perform_trace(&trace_settings, &connection_settings, &ignore_list)?;
-    let full_trace =
-        output::full_trace_data(&trace_result, output::Settings::new(!extra, skip_summary));
-    match trace_format {
+    let full_trace = output::full_trace_data(
+        &trace_result,
+        output::Settings::new(!config.extra_lock_info, config.skip_summary),
+    );
+
+    let report = match config.trace_format {
         TraceFormat::Json => full_trace.to_pretty_json(),
         TraceFormat::Plain => full_trace.to_plain_text(),
         TraceFormat::Markdown => full_trace.to_markdown(),
-    }
+    }?;
+    Ok((trace_result.success(), report))
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum TraceFormat {
     Json,
     Plain,
@@ -225,6 +243,7 @@ pub fn main() -> Result<()> {
             placeholders,
             ignored_hints,
             format,
+            accept_failures: exit_success,
         }) => {
             let format: TraceFormat = format.try_into()?;
             let sql = read_sql_statements(&path)?;
@@ -242,7 +261,7 @@ pub fn main() -> Result<()> {
                 output::markdown::lint_report_to_markdown(&report)
             };
             println!("{}", out);
-            if failed {
+            if failed && !exit_success {
                 Err(anyhow!("Lint detected"))
             } else {
                 Ok(())
@@ -260,19 +279,28 @@ pub fn main() -> Result<()> {
             skip_summary,
             format,
             ignored_hints,
+            accept_failures: exit_success,
         }) => {
-            let out = trace(
+            let config = TraceConfiguration {
+                trace_format: format.try_into()?,
+                extra_lock_info: extra,
+                skip_summary,
+                ignored_hints,
+            };
+
+            let (success, report) = trace(
                 ProvidedConnectionSettings::new(user, database, host, port),
                 placeholders,
                 commit,
                 path,
-                extra,
-                skip_summary,
-                format.try_into()?,
-                ignored_hints,
+                config,
             )?;
-            println!("{}", out);
-            Ok(())
+            println!("{}", report);
+            if success || exit_success {
+                Ok(())
+            } else {
+                Err(anyhow!("Trace uncovered problems"))
+            }
         }
         Some(Commands::Modes { .. }) | None => {
             let lock_modes: Vec<_> = lock_modes::LOCK_MODES

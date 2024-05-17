@@ -136,6 +136,7 @@ pub fn anon_lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hint_data::ADDED_SERIAL_OR_STORED_GENERATED_COLUMN;
 
     fn matched_lint_rule(report: &LintReport, rule_id: &str) -> bool {
         report
@@ -357,6 +358,42 @@ mod tests {
         assert!(matched_lint_rule(
             &report,
             rules::SET_COLUMN_TYPE_TO_JSON.id()
+        ));
+    }
+
+    #[test]
+    fn test_alter_table_add_serial_column() {
+        let report = anon_lint("alter table books add column id serial;").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            ADDED_SERIAL_OR_STORED_GENERATED_COLUMN.id
+        ));
+        let report = anon_lint("alter table books add column id bigserial;").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            ADDED_SERIAL_OR_STORED_GENERATED_COLUMN.id
+        ));
+    }
+
+    #[test]
+    fn test_alter_table_generated_always_column() {
+        let report =
+            anon_lint("alter table books add column id int generated always as identity;").unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            ADDED_SERIAL_OR_STORED_GENERATED_COLUMN.id
+        ));
+    }
+
+    #[test]
+    fn test_alter_table_stored_generated_column() {
+        let report = anon_lint(
+            "alter table books add column id int generated always as (1 + old_id) stored;",
+        )
+        .unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            ADDED_SERIAL_OR_STORED_GENERATED_COLUMN.id
         ));
     }
 }

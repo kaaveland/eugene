@@ -16,13 +16,14 @@ pub mod rules;
 /// visibility to other transactions, usage of lock timeouts and other properties
 /// that require state to be kept between different statements.
 #[derive(Debug, Default, Eq, PartialEq)]
-pub struct LintContext {
+pub struct TransactionState {
     locktimeout: bool,
     created_objects: Vec<(String, String)>,
+    altered_tables: Vec<(String, String)>,
     has_access_exclusive: bool,
 }
 
-impl LintContext {
+impl TransactionState {
     /// Query if the script under linting has previously created an object with the given schema and name.
     pub fn has_created_object(&self, schema: &str, name: &str) -> bool {
         self.created_objects
@@ -50,18 +51,25 @@ impl LintContext {
             }
             _ => {}
         }
+
+        if let StatementSummary::AlterTable { schema, name, .. } = summary {
+            let new_item = (schema.to_string(), name.to_string());
+            if !self.altered_tables.contains(&new_item) {
+                self.altered_tables.push(new_item);
+            }
+        }
     }
 }
 
 #[derive(Copy, Clone)]
-pub struct LintedStatement<'a> {
-    pub(crate) ctx: &'a LintContext,
+pub struct LintContext<'a> {
+    pub(crate) ctx: &'a TransactionState,
     pub(crate) statement: &'a StatementSummary,
 }
 
-impl<'a> LintedStatement<'a> {
-    pub fn new(ctx: &'a LintContext, statement: &'a StatementSummary) -> Self {
-        LintedStatement { ctx, statement }
+impl<'a> LintContext<'a> {
+    pub fn new(ctx: &'a TransactionState, statement: &'a StatementSummary) -> Self {
+        LintContext { ctx, statement }
     }
     /// Locks taken by the statement that were not created in the same transaction.
     pub fn locks_visible_outside_tx(&self) -> Vec<(&str, &str)> {
@@ -90,6 +98,13 @@ impl<'a> LintedStatement<'a> {
     pub fn holding_access_exclusive(&self) -> bool {
         self.ctx.has_access_exclusive
     }
+    /// True if the transaction has previously altered this table
+    pub fn has_altered_table(&self, schema: &str, name: &str) -> bool {
+        self.ctx
+            .altered_tables
+            .iter()
+            .any(|(s, n)| schema.eq_ignore_ascii_case(s) && name.eq_ignore_ascii_case(n))
+    }
 }
 
 /// Lint a SQL script and return a report with all matched lints for each statement.
@@ -99,7 +114,7 @@ pub fn lint<S: AsRef<str>>(
     ignored_lints: &[&str],
 ) -> anyhow::Result<LintReport> {
     let statements = pg_query::split_with_parser(sql.as_ref())?;
-    let mut ctx = LintContext::default();
+    let mut ctx = TransactionState::default();
     let mut lints = Vec::new();
     let mut no: usize = 1;
     for stmt in statements {
@@ -109,7 +124,7 @@ pub fn lint<S: AsRef<str>>(
             if let Some(node) = &raw.stmt {
                 if let Some(node_ref) = &node.node {
                     let summary = ast::describe(&node_ref.to_ref())?;
-                    let lint_line = LintedStatement::new(&ctx, &summary);
+                    let lint_line = LintContext::new(&ctx, &summary);
                     let matched_lints = filter_rules(&action, rules::all_rules())
                         .filter(|rule| !ignored_lints.contains(&rule.id()))
                         .filter_map(|rule| rule.check(lint_line))
@@ -394,6 +409,35 @@ mod tests {
         assert!(matched_lint_rule(
             &report,
             ADDED_SERIAL_OR_STORED_GENERATED_COLUMN.id
+        ));
+    }
+
+    #[test]
+    fn test_altered_table_several_times() {
+        let report = anon_lint(
+            "
+             alter table books add column data jsonb;\
+             alter table books add column price numeric;
+        ",
+        )
+        .unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO.id()
+        ));
+    }
+
+    #[test]
+    fn tets_altered_table_once_with_multiple_statements() {
+        let report = anon_lint(
+            "
+             alter table books add column data jsonb, add column price numeric;
+        ",
+        )
+        .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO.id()
         ));
     }
 }

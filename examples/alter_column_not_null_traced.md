@@ -16,13 +16,13 @@ There is a summary section for the entire script at the start of the report and 
 
 | Started at | Total duration (ms) | Number of dangerous locks |
 |------------|---------------------|---------------------------|
-| 2021-01-01T01:00:00+01:00 | 20 | 2 ❌ |
+| 2021-01-01T01:00:00+01:00 | 10 | 2 ❌ |
 
 ### All locks found
 
 | Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
 |--------|--------|------|---------|-----|------|--------------------|
-| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 20 |
+| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 | `public` | `books` | `ShareLock` | Table | 1 | ❌ | 10 |
 
 ### Dangerous locks found
@@ -48,7 +48,7 @@ There is a summary section for the entire script at the start of the report and 
 ### SQL
 
 ```sql
-alter table books alter column title set not null
+alter table books alter column title set not null, add constraint title_unique unique (title)
 ```
 
 ### Locks at start
@@ -60,6 +60,7 @@ No locks held at the start of this statement.
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| `public` | `books` | `ShareLock` | Table | 1 | ❌ |
 
 ### Hints
 
@@ -75,44 +76,6 @@ The column `title` in the table `public.books` was changed to `NOT NULL`. If the
 2. Validate the constraint in a later transaction, with `ALTER TABLE public.books VALIDATE CONSTRAINT ...`.
 3. Make the column `NOT NULL`
 
-
-#### Taking dangerous lock without timeout
-
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-The statement took `AccessExclusiveLock` on the Table `public.books` without a timeout. It blocks `SELECT`, `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
-
-## Statement number 2 for 10 ms
-
-### SQL
-
-```sql
-alter table books add constraint title_unique unique (title)
-```
-
-### Locks at start
-
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `books` | `AccessExclusiveLock` | Table | 1 | ❌ |
-
-### New locks taken
-
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `books` | `ShareLock` | Table | 1 | ❌ |
-
-### Hints
-
-#### Running more statements after taking `AccessExclusiveLock`
-
-ID: `E4`
-
-A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
-
-The statement is running while holding an `AccessExclusiveLock` on the Table `public.books`, blocking all other transactions from accessing it.
 
 #### Creating a new index on an existing table
 
@@ -136,5 +99,5 @@ ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
 
-The statement took `ShareLock` on the Table `public.books` without a timeout. It blocks `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
+The statement took `AccessExclusiveLock` on the Table `public.books` without a timeout. It blocks `SELECT`, `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
 

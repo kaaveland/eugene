@@ -3,12 +3,12 @@ use pg_query::protobuf::ConstrType;
 
 use crate::hint_data::{HintId, StaticHintData};
 use crate::lints::ast::AlterTableAction;
-use crate::lints::{LintedStatement, StatementSummary};
+use crate::lints::{LintContext, StatementSummary};
 use crate::output::output_format::Hint;
 
 pub struct LintRule {
     meta: &'static StaticHintData,
-    check: fn(LintedStatement) -> Option<String>,
+    check: fn(LintContext) -> Option<String>,
 }
 
 impl HintId for LintRule {
@@ -33,7 +33,7 @@ impl LintRule {
     pub fn condition(&self) -> &'static str {
         self.meta.condition
     }
-    pub fn check(&self, stmt: LintedStatement) -> Option<Hint> {
+    pub fn check(&self, stmt: LintContext) -> Option<Hint> {
         (self.check)(stmt).map(|help| Hint {
             id: self.id().to_string(),
             name: self.name().to_string(),
@@ -46,7 +46,7 @@ impl LintRule {
 }
 
 /// Emit a warning if a statement takes a lock that is visible to other transactions without a timeout
-pub fn locktimeout_warning(stmt: LintedStatement) -> Option<String> {
+pub fn locktimeout_warning(stmt: LintContext) -> Option<String> {
     let target = stmt
         .locks_visible_outside_tx()
         .into_iter()
@@ -66,7 +66,7 @@ pub const LOCKTIMEOUT_WARNING: LintRule = LintRule {
     check: locktimeout_warning,
 };
 
-fn create_index_nonconcurrently(stmt: LintedStatement) -> Option<String> {
+fn create_index_nonconcurrently(stmt: LintContext) -> Option<String> {
     match stmt.statement {
         StatementSummary::CreateIndex {
             schema,
@@ -91,7 +91,7 @@ pub const CREATE_INDEX_NONCONCURRENTLY: LintRule = LintRule {
     check: create_index_nonconcurrently,
 };
 
-fn adding_valid_constraint(stmt: LintedStatement) -> Option<String> {
+fn adding_valid_constraint(stmt: LintContext) -> Option<String> {
     fn is_valid_constraint(alter_table_cmd: &AlterTableAction) -> bool {
         matches!(
             alter_table_cmd,
@@ -142,7 +142,7 @@ pub const ADDING_VALID_CONSTRAINT: LintRule = LintRule {
     check: adding_valid_constraint,
 };
 
-fn adding_exclusion_constraint(stmt: LintedStatement) -> Option<String> {
+fn adding_exclusion_constraint(stmt: LintContext) -> Option<String> {
     match stmt.statement {
         StatementSummary::AlterTable {
             schema,
@@ -182,7 +182,7 @@ pub const ADDING_EXCLUSION_CONSTRAINT: LintRule = LintRule {
     check: adding_exclusion_constraint,
 };
 
-fn add_new_unique_constraint_without_using_index(stmt: LintedStatement) -> Option<String> {
+fn add_new_unique_constraint_without_using_index(stmt: LintContext) -> Option<String> {
     match stmt.statement {
         StatementSummary::AlterTable {
             schema,
@@ -223,7 +223,7 @@ pub const ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX: LintRule = LintRule {
     check: add_new_unique_constraint_without_using_index,
 };
 
-fn run_more_statements_after_taking_access_exclusive(stmt: LintedStatement) -> Option<String> {
+fn run_more_statements_after_taking_access_exclusive(stmt: LintContext) -> Option<String> {
     if stmt.holding_access_exclusive() {
         Some("Running more statements after taking `AccessExclusiveLock`".to_string())
     } else {
@@ -236,7 +236,7 @@ pub const RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE: LintRule = LintRule 
     check: run_more_statements_after_taking_access_exclusive,
 };
 
-fn sets_column_to_not_null(stmt: LintedStatement) -> Option<String> {
+fn sets_column_to_not_null(stmt: LintContext) -> Option<String> {
     match stmt.statement {
         StatementSummary::AlterTable {
             schema,
@@ -269,7 +269,7 @@ pub const MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK: LintRule = LintRule {
     check: sets_column_to_not_null,
 };
 
-fn sets_column_type_to_json(stmt: LintedStatement) -> Option<String> {
+fn sets_column_type_to_json(stmt: LintContext) -> Option<String> {
     match stmt.statement {
         StatementSummary::AlterTable {
             schema,
@@ -314,7 +314,7 @@ pub const SET_COLUMN_TYPE_TO_JSON: LintRule = LintRule {
     check: sets_column_type_to_json,
 };
 
-fn changes_type_of_column_in_visible_object(stmt: LintedStatement) -> Option<String> {
+fn changes_type_of_column_in_visible_object(stmt: LintContext) -> Option<String> {
     match stmt.statement {
         StatementSummary::AlterTable {
             schema,
@@ -345,7 +345,7 @@ pub const CHANGE_COLUMN_TYPE: LintRule = LintRule {
     check: changes_type_of_column_in_visible_object,
 };
 
-pub fn added_serial_column(stmt: LintedStatement) -> Option<String> {
+pub fn added_serial_column(stmt: LintContext) -> Option<String> {
     let serials = ["bigserial", "serial"];
     match stmt.statement {
         StatementSummary::AlterTable {
@@ -380,6 +380,26 @@ pub const ADD_SERIAL_COLUMN: LintRule = LintRule {
     check: added_serial_column,
 };
 
+pub fn multiple_alter_table_with_same_target(ctx: LintContext) -> Option<String> {
+    match ctx.statement {
+        StatementSummary::AlterTable { schema, name, .. }
+            if ctx.is_visible(schema, name) && ctx.has_altered_table(schema, name) =>
+        {
+            let schema = if schema.is_empty() { "public" } else { schema };
+            Some(format!(
+                "Multiple `ALTER TABLE` statements on `{schema}.{name}`. \
+                    Combine them into a single statement to avoid scanning the table multiple times."
+            ))
+        }
+        _ => None,
+    }
+}
+
+pub const MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO: LintRule = LintRule {
+    meta: &crate::hint_data::MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO,
+    check: multiple_alter_table_with_same_target,
+};
+
 const RULES: &[LintRule] = &[
     ADDING_VALID_CONSTRAINT,
     MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
@@ -391,6 +411,7 @@ const RULES: &[LintRule] = &[
     ADDING_EXCLUSION_CONSTRAINT,
     LOCKTIMEOUT_WARNING,
     ADD_SERIAL_COLUMN,
+    MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO,
 ];
 
 /// Get all available lint rules

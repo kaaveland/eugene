@@ -119,22 +119,20 @@ fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
                     let name = coldef.colname.clone();
                     let type_name = col_type_as_string(coldef)?;
                     let stored_generated = stored_generated(coldef);
-                    Ok(ColDefSummary {
+                    Ok(Some(ColDefSummary {
                         name,
                         type_name,
                         stored_generated,
-                    })
+                    }))
                 } else {
-                    Err(anyhow::anyhow!(
-                        "CREATE TABLE statement has an unrecognized column definition"
-                    ))
+                    Ok(None)
                 }
             })
             .collect();
         Ok(StatementSummary::CreateTable {
             schema,
             name,
-            columns: elts?,
+            columns: elts?.into_iter().flatten().collect(),
         })
     } else {
         Err(anyhow::anyhow!(

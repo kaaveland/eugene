@@ -53,7 +53,7 @@ enum Commands {
         #[arg(short = 'i', long = "ignore")]
         ignored_hints: Vec<String>,
         /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "json")]
+        #[arg(short = 'f', long = "format", default_value = "json", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md"]))]
         format: String,
         /// Exit successfully even if problems are detected. Will still fail for invalid SQL.
         #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
@@ -89,7 +89,7 @@ enum Commands {
         #[arg(short = 's', long = "skip-summary", default_value_t = false)]
         skip_summary: bool,
         /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "json")]
+        #[arg(short = 'f', long = "format", default_value = "json", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
         format: String,
         /// Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
         ///

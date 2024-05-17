@@ -89,3 +89,10 @@ pub const REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK: StaticHintData = StaticHin
     workaround: "Build a new table or index, write to both, then swap them",
     effect: "This blocks many operations on the table or index while the rewrite is in progress",
 };
+pub const ADDED_SERIAL_OR_STORED_GENERATED_COLUMN: StaticHintData = StaticHintData {
+    id: "E11",
+    name: "Adding a `SERIAL` or `GENERATED ... STORED` column",
+    condition: "A new column was added with a `SERIAL` or `GENERATED` type",
+    workaround: "Can not be done without a table rewrite",
+    effect: "This blocks all table access until the table is rewritten",
+};

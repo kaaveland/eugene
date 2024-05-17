@@ -1,13 +1,16 @@
 use anyhow::Context;
+use pg_query::protobuf::node::Node;
 use pg_query::protobuf::{
     AlterTableCmd, AlterTableType, ColumnDef, ConstrType, CreateStmt, CreateTableAsStmt, IndexStmt,
     VariableSetStmt,
 };
+use pg_query::NodeRef;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColDefSummary {
     pub name: String,
     pub type_name: String,
+    pub stored_generated: bool,
 }
 /// A simpler, linter-rule friendly representation of the postgres parse tree
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -85,6 +88,7 @@ pub enum AlterTableAction {
     AddColumn {
         column: String,
         type_name: String,
+        stored_generated: bool,
     },
     Unrecognized,
 }
@@ -106,10 +110,15 @@ fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
             .iter()
             .map(|node| {
                 let inner = node.node.as_ref().map(|node| node.to_ref());
-                if let Some(pg_query::NodeRef::ColumnDef(coldef)) = inner {
+                if let Some(NodeRef::ColumnDef(coldef)) = inner {
                     let name = coldef.colname.clone();
                     let type_name = col_type_as_string(coldef)?;
-                    Ok(ColDefSummary { name, type_name })
+                    let stored_generated = stored_generated(coldef);
+                    Ok(ColDefSummary {
+                        name,
+                        type_name,
+                        stored_generated,
+                    })
                 } else {
                     Err(anyhow::anyhow!(
                         "CREATE TABLE statement has an unrecognized column definition"
@@ -127,6 +136,16 @@ fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
             "CREATE TABLE statement does not have a relation"
         ))
     }
+}
+
+fn stored_generated(coldef: &ColumnDef) -> bool {
+    coldef.constraints.iter().any(|c| match c.node.as_ref() {
+        Some(Node::Constraint(cons)) => {
+            &cons.generated_when == "a"
+                && ConstrType::from_i32(cons.contype) == Some(ConstrType::ConstrGenerated)
+        }
+        _ => false,
+    })
 }
 
 fn create_table_as(child: &CreateTableAsStmt) -> anyhow::Result<StatementSummary> {
@@ -170,7 +189,7 @@ fn col_type_as_string(coldef: &ColumnDef) -> anyhow::Result<String> {
             .names
             .iter()
             .map(|n| match n.node.as_ref() {
-                Some(pg_query::protobuf::node::Node::String(tn)) => Ok(tn.sval.to_owned()),
+                Some(Node::String(tn)) => Ok(tn.sval.to_owned()),
                 _ => Err(anyhow::anyhow!("Column definition has no type name")),
             })
             .collect();
@@ -186,7 +205,6 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableA
     match subtype {
         AlterTableType::AtAlterColumnType => {
             let col = expect_coldef(child)?;
-            // TODO: Parse the type name
             Ok(AlterTableAction::SetType {
                 column: child.name.clone(),
                 type_name: col_type_as_string(col)?,
@@ -194,9 +212,11 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableA
         }
         AlterTableType::AtAddColumn => {
             let col = expect_coldef(child)?;
+            let stored_generated = stored_generated(col);
             Ok(AlterTableAction::AddColumn {
                 column: col.colname.clone(),
                 type_name: col_type_as_string(col)?,
+                stored_generated,
             })
         }
         AlterTableType::AtSetNotNull => Ok(AlterTableAction::SetNotNull {
@@ -226,7 +246,7 @@ fn expect_constraint_def(child: &AlterTableCmd) -> anyhow::Result<&pg_query::pro
     if let Some(def) = &child.def {
         let next = def.node.as_ref();
         if let Some(n) = next {
-            if let pg_query::NodeRef::Constraint(constraint) = n.to_ref() {
+            if let NodeRef::Constraint(constraint) = n.to_ref() {
                 Ok(constraint)
             } else {
                 Err(anyhow::anyhow!(
@@ -249,7 +269,7 @@ fn expect_coldef(child: &AlterTableCmd) -> anyhow::Result<&ColumnDef> {
     if let Some(def) = &child.def {
         let next = def.node.as_ref();
         if let Some(n) = next {
-            if let pg_query::NodeRef::ColumnDef(colddef) = n.to_ref() {
+            if let NodeRef::ColumnDef(colddef) = n.to_ref() {
                 Ok(colddef)
             } else {
                 Err(anyhow::anyhow!(
@@ -278,7 +298,7 @@ fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<Sta
             .map(|cmd| {
                 if let Some(cmd_node) = &cmd.node {
                     let node_ref = &cmd_node.to_ref();
-                    if let pg_query::NodeRef::AlterTableCmd(child) = node_ref {
+                    if let NodeRef::AlterTableCmd(child) = node_ref {
                         parse_alter_table_action(child)
                     } else {
                         Err(anyhow::anyhow!(
@@ -310,16 +330,16 @@ fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<Sta
 ///
 /// If the parse tree has an unexpected structure, an error can be returned. This could be for example,
 /// a parse tree that represents an `alter column set type` command, but without a new type declaration.
-pub fn describe(statement: &pg_query::NodeRef) -> anyhow::Result<StatementSummary> {
+pub fn describe(statement: &NodeRef) -> anyhow::Result<StatementSummary> {
     match statement {
-        pg_query::NodeRef::VariableSetStmt(child) => set_statement(child),
+        NodeRef::VariableSetStmt(child) => set_statement(child),
         // CREATE TABLE
-        pg_query::NodeRef::CreateStmt(child) => create_table(child),
+        NodeRef::CreateStmt(child) => create_table(child),
         // CREATE TABLE AS
-        pg_query::NodeRef::CreateTableAsStmt(child) => create_table_as(child),
+        NodeRef::CreateTableAsStmt(child) => create_table_as(child),
         // CREATE INDEX
-        pg_query::NodeRef::IndexStmt(child) => create_index(child),
-        pg_query::NodeRef::AlterTableStmt(child) => alter_table(child),
+        NodeRef::IndexStmt(child) => create_index(child),
+        NodeRef::AlterTableStmt(child) => alter_table(child),
         _ => Ok(StatementSummary::Ignored),
     }
 }
@@ -363,7 +383,8 @@ mod tests {
                 name: "foo".to_string(),
                 columns: vec![super::ColDefSummary {
                     name: "id".to_string(),
-                    type_name: "pg_catalog.int4".to_string()
+                    type_name: "pg_catalog.int4".to_string(),
+                    stored_generated: false
                 }]
             }
         );
@@ -374,7 +395,8 @@ mod tests {
                 name: "foo".to_string(),
                 columns: vec![super::ColDefSummary {
                     name: "id".to_string(),
-                    type_name: "pg_catalog.int4".to_string()
+                    type_name: "pg_catalog.int4".to_string(),
+                    stored_generated: false
                 }]
             }
         );
@@ -385,7 +407,8 @@ mod tests {
                 name: "bar".to_string(),
                 columns: vec![super::ColDefSummary {
                     name: "id".to_string(),
-                    type_name: "pg_catalog.int4".to_string()
+                    type_name: "pg_catalog.int4".to_string(),
+                    stored_generated: false
                 }]
             }
         );
@@ -397,7 +420,7 @@ mod tests {
             parse_s("CREATE TABLE foo AS SELECT * FROM bar"),
             StatementSummary::CreateTableAs {
                 schema: "".to_string(),
-                name: "foo".to_string()
+                name: "foo".to_string(),
             }
         );
         assert_eq!(
@@ -546,7 +569,8 @@ mod tests {
                 name: "foo".to_string(),
                 actions: vec![super::AlterTableAction::AddColumn {
                     column: "bar".to_string(),
-                    type_name: "json".to_string()
+                    type_name: "json".to_string(),
+                    stored_generated: false
                 }]
             }
         );
@@ -561,7 +585,8 @@ mod tests {
                 name: "foo".to_string(),
                 columns: vec![super::ColDefSummary {
                     name: "bar".to_string(),
-                    type_name: "json".to_string()
+                    type_name: "json".to_string(),
+                    stored_generated: false
                 }]
             }
         );

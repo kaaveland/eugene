@@ -76,7 +76,10 @@ fn create_index_nonconcurrently(stmt: LintedStatement) -> Option<String> {
             ..
         } if stmt.is_visible(schema, target) => {
             let schema = if schema.is_empty() { "public" } else { schema };
-            Some(format!("Statement takes `ShareLock` on `{schema}.{target}`, blocking writes while creating index `{schema}.{idxname}`"))
+            Some(format!(
+                "Statement takes `ShareLock` on `{schema}.{target}`, blocking \
+             writes while creating index `{schema}.{idxname}`"
+            ))
         }
         _ => None,
     }
@@ -277,11 +280,9 @@ fn sets_column_type_to_json(stmt: LintedStatement) -> Option<String> {
                 .iter()
                 .filter_map(|cmd| match cmd {
                     AlterTableAction::SetType { type_name, column }
-                    | AlterTableAction::AddColumn { type_name, column }
-                        if type_name == "json" =>
-                    {
-                        Some(column)
-                    }
+                    | AlterTableAction::AddColumn {
+                        type_name, column, ..
+                    } if type_name == "json" => Some(column),
                     _ => None,
                 })
                 .next();
@@ -344,16 +345,52 @@ pub const CHANGE_COLUMN_TYPE: LintRule = LintRule {
     check: changes_type_of_column_in_visible_object,
 };
 
+pub fn added_serial_column(stmt: LintedStatement) -> Option<String> {
+    let serials = ["bigserial", "serial"];
+    match stmt.statement {
+        StatementSummary::AlterTable {
+            schema,
+            name,
+            actions,
+        } if stmt.is_visible(schema, name) => {
+            let added_serial = actions
+                .iter()
+                .filter_map(|cmd| match cmd {
+                    AlterTableAction::AddColumn {
+                        type_name,
+                        column,
+                        stored_generated: generated_always,
+                    } if *generated_always || serials.contains(&type_name.as_str()) => Some(column),
+                    _ => None,
+                })
+                .next();
+            added_serial.map(|column| {
+                format!(
+                    "Added column `{column}` with type that will force table rewrite  in `{schema}.{name}`. \
+                    `serial` types and `GENERATED ALWAYS as ... STORED` columns require a full table rewrite with `AccessExclusiveLock`"
+                )
+            })
+        }
+        _ => None,
+    }
+}
+
+pub const ADD_SERIAL_COLUMN: LintRule = LintRule {
+    meta: &crate::hint_data::ADDED_SERIAL_OR_STORED_GENERATED_COLUMN,
+    check: added_serial_column,
+};
+
 const RULES: &[LintRule] = &[
-    LOCKTIMEOUT_WARNING,
-    CREATE_INDEX_NONCONCURRENTLY,
     ADDING_VALID_CONSTRAINT,
-    ADDING_EXCLUSION_CONSTRAINT,
-    ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX,
-    RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE,
     MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
     SET_COLUMN_TYPE_TO_JSON,
+    RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE,
     CHANGE_COLUMN_TYPE,
+    CREATE_INDEX_NONCONCURRENTLY,
+    ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX,
+    ADDING_EXCLUSION_CONSTRAINT,
+    LOCKTIMEOUT_WARNING,
+    ADD_SERIAL_COLUMN,
 ];
 
 /// Get all available lint rules

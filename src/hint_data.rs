@@ -110,3 +110,10 @@ pub const CREATING_ENUM: StaticHintData = StaticHintData {
     workaround: "Use a foreign key to a lookup table instead",
     effect: "Removing values from an enum requires difficult migrations, and associating more data with an enum value is difficult",
 };
+pub const ADD_PRIMARY_KEY_USING_INDEX: StaticHintData = StaticHintData {
+    id: "W14",
+    name: "Adding a primary key using an index",
+    condition: "A primary key was added using an index on the table",
+    workaround: "Make sure that all the columns in the index are already `NOT NULL`",
+    effect: "This can cause postgres to alter the index columns to be `NOT NULL`",
+};

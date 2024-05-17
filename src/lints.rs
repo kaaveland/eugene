@@ -428,7 +428,7 @@ mod tests {
     }
 
     #[test]
-    fn tets_altered_table_once_with_multiple_statements() {
+    fn test_altered_table_once_with_multiple_statements() {
         let report = anon_lint(
             "
              alter table books add column data jsonb, add column price numeric;
@@ -439,5 +439,11 @@ mod tests {
             &report,
             rules::MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO.id()
         ));
+    }
+
+    #[test]
+    fn test_create_an_enum() {
+        let report = anon_lint("create type mood as enum ('happy', 'sad');").unwrap();
+        assert!(matched_lint_rule(&report, rules::CREATING_ENUM.id()));
     }
 }

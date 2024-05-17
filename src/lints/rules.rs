@@ -400,6 +400,21 @@ pub const MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO: LintRule = LintRule {
     check: multiple_alter_table_with_same_target,
 };
 
+pub fn creating_enum(ctx: LintContext) -> Option<String> {
+    match ctx.statement {
+        StatementSummary::CreateEnum { name, .. } => Some(format!(
+            "Created enum `{name}`. \
+                Enumerated types are not recommended for use in new applications. \
+                Consider using a foreign key to a lookup table instead."
+        )),
+        _ => None,
+    }
+}
+pub const CREATING_ENUM: LintRule = LintRule {
+    meta: &crate::hint_data::CREATING_ENUM,
+    check: creating_enum,
+};
+
 const RULES: &[LintRule] = &[
     ADDING_VALID_CONSTRAINT,
     MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
@@ -412,6 +427,7 @@ const RULES: &[LintRule] = &[
     LOCKTIMEOUT_WARNING,
     ADD_SERIAL_COLUMN,
     MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO,
+    CREATING_ENUM,
 ];
 
 /// Get all available lint rules

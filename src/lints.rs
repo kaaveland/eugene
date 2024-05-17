@@ -446,4 +446,29 @@ mod tests {
         let report = anon_lint("create type mood as enum ('happy', 'sad');").unwrap();
         assert!(matched_lint_rule(&report, rules::CREATING_ENUM.id()));
     }
+
+    #[test]
+    fn test_add_pk_using_index() {
+        let report =
+            anon_lint("alter table books add primary key using index books_pkey;").unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::ADD_PRIMARY_KEY_USING_INDEX.id()
+        ));
+    }
+
+    #[test]
+    fn test_add_pk_with_using_index() {
+        let sql = "alter table books add primary key (id);";
+        let report = anon_lint(sql).unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::ADD_PRIMARY_KEY_USING_INDEX.id()
+        ));
+        // Covered by another lint
+        assert!(matched_lint_rule(
+            &report,
+            rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()
+        ));
+    }
 }

@@ -415,6 +415,41 @@ pub const CREATING_ENUM: LintRule = LintRule {
     check: creating_enum,
 };
 
+fn add_primary_key_constraint_using_index(ctx: LintContext) -> Option<String> {
+    match ctx.statement {
+        StatementSummary::AlterTable {
+            schema,
+            name,
+            actions,
+            ..
+        } if ctx.is_visible(schema, name) => {
+            let schema = if schema.is_empty() { "public" } else { schema };
+            let table = name;
+            actions.iter().filter_map(|cmd| {
+                if let AlterTableAction::AddConstraint {
+                    constraint_type: ConstrType::ConstrPrimary,
+                    use_index: true,
+                    ..
+                } = cmd
+                {
+                    Some(format!(
+                        "New primary key constraint using index on `{schema}.{table}`, \
+                    may cause postgres to `SET NOT NULL` on columns in the index. \
+                    This lint may be a false positive if the columns are already `NOT NULL`, ignore it \
+                    by commenting the statement with -- eugene: ignore: {}", ADD_PRIMARY_KEY_USING_INDEX.id()
+                    ))
+                } else {
+                    None
+                }
+            }).next()
+        }
+        _ => None,
+    }
+}
+pub const ADD_PRIMARY_KEY_USING_INDEX: LintRule = LintRule {
+    meta: &crate::hint_data::ADD_PRIMARY_KEY_USING_INDEX,
+    check: add_primary_key_constraint_using_index,
+};
 const RULES: &[LintRule] = &[
     ADDING_VALID_CONSTRAINT,
     MAKE_COLUMN_NOT_NULLABLE_WITH_LOCK,
@@ -428,6 +463,7 @@ const RULES: &[LintRule] = &[
     ADD_SERIAL_COLUMN,
     MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO,
     CREATING_ENUM,
+    ADD_PRIMARY_KEY_USING_INDEX,
 ];
 
 /// Get all available lint rules

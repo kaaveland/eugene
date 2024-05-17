@@ -103,3 +103,10 @@ pub const MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO: StaticHintData = StaticHintDa
     workaround: "Combine the statements into one, separating the action with commas",
     effect: "If the statements require table scans, there will be more scans than necessary",
 };
+pub const CREATING_ENUM: StaticHintData = StaticHintData {
+    id: "W13",
+    name: "Creating an enum",
+    condition: "A new enum was created",
+    workaround: "Use a foreign key to a lookup table instead",
+    effect: "Removing values from an enum requires difficult migrations, and associating more data with an enum value is difficult",
+};

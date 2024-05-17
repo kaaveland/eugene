@@ -1,8 +1,8 @@
 use anyhow::Context;
 use pg_query::protobuf::node::Node;
 use pg_query::protobuf::{
-    AlterTableCmd, AlterTableType, ColumnDef, ConstrType, CreateStmt, CreateTableAsStmt, IndexStmt,
-    VariableSetStmt,
+    AlterTableCmd, AlterTableType, ColumnDef, ConstrType, CreateEnumStmt, CreateStmt,
+    CreateTableAsStmt, IndexStmt, VariableSetStmt,
 };
 use pg_query::NodeRef;
 
@@ -37,6 +37,9 @@ pub enum StatementSummary {
         name: String,
         actions: Vec<AlterTableAction>,
     },
+    CreateEnum {
+        name: String,
+    },
 }
 
 impl StatementSummary {
@@ -50,6 +53,7 @@ impl StatementSummary {
             StatementSummary::CreateTableAs { schema, name } => vec![(schema, name)],
             StatementSummary::Ignored
             | StatementSummary::LockTimeout
+            | StatementSummary::CreateEnum { .. }
             | StatementSummary::AlterTable { .. } => {
                 vec![]
             }
@@ -65,6 +69,7 @@ impl StatementSummary {
             StatementSummary::CreateTable { .. } | StatementSummary::CreateTableAs { .. } => vec![],
             StatementSummary::AlterTable { schema, name, .. } => vec![(schema, name)],
             StatementSummary::Ignored | StatementSummary::LockTimeout => vec![],
+            StatementSummary::CreateEnum { .. } => vec![],
         }
     }
 }
@@ -340,8 +345,26 @@ pub fn describe(statement: &NodeRef) -> anyhow::Result<StatementSummary> {
         // CREATE INDEX
         NodeRef::IndexStmt(child) => create_index(child),
         NodeRef::AlterTableStmt(child) => alter_table(child),
+        NodeRef::CreateEnumStmt(child) => create_enum(child),
         _ => Ok(StatementSummary::Ignored),
     }
+}
+
+fn create_enum(stmt: &CreateEnumStmt) -> anyhow::Result<StatementSummary> {
+    let name_parts: anyhow::Result<Vec<_>> = stmt
+        .type_name
+        .iter()
+        .map(|n| {
+            if let Some(Node::String(s)) = n.node.as_ref() {
+                Ok(s.sval.clone())
+            } else {
+                Err(anyhow::anyhow!("Expected string in CREATE ENUM statement"))
+            }
+        })
+        .collect();
+    Ok(StatementSummary::CreateEnum {
+        name: name_parts?.join("."),
+    })
 }
 
 #[cfg(test)]

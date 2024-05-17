@@ -9,7 +9,7 @@ The migration script did not pass all the checks ❌
 ### SQL
 
 ```sql
-alter table books alter column title set not null
+alter table books alter column title set not null, add constraint title_unique unique (title)
 ```
 
 ### Lints
@@ -21,32 +21,6 @@ ID: `E2`
 A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
 Statement takes `AccessExclusiveLock` on `public.books` by setting `title` to `NOT NULL` blocking reads until all rows are validated
-
-#### Taking dangerous lock without timeout
-
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-Statement takes lock on `public.books`, but does not set a lock timeout
-
-## Statement number 2
-
-### SQL
-
-```sql
-alter table books add constraint title_unique unique (title)
-```
-
-### Lints
-
-#### Running more statements after taking `AccessExclusiveLock`
-
-ID: `E4`
-
-A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.
-
-Running more statements after taking `AccessExclusiveLock`
 
 #### Creating a new unique constraint
 

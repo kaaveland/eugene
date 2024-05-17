@@ -2,6 +2,7 @@ mod snapshot_tests {
     use std::str::FromStr;
 
     use chrono::DateTime;
+    use itertools::Itertools;
 
     use eugene::TraceSettings;
 
@@ -11,6 +12,7 @@ mod snapshot_tests {
             .unwrap()
             .map(|file| file.unwrap())
             .filter(|file| file.path().is_file() && file.path().extension().unwrap() == "sql")
+            .sorted_by_key(|file| file.file_name())
         {
             let file_name = file.file_name().into_string().unwrap();
             let file_title = file_name.trim_end_matches(".sql");

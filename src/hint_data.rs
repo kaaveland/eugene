@@ -96,3 +96,10 @@ pub const ADDED_SERIAL_OR_STORED_GENERATED_COLUMN: StaticHintData = StaticHintDa
     workaround: "Can not be done without a table rewrite",
     effect: "This blocks all table access until the table is rewritten",
 };
+pub const MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO: StaticHintData = StaticHintData {
+    id: "W12",
+    name: "Multiple `ALTER TABLE` statements where one will do",
+    condition: "Multiple `ALTER TABLE` statements targets the same table",
+    workaround: "Combine the statements into one, separating the action with commas",
+    effect: "If the statements require table scans, there will be more scans than necessary",
+};

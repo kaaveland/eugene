@@ -66,6 +66,14 @@ A lock that would block many common operations was taken without a timeout. This
 
 Statement takes lock on `public.books`, but does not set a lock timeout
 
+#### Multiple `ALTER TABLE` statements where one will do
+
+ID: `W12`
+
+Multiple `ALTER TABLE` statements targets the same table. If the statements require table scans, there will be more scans than necessary. A safer way is: Combine the statements into one, separating the action with commas.
+
+Multiple `ALTER TABLE` statements on `public.books`. Combine them into a single statement to avoid scanning the table multiple times.
+
 ## Statement number 4
 
 ### SQL
@@ -99,6 +107,14 @@ ID: `E9`
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
 
 Statement takes lock on `public.books`, but does not set a lock timeout
+
+#### Multiple `ALTER TABLE` statements where one will do
+
+ID: `W12`
+
+Multiple `ALTER TABLE` statements targets the same table. If the statements require table scans, there will be more scans than necessary. A safer way is: Combine the statements into one, separating the action with commas.
+
+Multiple `ALTER TABLE` statements on `public.books`. Combine them into a single statement to avoid scanning the table multiple times.
 
 ## Statement number 5
 

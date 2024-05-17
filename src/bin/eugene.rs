@@ -321,8 +321,9 @@ pub fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Hints { .. }) => {
-            let hints: Vec<_> = eugene::hints::all_hints()
+            let hints: Vec<_> = eugene::hint_data::ALL
                 .iter()
+                .copied()
                 .map(GenericHint::from)
                 .collect();
             let hints = HintContainer { hints };

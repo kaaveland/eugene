@@ -1,3 +1,4 @@
+use crate::hint_data::StaticHintData;
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
@@ -28,6 +29,22 @@ impl From<&HintInfo> for GenericHint {
             has_trace: crate::hints::all_hints()
                 .iter()
                 .any(|hint| hint.code() == value.code()),
+        }
+    }
+}
+
+impl From<&StaticHintData> for GenericHint {
+    fn from(value: &StaticHintData) -> Self {
+        GenericHint {
+            id: value.id.to_string(),
+            name: value.name.to_string(),
+            condition: value.condition.to_string(),
+            effect: value.effect.to_string(),
+            workaround: value.workaround.to_string(),
+            has_lint: crate::lints::rules::all_rules().any(|rule| rule.id() == value.id),
+            has_trace: crate::hints::all_hints()
+                .iter()
+                .any(|hint| hint.code() == value.id),
         }
     }
 }

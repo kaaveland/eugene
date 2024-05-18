@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
+use chrono::DateTime;
 use rayon::prelude::*;
 use std::ffi::OsString;
 use std::fs;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use crate::output::{full_trace_data, Settings};
 use crate::{
@@ -85,7 +87,23 @@ fn snapshot_trace(id: &str, subfolder: &str) -> Result<String> {
             "postgres".to_string(),
         );
         let trace = perform_trace(&trace_settings, &connection_settings, &[])?;
-        let report = full_trace_data(&trace, Settings::new(true, true));
+        let mut report = full_trace_data(&trace, Settings::new(true, true));
+
+        // Try to make the report deterministic
+        report.start_time = DateTime::from_str("2024-05-18T00:00:00Z")?;
+        report.all_locks_acquired.iter_mut().for_each(|lock| {
+            lock.oid = 1;
+        });
+        for statement_trace in report.statements.iter_mut() {
+            statement_trace.duration_millis = 10;
+            statement_trace.new_locks_taken.iter_mut().for_each(|lock| {
+                lock.oid = 1;
+            });
+            statement_trace.locks_at_start.iter_mut().for_each(|lock| {
+                lock.oid = 1;
+            });
+        }
+
         let md = report.to_markdown()?;
         reports.push(md);
     }

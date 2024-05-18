@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/W13/bad/1.sql`
 
-## Statement number 1 for 3 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -17,7 +17,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 5 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 

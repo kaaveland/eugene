@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/E6/good/1.sql`
 
-## Statement number 1 for 14 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -23,7 +23,7 @@ No new locks taken by this statement.
 
 # Eugene 🔒 trace report of `examples/E6/good/2.sql`
 
-## Statement number 1 for 0 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 

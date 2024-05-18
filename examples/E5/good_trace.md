@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/E5/good/1.sql`
 
-## Statement number 1 for 5 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -20,7 +20,7 @@ No new locks taken by this statement.
 
 # Eugene 🔒 trace report of `examples/E5/good/2.sql`
 
-## Statement number 1 for 4 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -37,7 +37,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 2 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 
@@ -53,12 +53,12 @@ No locks held at the start of this statement.
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 24728 | ❌ |
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 
 # Eugene 🔒 trace report of `examples/E5/good/3.sql`
 
-## Statement number 1 for 1 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -75,7 +75,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 2 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 
@@ -92,7 +92,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 3 for 1 ms
+## Statement number 3 for 10 ms
 
 ### SQL
 
@@ -108,12 +108,12 @@ No locks held at the start of this statement.
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 24728 | ❌ |
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 
 # Eugene 🔒 trace report of `examples/E5/good/4.sql`
 
-## Statement number 1 for 1 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -130,7 +130,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 1 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 
@@ -146,9 +146,9 @@ No locks held at the start of this statement.
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 24728 | ❌ |
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
-## Statement number 3 for 2 ms
+## Statement number 3 for 10 ms
 
 ### SQL
 
@@ -162,7 +162,7 @@ alter table prices rename column new_price to price
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 24728 | ❌ |
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### New locks taken
 

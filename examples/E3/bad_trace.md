@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/E3/bad/1.sql`
 
-## Statement number 1 for 26 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 

@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/E9/bad/1.sql`
 
-## Statement number 1 for 24 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -39,7 +39,7 @@ No locks held at the start of this statement.
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 24503 | ❌ |
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### Hints
 

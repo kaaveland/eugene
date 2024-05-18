@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/E10/bad/1.sql`
 
-## Statement number 1 for 17 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -17,7 +17,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 27 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 
@@ -37,7 +37,7 @@ No new locks taken by this statement.
 
 # Eugene 🔒 trace report of `examples/E10/bad/2.sql`
 
-## Statement number 1 for 1 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -54,7 +54,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 12 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 
@@ -70,9 +70,9 @@ No locks held at the start of this statement.
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 24520 | ❌ |
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
-## Statement number 3 for 34 ms
+## Statement number 3 for 10 ms
 
 ### SQL
 
@@ -86,15 +86,15 @@ alter table prices alter price set data type bigint
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 24520 | ❌ |
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 24484 | ❌ |
-| `public` | `prices` | `ShareLock` | Table | 24484 | ❌ |
-| `public` | `prices_pkey` | `AccessExclusiveLock` | Index | 24495 | ❌ |
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| `public` | `prices` | `ShareLock` | Table | 1 | ❌ |
+| `public` | `prices_pkey` | `AccessExclusiveLock` | Index | 1 | ❌ |
 
 ### Hints
 

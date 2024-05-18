@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/E11/bad/1.sql`
 
-## Statement number 1 for 9 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -20,7 +20,7 @@ No new locks taken by this statement.
 
 # Eugene 🔒 trace report of `examples/E11/bad/2.sql`
 
-## Statement number 1 for 14 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -37,7 +37,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 4 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 
@@ -53,8 +53,8 @@ No locks held at the start of this statement.
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 24442 | ❌ |
-| `public` | `prices` | `ShareLock` | Table | 24442 | ❌ |
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| `public` | `prices` | `ShareLock` | Table | 1 | ❌ |
 
 ### Hints
 

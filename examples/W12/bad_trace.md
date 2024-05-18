@@ -1,6 +1,6 @@
 # Eugene 🔒 trace report of `examples/W12/bad/1.sql`
 
-## Statement number 1 for 17 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -20,7 +20,7 @@ No new locks taken by this statement.
 
 # Eugene 🔒 trace report of `examples/W12/bad/2.sql`
 
-## Statement number 1 for 5 ms
+## Statement number 1 for 10 ms
 
 ### SQL
 
@@ -37,7 +37,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-## Statement number 2 for 3 ms
+## Statement number 2 for 10 ms
 
 ### SQL
 
@@ -53,7 +53,7 @@ No locks held at the start of this statement.
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 24597 | ❌ |
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### Hints
 
@@ -70,7 +70,7 @@ The column `name` in the table `public.authors` was changed to `NOT NULL`. If th
 3. Make the column `NOT NULL`
 
 
-## Statement number 3 for 3 ms
+## Statement number 3 for 10 ms
 
 ### SQL
 
@@ -83,7 +83,7 @@ alter table authors alter column email set not null
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 24597 | ❌ |
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 ### New locks taken
 

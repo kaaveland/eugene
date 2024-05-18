@@ -257,14 +257,8 @@ where the table was created in the same transaction.
 
 ## Tests
 
-Tests are welcome and come in two flavors:
-
-1. Unit tests go in the same file as the code they test. They are allowed to use a database connection, corresponding
-   to the [docker-compose](https://github.com/kaaveland/eugene/blob/main/docker-compose.yml) setup or the 
-   [github workflow](https://github.com/kaaveland/eugene/blob/main/.github/workflows/run_tests.yml) for the tests  
-2. Integration tests go in the `tests` directory. These can only access public interfaces and therefore would the
-   the right place to gauge how dependents would see the tool. In particular, we take snapshots of markdown reports
-   that go in the examples directory, which we can use to track changes in the output format.
+Unit tests go in the same file as the code they test. They are allowed to use a database connection, corresponding
+to the [docker-compose](https://github.com/kaaveland/eugene/blob/main/docker-compose.yml) setup or the [github workflow](https://github.com/kaaveland/eugene/blob/main/.github/workflows/run_tests.yml) for the tests.
 
 ## Migration tool
 

@@ -35,6 +35,9 @@ pub mod tracing;
 /// Internal module for parsing eugene comment intstructions
 pub(crate) mod comments;
 
+#[cfg(test)]
+mod render_lint_examples;
+
 /// Connection settings for connecting to a PostgreSQL database.
 pub struct ConnectionSettings {
     user: String,
@@ -114,7 +117,7 @@ pub fn perform_trace<'a>(
     let name = if trace.path == "-" {
         None
     } else {
-        trace.path.split('/').last().map(|s| s.to_string())
+        Some(trace.path.clone())
     };
     let sql_script = resolve_placeholders(&script_content, &trace.placeholders)?;
     let sql_statements = sql_statements(&sql_script)?;
@@ -203,43 +206,4 @@ pub fn generate_new_test_db() -> String {
         )
         .unwrap();
     db_name
-}
-
-#[cfg(test)]
-mod tests {
-    use postgres::NoTls;
-
-    use crate::{generate_new_test_db, ConnectionSettings};
-
-    #[test]
-    fn test_with_commit_we_can_run_concurrently_statements() {
-        let trace_settings = super::TraceSettings {
-            path: "examples/create_index_concurrently.sql".to_string(),
-            commit: true,
-            placeholders: Default::default(),
-        };
-        let connection_settings = ConnectionSettings::new(
-            "postgres".to_string(),
-            generate_new_test_db(),
-            "localhost".to_string(),
-            5432,
-            "postgres".to_string(),
-        );
-        let mut conn =
-            postgres::Client::connect(connection_settings.connection_string().as_str(), NoTls)
-                .unwrap();
-        // drop the index if it is already there
-        conn.execute("DROP INDEX IF EXISTS books_concurrently_test_idx", &[])
-            .unwrap();
-        super::perform_trace(&trace_settings, &connection_settings, &[]).unwrap();
-
-        let exists: bool = conn
-            .query_one(
-                "select count(*) > 0 from pg_class where relname = 'books_concurrently_test_idx'",
-                &[],
-            )
-            .unwrap()
-            .get(0);
-        assert!(exists);
-    }
 }

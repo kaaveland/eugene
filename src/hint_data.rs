@@ -15,7 +15,6 @@ impl HintId for StaticHintData {
         self.id
     }
 }
-
 pub const VALIDATE_CONSTRAINT_WITH_LOCK: StaticHintData = StaticHintData {
     id: "E1",
     name: "Validating table with a new constraint",

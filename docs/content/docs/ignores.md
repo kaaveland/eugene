@@ -34,3 +34,6 @@ eugene lint --ignore E2 my_script.sql
 # also works with tracing
 eugene trace --ignore E2 my_script.sql
 ```
+
+Both `eugene lint` and `eugene trace` will respect these comments and flags and will
+not report failure if only ignored lints match.

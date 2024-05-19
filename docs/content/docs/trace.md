@@ -38,6 +38,12 @@ To ignore specific lint IDs, use the `-i` or `--ignore` flag:
 eugene trace -i E4 script.sql
 ```
 
+To exit successfully, even if a lint is found, use the `-a` or `--accept-failures` flag:
+
+```shell
+eugene trace --accept-failure script.sql
+```
+
 To pass a password to the database, use `~/.pgpass` or set the `PGPASS` variable:
 
 ```shell

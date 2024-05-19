@@ -1,4 +1,8 @@
-Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable
+Trace effects by running statements from SQL migration script
+
+Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
+
+`eugene trace` exits with failure if any problems are detected.
 
 Usage: eugene trace [OPTIONS] <PATH>
 
@@ -11,7 +15,9 @@ Options:
           Commit at the end of the transaction. Roll back by default
 
   -v, --var <PLACEHOLDERS>
-          Provide name=value for replacing ${name} with value in the SQL script. Can be used multiple times
+          Provide name=value for replacing ${name} with value in the SQL script
+          
+          Can be used multiple times to provide more placeholders.
 
   -U, --user <USER>
           Username to use for connecting to postgres
@@ -46,11 +52,13 @@ Options:
           [possible values: json, markdown, md, plain]
 
   -i, --ignore <IGNORED_HINTS>
-          Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+          Ignore the hints with these IDs, use `eugene hints` to see available hints
+          
+          Can be used multiple times.
           
           Example: `eugene trace -i E3 -i E4`
           
-          For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+          Or comment your SQL statement like this to ignore for a single statement:
           
           -- eugene: ignore E4
           
@@ -59,7 +67,9 @@ Options:
           Use `-- eugene: ignore` to ignore all hints for a statement.
 
   -a, --accept-failures
-          Exit successfully even if problems are detected. Will still fail for invalid SQL
+          Exit successfully even if problems are detected
+          
+          Will still fail for invalid SQL or connection problems.
 
   -h, --help
           Print help (see a summary with '-h')

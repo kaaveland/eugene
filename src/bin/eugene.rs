@@ -15,10 +15,11 @@ use eugene::{output, parse_placeholders, perform_trace, ConnectionSettings, Trac
 #[command(about = "Careful with That Lock, Eugene")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(
-    long_about = "eugene is a proof of concept tool for detecting dangerous locks taken by SQL migration scripts
+    long_about = "eugene is a tool for writing safer schema changes for PostgreSQL
 
-eugene can run your migration scripts and detect which locks that is taken by each individual SQL statement and
-summarize which operations that conflict with those locks, in other words what the script must wait for and what
+eugene can run your migration scripts and detect which locks that is taken by each
+individual SQL statement and summarize which operations that conflict with those
+locks, in other words what the script must wait for and what
 concurrent transactions that would be blocked.
 "
 )]
@@ -30,22 +31,26 @@ struct Eugene {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Lint SQL migration script by analyzing syntax tree and matching rules instead of running it.
+    /// Lint SQL migration script by analyzing syntax tree
     ///
-    /// `eugene lint` fails if any lint is detected.
+    /// `eugene lint` exits with failure if any lint is detected.
     Lint {
         /// Path to SQL migration script, or '-' to read from stdin
         path: String,
-        /// Provide name=value for replacing ${name} with value in the SQL script. Can be used multiple times.
+        /// Provide name=value for replacing ${name} with value in the SQL script
+        ///
+        /// Can be used multiple times to provide more placeholders.
         #[arg(short = 'v', long = "var")]
         placeholders: Vec<String>,
-        /// Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+        /// Ignore the hints with these IDs, use `eugene hints` to see available hints
+        ///
+        /// Can be used multiple times.
         ///
         /// Example: `eugene lint -i E3 -i E4`
         ///
-        /// For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+        /// Or comment your SQL statement like this:
         ///
-        /// -- eugene-ignore: E3, E4
+        /// `-- eugene-ignore: E3, E4`
         ///
         /// alter table foo add column bar json;
         ///
@@ -55,18 +60,26 @@ enum Commands {
         /// Output format, plain, json or markdown
         #[arg(short = 'f', long = "format", default_value = "json", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md"]))]
         format: String,
-        /// Exit successfully even if problems are detected. Will still fail for invalid SQL.
+        /// Exit successfully even if problems are detected.
+        ///
+        /// Will still fail for errors in the SQL script.
         #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
         accept_failures: bool,
     },
-    /// Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable.
+    /// Trace effects by running statements from SQL migration script
+    ///
+    /// Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
+    ///
+    /// `eugene trace` exits with failure if any problems are detected.
     Trace {
         /// Path to SQL migration script, or '-' to read from stdin
         path: String,
         /// Commit at the end of the transaction. Roll back by default.
         #[arg(short = 'c', long = "commit", default_value_t = false)]
         commit: bool,
-        /// Provide name=value for replacing ${name} with value in the SQL script. Can be used multiple times.
+        /// Provide name=value for replacing ${name} with value in the SQL script
+        ///
+        /// Can be used multiple times to provide more placeholders.
         #[arg(short = 'v', long = "var")]
         placeholders: Vec<String>,
         /// Username to use for connecting to postgres
@@ -91,11 +104,13 @@ enum Commands {
         /// Output format, plain, json or markdown
         #[arg(short = 'f', long = "format", default_value = "json", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
         format: String,
-        /// Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+        /// Ignore the hints with these IDs, use `eugene hints` to see available hints
+        ///
+        /// Can be used multiple times.
         ///
         /// Example: `eugene trace -i E3 -i E4`
         ///
-        /// For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+        /// Or comment your SQL statement like this to ignore for a single statement:
         ///
         /// -- eugene: ignore E4
         ///
@@ -104,7 +119,9 @@ enum Commands {
         /// Use `-- eugene: ignore` to ignore all hints for a statement.
         #[arg(short = 'i', long = "ignore")]
         ignored_hints: Vec<String>,
-        /// Exit successfully even if problems are detected. Will still fail for invalid SQL.
+        /// Exit successfully even if problems are detected
+        ///
+        /// Will still fail for invalid SQL or connection problems.
         #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
         accept_failures: bool,
     },

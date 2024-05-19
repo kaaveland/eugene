@@ -31,7 +31,6 @@ jobs:
           chmod +x mdbook
           ./mdbook --version
           ./build_doc.sh
-          ./mdbook build docs
 
       - name: Upload docs
         uses: actions/upload-pages-artifact@v3

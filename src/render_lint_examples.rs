@@ -65,7 +65,7 @@ fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
             .context("Path is not a valid UTF-8 string")?;
         let sql = fs::read_to_string(&script)?;
         let report = lints::lint(Some(path.into()), sql, &[])?;
-        reports.push(output::markdown::lint_report_to_markdown(&report));
+        reports.push(output::markdown::lint_report_to_markdown(&report)?);
     }
     Ok(reports.join("\n"))
 }

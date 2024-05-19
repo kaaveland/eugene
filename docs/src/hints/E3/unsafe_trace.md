@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/E3/bad/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table authors (
@@ -16,7 +18,7 @@ create table authors (
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 

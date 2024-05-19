@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/W13/bad/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create type document_type as enum ('invoice', 'receipt', 'other')
@@ -12,14 +14,15 @@ create type document_type as enum ('invoice', 'receipt', 'other')
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 create table document (id int generated always as identity primary key, type document_type)
@@ -29,7 +32,7 @@ create table document (id int generated always as identity primary key, type doc
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 

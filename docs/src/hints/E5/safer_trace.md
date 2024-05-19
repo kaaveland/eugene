@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/E5/good/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table prices (id integer generated always as identity primary key, price int not null)
@@ -12,7 +14,7 @@ create table prices (id integer generated always as identity primary key, price 
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
@@ -20,9 +22,11 @@ No new locks taken by this statement.
 
 ## Eugene 🔒 trace report of `examples/E5/good/2.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -32,14 +36,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 alter table prices add column new_price bigint
@@ -49,18 +54,21 @@ alter table prices add column new_price bigint
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 
+
 ## Eugene 🔒 trace report of `examples/E5/good/3.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 update prices set new_price = price :: bigint
@@ -70,14 +78,15 @@ update prices set new_price = price :: bigint
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -87,14 +96,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 3 for 10 ms
 
-### SQL
+### Statement number 3 for 10ms
+
+#### SQL
 
 ```sql
 alter table prices add constraint check_new_price_not_null check (new_price is not null) not valid
@@ -104,18 +114,21 @@ alter table prices add constraint check_new_price_not_null check (new_price is n
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 
+
 ## Eugene 🔒 trace report of `examples/E5/good/4.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -125,14 +138,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 alter table prices validate constraint check_new_price_not_null, drop column price
@@ -142,15 +156,17 @@ alter table prices validate constraint check_new_price_not_null, drop column pri
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
-### Statement number 3 for 10 ms
 
-### SQL
+
+### Statement number 3 for 10ms
+
+#### SQL
 
 ```sql
 -- eugene: ignore E4
@@ -164,7 +180,7 @@ alter table prices rename column new_price to price
 |--------|--------|------|---------|-----|------|
 | `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 

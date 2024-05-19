@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/E2/bad/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table authors(
@@ -15,7 +17,7 @@ create table authors(
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
@@ -23,9 +25,11 @@ No new locks taken by this statement.
 
 ## Eugene 🔒 trace report of `examples/E2/bad/2.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -35,14 +39,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 alter table authors alter column name set not null
@@ -52,16 +57,15 @@ alter table authors alter column name set not null
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
-### Hints
+#### Hints
 
 ##### Validating table with a new `NOT NULL` column
-
 ID: `E2`
 
 A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.

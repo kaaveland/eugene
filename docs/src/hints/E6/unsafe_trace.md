@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/E6/bad/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table authors (
@@ -15,7 +17,7 @@ create table authors (
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
@@ -23,9 +25,11 @@ No new locks taken by this statement.
 
 ## Eugene 🔒 trace report of `examples/E6/bad/2.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -35,14 +39,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 create index authors_name_idx on authors (name)
@@ -52,16 +57,15 @@ create index authors_name_idx on authors (name)
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `authors` | `ShareLock` | Table | 1 | ❌ |
 
-### Hints
+#### Hints
 
 ##### Creating a new index on an existing table
-
 ID: `E6`
 
 A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.

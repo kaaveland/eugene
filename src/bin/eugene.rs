@@ -275,7 +275,7 @@ pub fn main() -> Result<()> {
             let out = if matches!(format, TraceFormat::Json) {
                 serde_json::to_string_pretty(&report)?
             } else {
-                output::markdown::lint_report_to_markdown(&report)
+                output::markdown::lint_report_to_markdown(&report)?
             };
             println!("{}", out);
             if failed && !exit_success {

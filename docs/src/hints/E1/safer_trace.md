@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/E1/good/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table authors(id integer generated always as identity primary key, name text)
@@ -12,7 +14,7 @@ create table authors(id integer generated always as identity primary key, name t
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
@@ -20,9 +22,11 @@ No new locks taken by this statement.
 
 ## Eugene 🔒 trace report of `examples/E1/good/2.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -32,14 +36,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 alter table authors add constraint name_not_null check (name is not null) not valid
@@ -49,18 +54,21 @@ alter table authors add constraint name_not_null check (name is not null) not va
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
 
+
 ## Eugene 🔒 trace report of `examples/E1/good/3.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -70,14 +78,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 alter table authors validate constraint name_not_null
@@ -87,7 +96,7 @@ alter table authors validate constraint name_not_null
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 

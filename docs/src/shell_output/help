@@ -1,0 +1,23 @@
+eugene is a proof of concept tool for detecting dangerous locks taken by SQL migration scripts
+
+eugene can run your migration scripts and detect which locks that is taken by each individual SQL statement and
+summarize which operations that conflict with those locks, in other words what the script must wait for and what
+concurrent transactions that would be blocked.
+
+
+Usage: eugene [COMMAND]
+
+Commands:
+  lint     Lint SQL migration script by analyzing syntax tree and matching rules instead of running it
+  trace    Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable
+  modes    List postgres lock modes
+  explain  Explain what operations a lock mode allows and conflicts with
+  hints    Show migration hints that eugene can detect in traces
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version

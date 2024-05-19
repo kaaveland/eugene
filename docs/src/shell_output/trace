@@ -1,0 +1,65 @@
+Trace locks taken by statements SQL migration script. Reads password from $PGPASS environment variable
+
+Usage: eugene trace [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>
+          Path to SQL migration script, or '-' to read from stdin
+
+Options:
+  -c, --commit
+          Commit at the end of the transaction. Roll back by default
+
+  -v, --var <PLACEHOLDERS>
+          Provide name=value for replacing ${name} with value in the SQL script. Can be used multiple times
+
+  -U, --user <USER>
+          Username to use for connecting to postgres
+          
+          [default: postgres]
+
+  -d, --database <DATABASE>
+          Database to connect to
+          
+          [default: postgres]
+
+  -H, --host <HOST>
+          Host to connect to
+          
+          [default: localhost]
+
+  -p, --port <PORT>
+          Port to connect to
+          
+          [default: 5432]
+
+  -e, --extra
+          Show locks that are normally not in conflict with application code
+
+  -s, --skip-summary
+          Skip the summary section for markdown output
+
+  -f, --format <FORMAT>
+          Output format, plain, json or markdown
+          
+          [default: json]
+          [possible values: json, markdown, md, plain]
+
+  -i, --ignore <IGNORED_HINTS>
+          Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+          
+          Example: `eugene trace -i E3 -i E4`
+          
+          For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+          
+          -- eugene: ignore E4
+          
+          alter table foo add column bar json;
+          
+          Use `-- eugene: ignore` to ignore all hints for a statement.
+
+  -a, --accept-failures
+          Exit successfully even if problems are detected. Will still fail for invalid SQL
+
+  -h, --help
+          Print help (see a summary with '-h')

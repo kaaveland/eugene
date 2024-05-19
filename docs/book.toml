@@ -1,0 +1,10 @@
+[book]
+authors = ["Robin Kåveland"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Eugene Documentation"
+
+[output.html]
+site-url = "/eugene"
+git-repository-url = "https://github.com/kaaveland/eugene"

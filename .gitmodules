@@ -1,4 +1,0 @@
-[submodule "docs/themes/book"]
-	path = docs/themes/book
-	url = https://github.com/alex-shpak/hugo-book.git
-	branch = v10

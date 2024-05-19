@@ -1,0 +1,38 @@
+Lint SQL migration script by analyzing syntax tree and matching rules instead of running it.
+
+`eugene lint` fails if any lint is detected.
+
+Usage: eugene lint [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>
+          Path to SQL migration script, or '-' to read from stdin
+
+Options:
+  -v, --var <PLACEHOLDERS>
+          Provide name=value for replacing ${name} with value in the SQL script. Can be used multiple times
+
+  -i, --ignore <IGNORED_HINTS>
+          Ignore the hints with these IDs, use `eugene hints` to see available hints. Can be used multiple times.
+          
+          Example: `eugene lint -i E3 -i E4`
+          
+          For finer granularity, you can annotate a SQL statement with an ignore-instruction like this:
+          
+          -- eugene-ignore: E3, E4
+          
+          alter table foo add column bar json;
+          
+          This will ignore hints E3 and E4 for this statement only.
+
+  -f, --format <FORMAT>
+          Output format, plain, json or markdown
+          
+          [default: json]
+          [possible values: json, markdown, md]
+
+  -a, --accept-failures
+          Exit successfully even if problems are detected. Will still fail for invalid SQL
+
+  -h, --help
+          Print help (see a summary with '-h')

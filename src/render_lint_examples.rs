@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::DateTime;
+use itertools::Itertools;
 use rayon::prelude::*;
 use std::ffi::OsString;
 use std::fs;
@@ -111,29 +112,21 @@ fn snapshot_trace(id: &str, subfolder: &str) -> Result<String> {
 }
 
 fn hint_folder<S: AsRef<str>>(id: S) -> String {
-    format!("docs/content/docs/hints/{}", id.as_ref())
+    format!("docs/src/hints/{}", id.as_ref())
 }
 
 fn write_lints(id: &str) -> Result<()> {
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
-        let preamble = "---\n
-title:  Linted matching transaction
-weight: 40
----\n\n";
         let bad = snapshot_lint(id, "bad")?;
         let bad_path = format!("{hint_folder}/unsafe_lint.md");
-        fs::write(bad_path, format!("{preamble}\n\n{bad}"))?;
+        fs::write(bad_path, bad)?;
     }
     if is_migration_set_up(id, "good") {
         let good = snapshot_lint(id, "good")?;
-        let preamble = "---\n
-title:  Linted safer transaction
-weight: 50
----\n\n";
         let good_path = format!("{hint_folder}/safer_lint.md");
-        fs::write(good_path, format!("{preamble}\n\n{good}"))?;
+        fs::write(good_path, good)?;
     }
     Ok(())
 }
@@ -151,24 +144,14 @@ fn write_traces(id: &str) -> Result<()> {
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
-        let preamble = "---\n
-title:  Traced matching transaction
-weight: 50
----\n\n"
-            .to_string();
         let bad = snapshot_trace(id, "bad")?;
         let bad_path = format!("{hint_folder}/unsafe_trace.md");
-        fs::write(bad_path, format!("{preamble}\n{bad}"))?;
+        fs::write(bad_path, bad)?;
     }
     if is_migration_set_up(id, "good") {
-        let preamble = "---\n
-title:  Traced safer transaction
-weight: 60
----\n\n"
-            .to_string();
         let good = snapshot_trace(id, "good")?;
         let good_path = format!("{hint_folder}/safer_trace.md");
-        fs::write(good_path, format!("{preamble}\n{good}"))?;
+        fs::write(good_path, good)?;
     }
     Ok(())
 }
@@ -213,10 +196,9 @@ fn generate_lint_pages() -> Result<()> {
             supported_by.push("`eugene trace`");
         }
         let supported_by = supported_by.join(", ");
-        let weight: i32 = id.as_str()[1..].parse()?;
 
         let page = format!(
-            "---\ntitle: {id} {name}\nweight: {weight}\n---\n\n# {id} {name}\n\n\
+            "# {name}\n\n\
             ## Triggered when\n\n\
             {condition}.\n\n\
             ## Effect\n\n\
@@ -229,8 +211,37 @@ fn generate_lint_pages() -> Result<()> {
         // create the hint folder if it does not exist
         let hint_folder = hint_folder(id);
         fs::create_dir_all(hint_folder.as_str())?;
-        let page_path = format!("{hint_folder}/_index.md");
+        let page_path = format!("{hint_folder}/index.md");
         fs::write(page_path, page)?;
     }
     Ok(())
+}
+
+#[test]
+fn render_toc_for_docbook() {
+    let mut toc = String::new();
+    for &hint in hint_data::ALL.iter().sorted_by_key(|hint| {
+        let weight: i32 = hint.id[1..].parse().unwrap();
+        weight
+    }) {
+        let hint: GenericHint = hint.into();
+        let id = hint.id.as_str();
+        let name = hint.name;
+        toc.push_str(&format!("  - [{} {}](./hints/{}/index.md)\n", id, name, id));
+        for cmd in ["lint", "trace"] {
+            // Always push "bad", since we require it
+            toc.push_str(&format!(
+                "    - [{cmd} matched transaction](./hints/{}/unsafe_{}.md)\n",
+                id, cmd
+            ));
+            // Push "good" if we have it
+            if is_migration_set_up(id, "good") {
+                toc.push_str(&format!(
+                    "    - [{cmd} safer way](./hints/{}/safer_{}.md)\n",
+                    id, cmd
+                ));
+            }
+        }
+    }
+    fs::write("docs/src/generated_hint_toc.md", toc).unwrap();
 }

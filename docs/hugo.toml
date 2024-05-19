@@ -1,9 +1,0 @@
-baseURL = 'https://kaveland.no/eugene'
-languageCode = 'en-us'
-title = 'eugene documentation'
-theme = "book"
-
-[params]
-BookTheme = "auto"
-BookRepo = "https://github.com/kaaveland/eugene"
-BookComments = false

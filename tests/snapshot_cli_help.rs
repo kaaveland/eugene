@@ -1,3 +1,4 @@
+#[cfg(not(windows))]
 #[test]
 fn snapshot_cli_help() {
     let debug_eugene = "target/debug/eugene";

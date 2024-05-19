@@ -115,7 +115,7 @@ fn hint_folder<S: AsRef<str>>(id: S) -> String {
 }
 
 fn write_lints(id: &str) -> Result<()> {
-    let hint_folder = format!("docs/content/docs/hints/{}", id);
+    let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
         let preamble = "---\n
@@ -148,7 +148,7 @@ fn write_traces(id: &str) -> Result<()> {
         .iter()
         .find(|hint| hint.id == id)
         .context("Hint not found")?;
-    let hint_folder = format!("docs/content/docs/hints/{}", id);
+    let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
         let preamble = "---\n
@@ -227,7 +227,7 @@ fn generate_lint_pages() -> Result<()> {
             This hint is supported by {supported_by}.\n\n"
         );
         // create the hint folder if it does not exist
-        let hint_folder = format!("docs/content/docs/hints/{}", id.as_str());
+        let hint_folder = hint_folder(id);
         fs::create_dir_all(hint_folder.as_str())?;
         let page_path = format!("{hint_folder}/_index.md");
         fs::write(page_path, page)?;

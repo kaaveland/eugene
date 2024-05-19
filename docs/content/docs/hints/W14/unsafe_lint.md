@@ -72,5 +72,5 @@ ID: `W14`
 
 A primary key was added using an index on the table. This can cause postgres to alter the index columns to be `NOT NULL`. A safer way is: Make sure that all the columns in the index are already `NOT NULL`.
 
-New primary key constraint using index on `public.authors`, may cause postgres to `SET NOT NULL` on columns in the index. This lint may be a false positive if the columns are already `NOT NULL`, ignore it by commenting the statement with -- eugene: ignore: W14
+New primary key constraint using index on `public.authors`, may cause postgres to `SET NOT NULL` on columns in the index. This lint may be a false positive if the columns are already `NOT NULL`, ignore it by commenting the statement with `-- eugene: ignore: W14`
 

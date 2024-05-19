@@ -1,3 +1,5 @@
 debug/
 target/
 .idea
+docs/public
+docs/.hugo_build.lock

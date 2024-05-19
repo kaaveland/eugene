@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::output::{full_trace_data, Settings};
+use crate::output::{full_trace_data, GenericHint, Settings};
 use crate::{
     generate_new_test_db, hint_data, lints, output, perform_trace, ConnectionSettings,
     TraceSettings,
@@ -110,16 +110,30 @@ fn snapshot_trace(id: &str, subfolder: &str) -> Result<String> {
     Ok(reports.join("\n"))
 }
 
+fn hint_folder<S: AsRef<str>>(id: S) -> String {
+    format!("docs/content/docs/hints/{}", id.as_ref())
+}
+
 fn write_lints(id: &str) -> Result<()> {
+    let hint_folder = format!("docs/content/docs/hints/{}", id);
+    fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
+        let preamble = "---\n
+title:  Linted matching transaction
+weight: 40
+---\n\n";
         let bad = snapshot_lint(id, "bad")?;
-        let bad_path = format!("examples/{}/bad_lint.md", id);
-        fs::write(bad_path, bad)?;
+        let bad_path = format!("{hint_folder}/unsafe_lint.md");
+        fs::write(bad_path, format!("{preamble}\n\n{bad}"))?;
     }
     if is_migration_set_up(id, "good") {
         let good = snapshot_lint(id, "good")?;
-        let good_path = format!("examples/{}/good_lint.md", id);
-        fs::write(good_path, good)?;
+        let preamble = "---\n
+title:  Linted safer transaction
+weight: 50
+---\n\n";
+        let good_path = format!("{hint_folder}/safer_lint.md");
+        fs::write(good_path, format!("{preamble}\n\n{good}"))?;
     }
     Ok(())
 }
@@ -130,15 +144,31 @@ fn is_migration_set_up(id: &str, subfolder: &str) -> bool {
 }
 
 fn write_traces(id: &str) -> Result<()> {
+    hint_data::ALL
+        .iter()
+        .find(|hint| hint.id == id)
+        .context("Hint not found")?;
+    let hint_folder = format!("docs/content/docs/hints/{}", id);
+    fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
+        let preamble = "---\n
+title:  Traced matching transaction
+weight: 50
+---\n\n"
+            .to_string();
         let bad = snapshot_trace(id, "bad")?;
-        let bad_path = format!("examples/{}/bad_trace.md", id);
-        fs::write(bad_path, bad)?;
+        let bad_path = format!("{hint_folder}/unsafe_trace.md");
+        fs::write(bad_path, format!("{preamble}\n{bad}"))?;
     }
     if is_migration_set_up(id, "good") {
+        let preamble = "---\n
+title:  Traced safer transaction
+weight: 60
+---\n\n"
+            .to_string();
         let good = snapshot_trace(id, "good")?;
-        let good_path = format!("examples/{}/good_trace.md", id);
-        fs::write(good_path, good)?;
+        let good_path = format!("{hint_folder}/safer_trace.md");
+        fs::write(good_path, format!("{preamble}\n{good}"))?;
     }
     Ok(())
 }
@@ -161,5 +191,46 @@ fn snapshot_traces() -> Result<()> {
             write_traces(hint.id)
         })
         .collect::<Result<Vec<()>>>()?;
+    Ok(())
+}
+
+#[test]
+fn generate_lint_pages() -> Result<()> {
+    for &hint in hint_data::ALL.iter() {
+        let hint: GenericHint = hint.into();
+        let name = hint.name;
+        let id = hint.id;
+        let condition = hint.condition;
+        let effect = hint.effect;
+        let workaround = hint.workaround;
+        let mut supported_by = vec![];
+        let has_lint = hint.has_lint;
+        if has_lint {
+            supported_by.push("`eugene lint`");
+        }
+        let has_trace = hint.has_trace;
+        if has_trace {
+            supported_by.push("`eugene trace`");
+        }
+        let supported_by = supported_by.join(", ");
+        let weight: i32 = id.as_str()[1..].parse()?;
+
+        let page = format!(
+            "---\ntitle: {id} {name}\nweight: {weight}\n---\n\n# {id} {name}\n\n\
+            ## Triggered when\n\n\
+            {condition}.\n\n\
+            ## Effect\n\n\
+            {effect}.\n\n\
+            ## Workaround\n\n\
+            {workaround}.\n\n\
+            ## Support\n\n\
+            This hint is supported by {supported_by}.\n\n"
+        );
+        // create the hint folder if it does not exist
+        let hint_folder = format!("docs/content/docs/hints/{}", id.as_str());
+        fs::create_dir_all(hint_folder.as_str())?;
+        let page_path = format!("{hint_folder}/_index.md");
+        fs::write(page_path, page)?;
+    }
     Ok(())
 }

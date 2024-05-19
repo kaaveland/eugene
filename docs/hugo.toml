@@ -1,4 +1,4 @@
-baseURL = 'https://example.org/'
+baseURL = 'https://kaveland.no/eugene'
 languageCode = 'en-us'
 title = 'eugene documentation'
 theme = "book"

@@ -15,7 +15,7 @@ so that it can avoid false positives for tables that aren't visible to other tra
 In some cases, it can not help but report false positives, since it can't know the DDL of the
 tables that are being referenced. For example, it can't know if a type change is safe. It
 is easy to ignore these false positives by adding a comment to the SQL script, see
-[ignores](/docs/ignores).
+[ignores](/eugene/docs/ignores).
 
 `eugene lint` can catch many things that it is specifically designed to catch, but it must
 have reasonably precise rules. Some SQL statements will implicitly create indexes, which

@@ -45,8 +45,8 @@ Eugene has a number of subcommands, and can tell you about them:
 eugene help
 ```
 
-The two main subcommands are [`eugene lint`](/docs/lint)
-and [`eugene trace`](/docs/trace), which both have their own page.
+The two main subcommands are [`eugene lint`](/eugene/docs/lint)
+and [`eugene trace`](/eugene/docs/trace), which both have their own page.
 `eugene lint` will perform syntax tree analysis of your SQL script
 using the PostgreSQL parser, while `eugene trace` will actually run
 it in a transaction and inspect the effects of the script on the 
@@ -68,4 +68,4 @@ supported by `eugene lint` or by `eugene trace` or by both.
 
 ## Hints provided by eugene
 
-See [hints](/docs/hints/) for a list of hints that Eugene can give you.
+See [hints](/eugene/docs/hints/) for a list of hints that Eugene can give you.

@@ -13,7 +13,7 @@ dangerous patterns and can suggest a safer way to achieve the same effect in man
 
 ## Installing eugene
 
-You can also install `eugene` using cargo:
+You can install `eugene` using cargo:
 
 ```sh
 cargo install eugene
@@ -28,7 +28,13 @@ docker run --rm -v $(pwd):/workdir \
 ```
 
 Eugene is available as a binary for Linux and macOS. You can download the latest release from
-the [releases page](https://github.com/kaaveland/eugene/releases).
+the [releases page](https://github.com/kaaveland/eugene/releases). Note that the binaries
+are not notarized and signed for macOS, so you may need to allow the binary to run by
+removing its quarantine attribute:
+
+```sh
+xattr -d com.apple.quarantine eugene
+```
 
 ## Source code and issue tracker
 

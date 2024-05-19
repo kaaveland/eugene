@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/W13/good/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table document_type(type_name text primary key)
@@ -12,14 +14,15 @@ create table document_type(type_name text primary key)
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 insert into document_type values('invoice'), ('receipt'), ('other')
@@ -29,14 +32,15 @@ insert into document_type values('invoice'), ('receipt'), ('other')
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 3 for 10 ms
 
-### SQL
+### Statement number 3 for 10ms
+
+#### SQL
 
 ```sql
 create table document (id int generated always as identity primary key, type text references document_type(type_name))
@@ -46,7 +50,7 @@ create table document (id int generated always as identity primary key, type tex
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 

@@ -147,6 +147,11 @@ pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullT
             lock.mode.clone(),
         )
     });
+    let dangerous_locks_count = context
+        .held_locks_context
+        .iter()
+        .filter(|lock| lock.maybe_dangerous)
+        .count();
 
     FullTraceData {
         name: trace.name.clone(),
@@ -155,6 +160,7 @@ pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullT
         all_locks_acquired: context.held_locks_context,
         statements,
         skip_summary: output_settings.skip_summary_section,
+        dangerous_locks_count,
     }
 }
 

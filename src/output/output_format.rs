@@ -194,8 +194,8 @@ pub struct FullTraceData {
     pub total_duration_millis: u64,
     pub all_locks_acquired: Vec<TracedLock>,
     pub statements: Vec<FullSqlStatementLockTrace>,
-    #[serde(skip)]
-    pub(crate) skip_summary: bool,
+    pub skip_summary: bool,
+    pub dangerous_locks_count: usize,
 }
 
 mod datefmt {
@@ -250,4 +250,5 @@ pub struct Lint {
 pub struct LintReport {
     pub name: Option<String>,
     pub lints: Vec<Lint>,
+    pub passed_all_checks: bool,
 }

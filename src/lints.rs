@@ -117,6 +117,7 @@ pub fn lint<S: AsRef<str>>(
     let mut ctx = TransactionState::default();
     let mut lints = Vec::new();
     let mut no: usize = 1;
+    let mut passed_all = true;
     for stmt in statements {
         let action = crate::comments::find_comment_action(sql.as_ref())?;
         let tree = pg_query::parse(stmt)?;
@@ -125,10 +126,11 @@ pub fn lint<S: AsRef<str>>(
                 if let Some(node_ref) = &node.node {
                     let summary = ast::describe(&node_ref.to_ref())?;
                     let lint_line = LintContext::new(&ctx, &summary);
-                    let matched_lints = filter_rules(&action, rules::all_rules())
+                    let matched_lints: Vec<_> = filter_rules(&action, rules::all_rules())
                         .filter(|rule| !ignored_lints.contains(&rule.id()))
                         .filter_map(|rule| rule.check(lint_line))
                         .collect();
+                    passed_all = passed_all && matched_lints.is_empty();
 
                     lints.push(Lint {
                         statement_number: no,
@@ -141,7 +143,11 @@ pub fn lint<S: AsRef<str>>(
             }
         }
     }
-    Ok(LintReport { name, lints })
+    Ok(LintReport {
+        name,
+        lints,
+        passed_all_checks: passed_all,
+    })
 }
 
 pub fn anon_lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {

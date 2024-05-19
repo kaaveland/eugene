@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/E7/good/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table authors(
@@ -15,7 +17,7 @@ create table authors(
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
@@ -23,9 +25,11 @@ No new locks taken by this statement.
 
 ## Eugene 🔒 trace report of `examples/E7/good/2.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create unique index concurrently authors_name_unique on authors(name)
@@ -35,7 +39,7 @@ create unique index concurrently authors_name_unique on authors(name)
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
@@ -43,9 +47,11 @@ No new locks taken by this statement.
 
 ## Eugene 🔒 trace report of `examples/E7/good/3.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set local lock_timeout = '2s'
@@ -55,14 +61,15 @@ set local lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 alter table authors add constraint unique_name unique using index authors_name_unique
@@ -72,9 +79,10 @@ alter table authors add constraint unique_name unique using index authors_name_u
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
+
 

@@ -1,8 +1,10 @@
 ## Eugene 🔒 trace report of `examples/W12/bad/1.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 create table authors(id integer generated always as identity primary key, name text, email text)
@@ -12,7 +14,7 @@ create table authors(id integer generated always as identity primary key, name t
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
@@ -20,9 +22,11 @@ No new locks taken by this statement.
 
 ## Eugene 🔒 trace report of `examples/W12/bad/2.sql`
 
-### Statement number 1 for 10 ms
 
-### SQL
+
+### Statement number 1 for 10ms
+
+#### SQL
 
 ```sql
 set lock_timeout = '2s'
@@ -32,14 +36,15 @@ set lock_timeout = '2s'
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 
 
-### Statement number 2 for 10 ms
 
-### SQL
+### Statement number 2 for 10ms
+
+#### SQL
 
 ```sql
 alter table authors alter column name set not null
@@ -49,16 +54,15 @@ alter table authors alter column name set not null
 
 No locks held at the start of this statement.
 
-### New locks taken
+#### New locks taken
 
 | Schema | Object | Mode | Relkind | OID | Safe |
 |--------|--------|------|---------|-----|------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
-### Hints
+#### Hints
 
 ##### Validating table with a new `NOT NULL` column
-
 ID: `E2`
 
 A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
@@ -70,9 +74,10 @@ The column `name` in the table `public.authors` was changed to `NOT NULL`. If th
 3. Make the column `NOT NULL`
 
 
-### Statement number 3 for 10 ms
 
-### SQL
+### Statement number 3 for 10ms
+
+#### SQL
 
 ```sql
 -- eugene: ignore E2, E4
@@ -85,7 +90,7 @@ alter table authors alter column email set not null
 |--------|--------|------|---------|-----|------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
 
-### New locks taken
+#### New locks taken
 
 No new locks taken by this statement.
 

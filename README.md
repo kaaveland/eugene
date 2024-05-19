@@ -8,10 +8,14 @@
 
 `eugene` is a linter and command line tool for reviewing SQL migration scripts for postgres. 
 
+There are useful examples of the kind of patterns eugene can help you pick up
+available over at [kaveland.no/eugene](https://kaveland.no/eugene).
+
 [Careful with That Lock, Eugene: Part 2](https://kaveland.no/careful-with-that-lock-eugene-part-2.html)
 is a blog post that serves as an introduction to the tool and the problem it is trying to 
 solve. Since that was written, `eugene` has gained SQL parser support and can do syntax tree 
 analysis to discover some problematic migration patterns without running the SQL scripts.
+
 
 ## Installation
 

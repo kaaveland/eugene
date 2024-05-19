@@ -23,4 +23,3 @@ database, and the pattern would still be detected. All hints are shown by
 using several SQL scripts, number from `1.sql` and up and they are run
 in ascending order. Each report then has a heading for every file, and
 for every file, there is a heading for every statement in the file.
-Navigation on the right side of the page will help you navigate the report.

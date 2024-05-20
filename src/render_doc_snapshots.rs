@@ -101,6 +101,7 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Resu
             lock.oid = 1;
             lock.lock_duration_millis = 10;
         });
+        report.total_duration_millis = 10;
         for statement_trace in report.statements.iter_mut() {
             statement_trace.duration_millis = 10;
             statement_trace.new_locks_taken.iter_mut().for_each(|lock| {
@@ -214,6 +215,9 @@ const HBARS: Lazy<Handlebars> = Lazy::new(|| {
         .register_template_string("hint_page", include_str!("hint_page.md.hbs"))
         .expect("Failed to register hint_page");
     hbars
+        .register_template_string("summary", include_str!("doc_summary.md.hbs"))
+        .expect("Failed to register summary");
+    hbars
 });
 
 #[derive(Serialize)]
@@ -274,9 +278,30 @@ fn generate_lint_pages() -> Result<()> {
     Ok(())
 }
 
+#[derive(Serialize)]
+struct RuleReference {
+    id: String,
+    name: String,
+}
+
+#[derive(Serialize)]
+struct ExampleReference {
+    id: String,
+    name: String,
+    cmd: &'static str,
+    problematic: bool,
+}
+
+#[derive(Serialize)]
+struct TocStructure {
+    rules: Vec<RuleReference>,
+    examples: Vec<ExampleReference>,
+}
+
 #[test]
 fn render_toc_for_docbook() {
-    let mut toc = String::new();
+    let mut rules = vec![];
+    let mut examples = vec![];
     for &hint in hint_data::ALL.iter().sorted_by_key(|hint| {
         let weight: i32 = hint.id[1..].parse().unwrap();
         weight
@@ -284,23 +309,28 @@ fn render_toc_for_docbook() {
         let hint: GenericHint = hint.into();
         let id = hint.id.as_str();
         let name = hint.name;
-        toc.push_str(&format!("  - [{} {}](./hints/{}/index.md)\n", id, name, id));
-    }
-    toc.push_str("---------\n");
-    toc.push_str("- [Example Reports](./hints/examples.md)\n");
-    for &hint in hint_data::ALL.iter() {
-        let hint: GenericHint = hint.into();
-        let id = hint.id.as_str();
+        rules.push(RuleReference {
+            id: id.to_string(),
+            name: name.to_string(),
+        });
         for cmd in ["lint", "trace"] {
-            toc.push_str(&format!(
-                "  - [{id} {cmd} problematic](./hints/{id}/unsafe_{cmd}.md)\n",
-            ));
+            examples.push(ExampleReference {
+                id: id.to_string(),
+                name: name.to_string(),
+                cmd,
+                problematic: true,
+            });
             if is_migration_set_up(id, "good") {
-                toc.push_str(&format!(
-                    "  - [{id} {cmd} safer](./hints/{id}/safer_{cmd}.md)\n"
-                ));
+                examples.push(ExampleReference {
+                    id: id.to_string(),
+                    name: name.to_string(),
+                    cmd,
+                    problematic: false,
+                });
             }
         }
     }
-    fs::write("docs/src/generated_hint_toc.md", toc).unwrap();
+    let toc_structure = TocStructure { rules, examples };
+    let toc = HBARS.render("summary", &toc_structure).unwrap();
+    fs::write("docs/src/SUMMARY.md", toc).unwrap();
 }

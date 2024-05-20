@@ -18,7 +18,6 @@ created in a transaction, even if they were implicitly created. If you need to t
 `eugene trace` that you know a statement to be safe, you can tell it to ignore a lint by
 adding a comment to your SQL script, see [ignores](/eugene/docs/ignores).
 
-
 ## Usage
 
 ```shell

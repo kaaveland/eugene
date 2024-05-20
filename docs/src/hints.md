@@ -1,25 +1,20 @@
-# eugene hints
+# eugene rules
 
-This section contains a list of hints that eugene recognizes, whether they are supported by 
-`eugene lint`, `eugene trace`, or both, and what you can do to avoid the dangerous pattern.
+This section contains a list of hints that eugene recognizes, whether they
+are supported by `eugene lint`, `eugene trace`, or both, and what you can
+do to avoid the dangerous pattern.
 
-## Structure
+These are all automatically generated from templates during the build of
+`eugene` so when new hints are added, the documentation will be updated
+automatically.
 
-Each hint chapter starts with a general description of when the hint is triggered,
-what effect the pattern has on the database and concurrent transactions, then
-if a workaround exists, it will be described. The hint chapter will also tell you
-whether the hint is detected by `eugene lint`, `eugene trace`, or both.
+Each chapter refers to a specific **rule** in the `eugene` codebase. The
+rule is identified by an ID that can be passed to `eugene`, as well as a
+name. The documentation describes what `eugene` looks for when triggering
+the rule, what effect the schema change may have on the database and
+concurrent transactions, and if there is a workaround. The documentation
+will tell you whether one or both of `eugene lint` and `eugene trace`
+that can detect the condition the rule describes.
 
-Subchapters show an example trace report and example lint report for each hint, 
-to help you understand what the detected pattern looks like in SQL code. 
-For hints where eugene knows about a workaround, there is also a subchapter
-showing a trace report and a lint report for the safer way to achieve the same
-result.
-
-## Report structure
-
-Each pattern is show in a way so that all the SQL could be run in an empty
-database, and the pattern would still be detected. All hints are shown by
-using several SQL scripts, number from `1.sql` and up and they are run
-in ascending order. Each report then has a heading for every file, and
-for every file, there is a heading for every statement in the file.
+Each rule page will link to some eugene example reports for the migration
+pattern it describes, so you can see what the output looks like.

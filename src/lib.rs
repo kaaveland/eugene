@@ -1,7 +1,12 @@
+//! This is the crate documentation for [eugene](https://kaveland.no/eugene).
+//!
 //! This crate provides a library and a binary for tracing locks taken by SQL statements
 //! in a PostgreSQL database. It can be used to analyze the locking behavior of SQL scripts
 //! and to review migration scripts that could potentially interfere with other operations,
 //! such as concurrent queries by application code.
+//!
+//! THe library also provides syntax tree analysis for SQL scripts, so it can be used to
+//! analyze migration scripts for potential issues before running them.
 use std::collections::HashMap;
 
 use anyhow::anyhow;
@@ -36,7 +41,7 @@ pub mod tracing;
 pub(crate) mod comments;
 
 #[cfg(test)]
-mod render_lint_examples;
+mod render_doc_snapshots;
 
 /// Connection settings for connecting to a PostgreSQL database.
 pub struct ConnectionSettings {

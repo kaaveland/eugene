@@ -1,0 +1,19 @@
+# Summary
+
+- [Introduction](introduction.md)
+- [eugene lint](lint.md)
+- [eugene trace](trace.md)
+- [Ignoring hints](ignores.md)
+- [Hint reference](hints.md)
+{{#each rules}}
+  - [{{this.id}} {{this.name}}](./hints/{{this.id}}/index.md)
+{{/each}}
+---------
+- [Example Reports](./hints/examples.md)
+  {{#each examples}}
+      {{#if this.problematic}}
+  - [{{this.id}} {{this.cmd}} problematic](./hints/{{this.id}}/unsafe_{{this.cmd}}.md)
+      {{else}}
+  - [{{this.id}} {{this.cmd}} safer](./hints/{{this.id}}/safer_{{this.cmd}}.md)
+      {{/if}}
+  {{/each}}

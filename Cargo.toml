@@ -1,12 +1,12 @@
 [package]
 name = "eugene"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 description = "Careful with That Lock, Eugene"
 
 license = "MIT"
 authors = ["Robin Kåveland <kaaveland@gmail.com>"]
-homepage = "https://github.com/kaaveland/eugene"
+homepage = "https://kaveland.no/eugene"
 repository = "https://github.com/kaaveland/eugene.git"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

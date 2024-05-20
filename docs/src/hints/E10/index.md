@@ -31,12 +31,28 @@ alter table prices alter price set data type bigint;
 
 ## Safer migration
 
-Currently, we don't know of a safe way to avoid this issue.
+```sql
+-- 1.sql
 
-Report an issue at the [tracker](https://github.com/kaaveland/eugene) if
-you know a way!
+create table prices (id integer generated always as identity primary key, price int not null);
+create table authors (id integer generated always as identity primary key, name text not null);
+
+-- 2.sql
+
+set local lock_timeout = '2s';
+alter table authors add column meta jsonb;
+
+-- 3.sql
+
+-- eugene: ignore E5, E4
+-- causes table rewrite, but this example isnt't about that
+alter table prices alter price set data type bigint;
+
+```
 
 ## Eugene report examples
 
 - [Problem linted by Eugene](unsafe_lint.md)
 - [Problem traced by Eugene](unsafe_trace.md)
+- [Fix linted by Eugene](safer_trace.md)
+- [Fix traced by Eugene](safer_trace.md)

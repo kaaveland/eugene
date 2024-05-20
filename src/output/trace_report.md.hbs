@@ -33,11 +33,9 @@ statement.
 No locks acquired on database objects that already exist.
   {{else}}
 #### All locks found
-| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
-|--------|--------|------|---------|-----|------|--------------------|
-    {{#each all_locks_acquired}}
-| `{{this.schema}}` | `{{this.object_name}}` | `{{this.mode}}` | {{this.relkind}} | {{this.oid}} | {{#if this.maybe_dangerous}}❌{{else}}✅{{/if}} | {{ this.lock_duration_millis }} |
-    {{/each}}
+  {{#with all_locks_acquired}}
+{{> locks_table_md}}
+  {{/with}}
   {{/unless}}
 
   {{#if dangerous_locks_count gt 0}}
@@ -66,11 +64,9 @@ No locks acquired on database objects that already exist.
 #### Locks at start
 
   {{#if this.locks_at_start}}
-| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
-|--------|--------|------|---------|-----|------|--------------------|
-    {{#each this.locks_at_start}}
-| `{{this.schema}}` | `{{this.object_name}}` | `{{this.mode}}` | {{this.relkind}} | {{this.oid}} | {{#if this.maybe_dangerous}}❌{{else}}✅{{/if}} | {{this.lock_duration_millis}} |
-    {{/each}}
+      {{#with this.locks_at_start}}
+{{> locks_table_md}}
+      {{/with}}
   {{else}}
 No locks held at the start of this statement.
   {{/if}}
@@ -78,11 +74,9 @@ No locks held at the start of this statement.
 #### New locks taken
 
     {{#if this.new_locks_taken}}
-| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
-|--------|--------|------|---------|-----|------|--------------------|
-        {{#each this.new_locks_taken}}
-| `{{this.schema}}` | `{{this.object_name}}` | `{{this.mode}}` | {{this.relkind}} | {{this.oid}} | {{#if this.maybe_dangerous}}❌{{else}}✅{{/if}} | {{this.lock_duration_millis}} |
-        {{/each}}
+        {{#with this.new_locks_taken}}
+{{> locks_table_md}}
+        {{/with}}
     {{else}}
 No new locks taken by this statement.
     {{/if}}

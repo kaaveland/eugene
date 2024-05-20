@@ -1,0 +1,5 @@
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+{{#each this}}
+| `{{this.schema}}` | `{{this.object_name}}` | `{{this.mode}}` | {{this.relkind}} | {{this.oid}} | {{#if this.maybe_dangerous}}❌{{else}}✅{{/if}} | {{ this.lock_duration_millis }} |
+{{/each}}

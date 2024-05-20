@@ -7,6 +7,9 @@ pub(crate) static HBARS: Lazy<Handlebars> = Lazy::new(|| {
     hbars.set_strict_mode(true);
     hbars.register_escape_fn(handlebars::no_escape);
     hbars
+        .register_template_string("locks_table_md", include_str!("locks_table.md.hbs"))
+        .expect("Failed to register lock_table");
+    hbars
         .register_template_string("trace_report_md", include_str!("trace_report.md.hbs"))
         .expect("Failed to register trace_report");
     hbars

@@ -1,18 +1,37 @@
-# Adding a `SERIAL` or `GENERATED ... STORED` column
+# `E11` Adding a `SERIAL` or `GENERATED ... STORED` column
 
-## Triggered when
+## Description
 
-A new column was added with a `SERIAL` or `GENERATED` type.
+Triggered when: A new column was added with a `SERIAL` or `GENERATED` type.
 
-## Effect
+Effect: This blocks all table access until the table is rewritten.
 
-This blocks all table access until the table is rewritten.
+A safer way is: Can not be done without a table rewrite.
 
-## Workaround
+Detected by: `eugene lint`
 
-Can not be done without a table rewrite.
+## Problematic migration
 
-## Support
+```sql
+-- 1.sql
 
-This hint is supported by `eugene lint`.
+create table prices (price int not null);
 
+-- 2.sql
+
+set local lock_timeout = '2s';
+alter table prices add column id serial;
+
+```
+
+## Safer way
+
+Currently, we don't know of a safe way to avoid this issue.
+
+Report an issue at the [tracker](https://github.com/kaaveland/eugene) if
+you know a way!
+
+## Eugene report examples
+
+- [Problem linted by Eugene](unsafe_lint.md)
+- [Problem traced by Eugene](unsafe_trace.md)

@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
 use chrono::DateTime;
+use handlebars::Handlebars;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
+use serde::Serialize;
 use std::ffi::OsString;
 use std::fs;
 use std::path::PathBuf;
@@ -204,39 +206,67 @@ fn test_trace_with_summary_and_extra_locks() {
     fs::write("examples/snapshots/summary_extra_locks.md", r).unwrap();
 }
 
+const HBARS: Lazy<Handlebars> = Lazy::new(|| {
+    let mut hbars = Handlebars::new();
+    hbars.set_strict_mode(true);
+    hbars.register_escape_fn(handlebars::no_escape);
+    hbars
+        .register_template_string("hint_page", include_str!("hint_page.md.hbs"))
+        .expect("Failed to register hint_page");
+    hbars
+});
+
+#[derive(Serialize)]
+struct HintPage<'a> {
+    hint: &'a GenericHint,
+    example_script: &'a str,
+    fixed_example_script: Option<&'a str>,
+    supported_by: &'a str,
+}
+
+fn read_script(id: &str, subfolder: &str) -> Result<String> {
+    let mut script = String::new();
+    let example_path = format!("examples/{}/{}", id, subfolder);
+    let scripts = sorted_dir_files(example_path.as_str())?;
+    for sql_script in scripts {
+        let sql = fs::read_to_string(&sql_script)?;
+        let name = sql_script
+            .iter()
+            .last()
+            .context("No file name")?
+            .to_str()
+            .context("Path is not a valid UTF-8 string")?;
+        script.push_str(&format!("-- {}\n\n", name));
+        script.push_str(&sql);
+        script.push('\n');
+    }
+    if script.ends_with('\n') {
+        script.pop();
+    }
+    Ok(script)
+}
+
 #[test]
 fn generate_lint_pages() -> Result<()> {
     for &hint in hint_data::ALL.iter() {
         let hint: GenericHint = hint.into();
-        let name = hint.name;
-        let id = hint.id;
-        let condition = hint.condition;
-        let effect = hint.effect;
-        let workaround = hint.workaround;
-        let mut supported_by = vec![];
-        let has_lint = hint.has_lint;
-        if has_lint {
-            supported_by.push("`eugene lint`");
-        }
-        let has_trace = hint.has_trace;
-        if has_trace {
-            supported_by.push("`eugene trace`");
-        }
-        let supported_by = supported_by.join(", ");
-
-        let page = format!(
-            "# {name}\n\n\
-            ## Triggered when\n\n\
-            {condition}.\n\n\
-            ## Effect\n\n\
-            {effect}.\n\n\
-            ## Workaround\n\n\
-            {workaround}.\n\n\
-            ## Support\n\n\
-            This hint is supported by {supported_by}.\n\n"
-        );
+        let example_script = read_script(hint.id.as_str(), "bad")?;
+        let fixed_example_script = read_script(hint.id.as_str(), "good").ok();
+        let supported_by = match (hint.has_lint, hint.has_trace) {
+            (true, true) => "`eugene lint` and `eugene trace`",
+            (true, false) => "`eugene lint`",
+            (false, true) => "`eugene trace`",
+            (false, false) => "no tools",
+        };
+        let page = HintPage {
+            hint: &hint,
+            example_script: example_script.as_str(),
+            fixed_example_script: fixed_example_script.as_deref(),
+            supported_by,
+        };
+        let page = HBARS.render("hint_page", &page)?;
         // create the hint folder if it does not exist
-        let hint_folder = hint_folder(id);
+        let hint_folder = hint_folder(&hint.id);
         fs::create_dir_all(hint_folder.as_str())?;
         let page_path = format!("{hint_folder}/index.md");
         fs::write(page_path, page)?;

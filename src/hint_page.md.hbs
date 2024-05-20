@@ -1,0 +1,39 @@
+# `{{hint.id}}` {{hint.name}}
+
+## Description
+
+Triggered when: {{hint.condition}}.
+
+Effect: {{hint.effect}}.
+
+A safer way is: {{hint.workaround}}.
+
+Detected by: {{supported_by}}
+
+## Problematic migration
+
+```sql
+{{example_script}}
+```
+
+## Safer way
+
+{{#if fixed_example_script}}
+```sql
+{{fixed_example_script}}
+```
+{{else}}
+Currently, we don't know of a safe way to avoid this issue.
+
+Report an issue at the [tracker](https://github.com/kaaveland/eugene) if
+you know a way!
+{{/if}}
+
+## Eugene report examples
+
+- [Problem linted by Eugene](unsafe_lint.md)
+- [Problem traced by Eugene](unsafe_trace.md)
+{{#if fixed_example_script}}
+- [Fix linted by Eugene](safer_trace.md)
+- [Fix traced by Eugene](safer_trace.md)
+{{/if}}

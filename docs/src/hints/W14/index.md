@@ -1,18 +1,61 @@
-# Adding a primary key using an index
+# `W14` Adding a primary key using an index
 
-## Triggered when
+## Description
 
-A primary key was added using an index on the table.
+Triggered when: A primary key was added using an index on the table.
 
-## Effect
+Effect: This can cause postgres to alter the index columns to be `NOT NULL`.
 
-This can cause postgres to alter the index columns to be `NOT NULL`.
+A safer way is: Make sure that all the columns in the index are already `NOT NULL`.
 
-## Workaround
+Detected by: `eugene lint`
 
-Make sure that all the columns in the index are already `NOT NULL`.
+## Problematic migration
 
-## Support
+```sql
+-- 1.sql
 
-This hint is supported by `eugene lint`.
+create table authors(name text);
 
+-- 2.sql
+
+create unique index concurrently authors_name_key on authors(name);
+
+-- 3.sql
+
+set local lock_timeout = '2s';
+alter table authors add constraint authors_name_pkey primary key using index authors_name_key;
+
+```
+
+## Safer way
+
+```sql
+-- 1.sql
+
+create table authors(name text);
+
+-- 2.sql
+
+create unique index concurrently authors_name_key on authors(name);
+
+-- 3.sql
+
+set local lock_timeout = '2s';
+-- eugene: ignore E2
+-- This is a demo of W14, so we can ignore E2 instead of the
+-- multi-step migration to make the column NOT NULL safely
+alter table authors alter column name set not null;
+
+-- 4.sql
+
+alter table authors add constraint authors_name_pkey primary key using index authors_name_key;
+
+```
+
+## Eugene report examples
+
+- [Problem linted by Eugene](unsafe_lint.md)
+- [Problem traced by Eugene](unsafe_trace.md)
+- [Fix linted by Eugene](safer_trace.md)
+- [Fix traced by Eugene](safer_trace.md)

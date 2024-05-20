@@ -1,18 +1,39 @@
-# Creating an enum
+# `W13` Creating an enum
 
-## Triggered when
+## Description
 
-A new enum was created.
+Triggered when: A new enum was created.
 
-## Effect
+Effect: Removing values from an enum requires difficult migrations, and associating more data with an enum value is difficult.
 
-Removing values from an enum requires difficult migrations, and associating more data with an enum value is difficult.
+A safer way is: Use a foreign key to a lookup table instead.
 
-## Workaround
+Detected by: `eugene lint`
 
-Use a foreign key to a lookup table instead.
+## Problematic migration
 
-## Support
+```sql
+-- 1.sql
 
-This hint is supported by `eugene lint`.
+create type document_type as enum ('invoice', 'receipt', 'other');
+create table document (id int generated always as identity primary key, type document_type);
 
+```
+
+## Safer way
+
+```sql
+-- 1.sql
+
+create table document_type(type_name text primary key);
+insert into document_type values('invoice'), ('receipt'), ('other');
+create table document (id int generated always as identity primary key, type text references document_type(type_name));
+
+```
+
+## Eugene report examples
+
+- [Problem linted by Eugene](unsafe_lint.md)
+- [Problem traced by Eugene](unsafe_trace.md)
+- [Fix linted by Eugene](safer_trace.md)
+- [Fix traced by Eugene](safer_trace.md)

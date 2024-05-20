@@ -1,18 +1,51 @@
-# Creating a new index on an existing table
+# `E6` Creating a new index on an existing table
 
-## Triggered when
+## Description
 
-A new index was created on an existing table without the `CONCURRENTLY` keyword.
+Triggered when: A new index was created on an existing table without the `CONCURRENTLY` keyword.
 
-## Effect
+Effect: This blocks all writes to the table while the index is being created.
 
-This blocks all writes to the table while the index is being created.
+A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
 
-## Workaround
+Detected by: `eugene lint` and `eugene trace`
 
-Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
+## Problematic migration
 
-## Support
+```sql
+-- 1.sql
 
-This hint is supported by `eugene lint`, `eugene trace`.
+create table authors (
+    id integer generated always as identity primary key,
+    name text not null
+);
 
+-- 2.sql
+
+set local lock_timeout = '2s';
+create index authors_name_idx on authors (name);
+
+```
+
+## Safer way
+
+```sql
+-- 1.sql
+
+create table authors (
+    id integer generated always as identity primary key,
+    name text not null
+);
+
+-- 2.sql
+
+create index concurrently authors_name_idx on authors (name);
+
+```
+
+## Eugene report examples
+
+- [Problem linted by Eugene](unsafe_lint.md)
+- [Problem traced by Eugene](unsafe_trace.md)
+- [Fix linted by Eugene](safer_trace.md)
+- [Fix traced by Eugene](safer_trace.md)

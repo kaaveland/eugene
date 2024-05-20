@@ -75,7 +75,7 @@ cargo test
 
 Unit tests go in the same file as the code they test. They are 
 allowed to use a database connection, corresponding to the 
-[docker-compose](https://github.com/kaaveland/eugene/blob/main/docker-compose.yml) ****setup 
+[docker-compose](https://github.com/kaaveland/eugene/blob/main/docker-compose.yml) setup 
 or the [github workflow](https://github.com/kaaveland/eugene/blob/main/.github/workflows/run_tests.yml)
 for the tests.
 
@@ -95,9 +95,9 @@ refer to the previous section [Building the code](#building-the-code).
 The tool documentation is built with `mdBooks` and is hosted on
 [kaveland.no/eugene](https://kaveland.no/eugene). You can build it
 using `mdbook serve docs`if you've already generated the
-`SUMMARY.md` file `cargo test`. Note that direct changes to the
+`SUMMARY.md` file with `cargo test`. **Note that direct changes to the
 summary file will be overwritten by the tests, change the template
-at `src/doc_summary.md.hbs` instead.
+at `src/doc_summary.md.hbs` instead.**
 
 The crate documentation is built using `cargo doc --open` -- the
 open instruction is optional and will open the documentation in your
@@ -135,8 +135,9 @@ To release a new version:
 
 1. `src/bin/eugene.rs` should contain only code related to the command line interface 
    and standard in/err/out.
-2. Structs that are serializable go in `eugene::output`
-3. Structs that have public fields go somewhere in `eugene::output::output_format`
+2. Structs that have public fields go somewhere in `eugene::output::output_format`, these
+   are the structs we're OK with serializing to json or yaml, so we should consider them
+   a contract of some sort.
 
 ### Lock tracing
 

@@ -285,17 +285,19 @@ fn render_toc_for_docbook() {
         let id = hint.id.as_str();
         let name = hint.name;
         toc.push_str(&format!("  - [{} {}](./hints/{}/index.md)\n", id, name, id));
+    }
+    toc.push_str("---------\n");
+    toc.push_str("- [Example Reports](./hints/examples.md)\n");
+    for &hint in hint_data::ALL.iter() {
+        let hint: GenericHint = hint.into();
+        let id = hint.id.as_str();
         for cmd in ["lint", "trace"] {
-            // Always push "bad", since we require it
             toc.push_str(&format!(
-                "    - [{cmd} matched transaction](./hints/{}/unsafe_{}.md)\n",
-                id, cmd
+                "    - [{id} {cmd} matched](./hints/{id}/unsafe_{cmd}.md)\n",
             ));
-            // Push "good" if we have it
             if is_migration_set_up(id, "good") {
                 toc.push_str(&format!(
-                    "    - [{cmd} safer way](./hints/{}/safer_{}.md)\n",
-                    id, cmd
+                    "  - [{id} {cmd} safer](./hints/{id}/safer_{cmd}.md)\n"
                 ));
             }
         }

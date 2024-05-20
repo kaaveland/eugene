@@ -89,6 +89,24 @@ No locks held at the start of this statement.
 #### SQL
 
 ```sql
+set local lock_timeout = '2s'
+```
+
+#### Locks at start
+
+No locks held at the start of this statement.
+
+#### New locks taken
+
+No new locks taken by this statement.
+
+
+
+### Statement number 2 for 10ms
+
+#### SQL
+
+```sql
 -- eugene: ignore E5, E4
 -- causes table rewrite, but this example isnt't about that
 alter table prices alter price set data type bigint
@@ -114,12 +132,6 @@ ID: `E6`
 A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
 
 A new index was created on the table `public.prices`. The index was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
-##### Taking dangerous lock without timeout
-ID: `E9`
-
-A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
-
-The statement took `AccessExclusiveLock` on the Index `public.prices_pkey` without a timeout. It blocks `SELECT`, `FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`, `UPDATE`, `DELETE`, `INSERT`, `MERGE` while waiting to acquire the lock.
 ##### Rewrote table or index while holding dangerous lock
 ID: `E10`
 

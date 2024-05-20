@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::DateTime;
 use itertools::Itertools;
+use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use std::ffi::OsString;
 use std::fs;
@@ -12,6 +13,8 @@ use crate::{
     generate_new_test_db, hint_data, lints, output, perform_trace, ConnectionSettings,
     TraceSettings,
 };
+
+const DEFAULT_SETTINGS: Lazy<Settings> = Lazy::new(|| Settings::new(true, true));
 
 #[test]
 fn every_lint_has_an_example_migration() -> Result<()> {
@@ -70,7 +73,7 @@ fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
     Ok(reports.join("\n"))
 }
 
-fn snapshot_trace(id: &str, subfolder: &str) -> Result<String> {
+fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Result<String> {
     let example_path = format!("examples/{}/{}", id, subfolder);
     let mut reports = vec![];
     let db = generate_new_test_db();
@@ -88,7 +91,7 @@ fn snapshot_trace(id: &str, subfolder: &str) -> Result<String> {
             "postgres".to_string(),
         );
         let trace = perform_trace(&trace_settings, &connection_settings, &[])?;
-        let mut report = full_trace_data(&trace, Settings::new(true, true));
+        let mut report = full_trace_data(&trace, output_settings.clone());
 
         // Try to make the report deterministic
         report.start_time = DateTime::from_str("2024-05-18T00:00:00Z")?;
@@ -147,12 +150,12 @@ fn write_traces(id: &str) -> Result<()> {
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
-        let bad = snapshot_trace(id, "bad")?;
+        let bad = snapshot_trace(id, "bad", &DEFAULT_SETTINGS)?;
         let bad_path = format!("{hint_folder}/unsafe_trace.md");
         fs::write(bad_path, bad)?;
     }
     if is_migration_set_up(id, "good") {
-        let good = snapshot_trace(id, "good")?;
+        let good = snapshot_trace(id, "good", &DEFAULT_SETTINGS)?;
         let good_path = format!("{hint_folder}/safer_trace.md");
         fs::write(good_path, good)?;
     }
@@ -178,6 +181,27 @@ fn snapshot_traces() -> Result<()> {
         })
         .collect::<Result<Vec<()>>>()?;
     Ok(())
+}
+
+#[test]
+fn test_trace_with_extra_locks() {
+    let output_settings = Settings::new(false, true);
+    let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
+    fs::write("examples/snapshots/extra_locks.md", r).unwrap();
+}
+
+#[test]
+fn test_trace_with_summary() {
+    let output_settings = Settings::new(true, false);
+    let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
+    fs::write("examples/snapshots/summary.md", r).unwrap();
+}
+
+#[test]
+fn test_trace_with_summary_and_extra_locks() {
+    let output_settings = Settings::new(true, true);
+    let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
+    fs::write("examples/snapshots/summary_extra_locks.md", r).unwrap();
 }
 
 #[test]

@@ -293,7 +293,7 @@ fn render_toc_for_docbook() {
         let id = hint.id.as_str();
         for cmd in ["lint", "trace"] {
             toc.push_str(&format!(
-                "    - [{id} {cmd} matched](./hints/{id}/unsafe_{cmd}.md)\n",
+                "  - [{id} {cmd} problematic](./hints/{id}/unsafe_{cmd}.md)\n",
             ));
             if is_migration_set_up(id, "good") {
                 toc.push_str(&format!(

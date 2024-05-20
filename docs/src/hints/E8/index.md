@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: Found a new exclusion constraint.
+**Triggered when**: Found a new exclusion constraint.
 
-Effect: This blocks all reads and writes to the table while the constraint index is being created.
+**Effect**: This blocks all reads and writes to the table while the constraint index is being created.
 
-A safer way is: There is no safe way to add an exclusion constraint to an existing table.
+**Workaround**: There is no safe way to add an exclusion constraint to an existing table.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -24,7 +24,7 @@ alter table authors add constraint authors_name_excl exclude (name with =);
 
 ```
 
-## Safer way
+## Safer migration
 
 Currently, we don't know of a safe way to avoid this issue.
 

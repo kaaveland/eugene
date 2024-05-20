@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A transaction that holds an `AccessExclusiveLock` started a new statement.
+**Triggered when**: A transaction that holds an `AccessExclusiveLock` started a new statement.
 
-Effect: This blocks all access to the table for the duration of this statement.
+**Effect**: This blocks all access to the table for the duration of this statement.
 
-A safer way is: Run this statement in a new transaction.
+**Workaround**: Run this statement in a new transaction.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -28,7 +28,7 @@ select count(*) from authors;
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

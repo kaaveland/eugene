@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A new index was created on an existing table without the `CONCURRENTLY` keyword.
+**Triggered when**: A new index was created on an existing table without the `CONCURRENTLY` keyword.
 
-Effect: This blocks all writes to the table while the index is being created.
+**Effect**: This blocks all writes to the table while the index is being created.
 
-A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
+**Workaround**: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -27,7 +27,7 @@ create index authors_name_idx on authors (name);
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

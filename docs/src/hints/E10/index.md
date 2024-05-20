@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A table or index was rewritten while holding a lock that blocks many operations.
+**Triggered when**: A table or index was rewritten while holding a lock that blocks many operations.
 
-Effect: This blocks many operations on the table or index while the rewrite is in progress.
+**Effect**: This blocks many operations on the table or index while the rewrite is in progress.
 
-A safer way is: Build a new table or index, write to both, then swap them.
+**Workaround**: Build a new table or index, write to both, then swap them.
 
-Detected by: `eugene trace`
+**Detected by**: `eugene trace`
 
 ## Problematic migration
 
@@ -29,7 +29,7 @@ alter table prices alter price set data type bigint;
 
 ```
 
-## Safer way
+## Safer migration
 
 Currently, we don't know of a safe way to avoid this issue.
 

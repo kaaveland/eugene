@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A new constraint was added and it is already `VALID`.
+**Triggered when**: A new constraint was added and it is already `VALID`.
 
-Effect: This blocks all table access until all rows are validated.
+**Effect**: This blocks all table access until all rows are validated.
 
-A safer way is: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.
+**Workaround**: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -24,7 +24,7 @@ alter table authors add constraint name_not_null check (name is not null);
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

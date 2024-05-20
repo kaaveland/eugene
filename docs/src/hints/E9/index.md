@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A lock that would block many common operations was taken without a timeout.
+**Triggered when**: A lock that would block many common operations was taken without a timeout.
 
-Effect: This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`.
+**Effect**: This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`.
 
-A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
+**Workaround**: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -26,7 +26,7 @@ alter table authors add column email text;
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

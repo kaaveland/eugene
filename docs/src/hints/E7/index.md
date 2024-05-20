@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: Found a new unique constraint and a new index.
+**Triggered when**: Found a new unique constraint and a new index.
 
-Effect: This blocks all writes to the table while the index is being created and validated.
+**Effect**: This blocks all writes to the table while the index is being created and validated.
 
-A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
+**Workaround**: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -27,7 +27,7 @@ alter table authors add constraint unique_name unique(name);
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

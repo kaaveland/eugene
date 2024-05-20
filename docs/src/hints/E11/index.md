@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A new column was added with a `SERIAL` or `GENERATED` type.
+**Triggered when**: A new column was added with a `SERIAL` or `GENERATED` type.
 
-Effect: This blocks all table access until the table is rewritten.
+**Effect**: This blocks all table access until the table is rewritten.
 
-A safer way is: Can not be done without a table rewrite.
+**Workaround**: Can not be done without a table rewrite.
 
-Detected by: `eugene lint`
+**Detected by**: `eugene lint`
 
 ## Problematic migration
 
@@ -24,7 +24,7 @@ alter table prices add column id serial;
 
 ```
 
-## Safer way
+## Safer migration
 
 Currently, we don't know of a safe way to avoid this issue.
 

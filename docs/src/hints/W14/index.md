@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A primary key was added using an index on the table.
+**Triggered when**: A primary key was added using an index on the table.
 
-Effect: This can cause postgres to alter the index columns to be `NOT NULL`.
+**Effect**: This can cause postgres to alter the index columns to be `NOT NULL`.
 
-A safer way is: Make sure that all the columns in the index are already `NOT NULL`.
+**Workaround**: Make sure that all the columns in the index are already `NOT NULL`.
 
-Detected by: `eugene lint`
+**Detected by**: `eugene lint`
 
 ## Problematic migration
 
@@ -28,7 +28,7 @@ alter table authors add constraint authors_name_pkey primary key using index aut
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

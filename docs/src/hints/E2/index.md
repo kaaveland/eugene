@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A column was changed from `NULL` to `NOT NULL`.
+**Triggered when**: A column was changed from `NULL` to `NOT NULL`.
 
-Effect: This blocks all table access until all rows are validated.
+**Effect**: This blocks all table access until all rows are validated.
 
-A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
+**Workaround**: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -27,7 +27,7 @@ alter table authors alter column name set not null;
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

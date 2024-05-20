@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: Multiple `ALTER TABLE` statements targets the same table.
+**Triggered when**: Multiple `ALTER TABLE` statements targets the same table.
 
-Effect: If the statements require table scans, there will be more scans than necessary.
+**Effect**: If the statements require table scans, there will be more scans than necessary.
 
-A safer way is: Combine the statements into one, separating the action with commas.
+**Workaround**: Combine the statements into one, separating the action with commas.
 
-Detected by: `eugene lint`
+**Detected by**: `eugene lint`
 
 ## Problematic migration
 
@@ -26,7 +26,7 @@ alter table authors alter column email set not null;
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

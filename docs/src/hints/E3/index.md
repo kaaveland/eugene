@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A new column of type `json` was added to a table.
+**Triggered when**: A new column of type `json` was added to a table.
 
-Effect: This breaks `SELECT DISTINCT` queries or other operations that need equality checks on the column.
+**Effect**: This breaks `SELECT DISTINCT` queries or other operations that need equality checks on the column.
 
-A safer way is: Use the `jsonb` type instead, it supports all use-cases of `json` and is more robust and compact.
+**Workaround**: Use the `jsonb` type instead, it supports all use-cases of `json` and is more robust and compact.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -23,7 +23,7 @@ create table authors (
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

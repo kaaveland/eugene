@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A column was changed to a data type that isn't binary compatible.
+**Triggered when**: A column was changed to a data type that isn't binary compatible.
 
-Effect: This causes a full table rewrite while holding a lock that prevents all other use of the table.
+**Effect**: This causes a full table rewrite while holding a lock that prevents all other use of the table.
 
-A safer way is: Add a new column, update it in batches, and drop the old column.
+**Workaround**: Add a new column, update it in batches, and drop the old column.
 
-Detected by: `eugene lint` and `eugene trace`
+**Detected by**: `eugene lint` and `eugene trace`
 
 ## Problematic migration
 
@@ -24,7 +24,7 @@ alter table prices alter price set data type bigint;
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

@@ -2,13 +2,13 @@
 
 ## Description
 
-Triggered when: A new enum was created.
+**Triggered when**: A new enum was created.
 
-Effect: Removing values from an enum requires difficult migrations, and associating more data with an enum value is difficult.
+**Effect**: Removing values from an enum requires difficult migrations, and associating more data with an enum value is difficult.
 
-A safer way is: Use a foreign key to a lookup table instead.
+**Workaround**: Use a foreign key to a lookup table instead.
 
-Detected by: `eugene lint`
+**Detected by**: `eugene lint`
 
 ## Problematic migration
 
@@ -20,7 +20,7 @@ create table document (id int generated always as identity primary key, type doc
 
 ```
 
-## Safer way
+## Safer migration
 
 ```sql
 -- 1.sql

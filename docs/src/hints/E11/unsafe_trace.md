@@ -56,10 +56,10 @@ No locks held at the start of this statement.
 
 #### New locks taken
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
-| `public` | `prices` | `ShareLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
+| `public` | `prices` | `ShareLock` | Table | 1 | ❌ | 10 |
 
 #### Hints
 

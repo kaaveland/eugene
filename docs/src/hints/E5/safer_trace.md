@@ -56,9 +56,9 @@ No locks held at the start of this statement.
 
 #### New locks taken
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 
 
@@ -116,9 +116,9 @@ No locks held at the start of this statement.
 
 #### New locks taken
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 
 
@@ -158,9 +158,9 @@ No locks held at the start of this statement.
 
 #### New locks taken
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 
 
@@ -176,9 +176,9 @@ alter table prices rename column new_price to price
 
 #### Locks at start
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 #### New locks taken
 

@@ -94,14 +94,17 @@ fn snapshot_trace(id: &str, subfolder: &str) -> Result<String> {
         report.start_time = DateTime::from_str("2024-05-18T00:00:00Z")?;
         report.all_locks_acquired.iter_mut().for_each(|lock| {
             lock.oid = 1;
+            lock.lock_duration_millis = 10;
         });
         for statement_trace in report.statements.iter_mut() {
             statement_trace.duration_millis = 10;
             statement_trace.new_locks_taken.iter_mut().for_each(|lock| {
                 lock.oid = 1;
+                lock.lock_duration_millis = 10;
             });
             statement_trace.locks_at_start.iter_mut().for_each(|lock| {
                 lock.oid = 1;
+                lock.lock_duration_millis = 10;
             });
         }
 

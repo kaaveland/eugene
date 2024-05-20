@@ -1,9 +1,9 @@
-use crate::hint_data::StaticHintData;
 use chrono::{DateTime, Local};
 use serde::Serialize;
 
+use crate::hint_data::StaticHintData;
 use crate::hints::HintInfo;
-use crate::pg_types::locks::{Lock, LockableTarget};
+use crate::pg_types::locks::LockableTarget;
 use crate::tracing::queries::ColumnMetadata;
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
@@ -77,20 +77,7 @@ pub struct TracedLock {
     pub oid: u32,
     pub maybe_dangerous: bool,
     pub blocked_queries: Vec<&'static str>,
-}
-
-impl From<&Lock> for TracedLock {
-    fn from(lock: &Lock) -> Self {
-        TracedLock {
-            schema: lock.target().schema.to_string(),
-            object_name: lock.target().object_name.to_string(),
-            mode: lock.mode.to_db_str().to_string(),
-            relkind: lock.target().rel_kind.as_str(),
-            oid: lock.target().oid,
-            maybe_dangerous: lock.mode.dangerous(),
-            blocked_queries: lock.blocked_queries(),
-        }
-    }
+    pub lock_duration_millis: u64,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]

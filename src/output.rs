@@ -40,9 +40,23 @@ struct OutputContext {
     statement_number: usize,
     held_locks_context: Vec<TracedLock>,
     duration_millis_so_far: u64,
+    duration_millis_total: u64,
 }
 
 impl OutputContext {
+    fn output_lock(&self, lock: &Lock) -> TracedLock {
+        TracedLock {
+            schema: lock.target.schema.clone(),
+            object_name: lock.target.object_name.clone(),
+            relkind: lock.target.rel_kind.as_str(),
+            mode: lock.mode.to_db_str().to_string(),
+            maybe_dangerous: lock.mode.dangerous(),
+            oid: lock.target.oid,
+            blocked_queries: lock.blocked_queries(),
+            lock_duration_millis: self.duration_millis_total - self.duration_millis_so_far,
+        }
+    }
+
     fn output_statement(
         &mut self,
         statement: &SqlStatementTrace,
@@ -66,7 +80,7 @@ impl OutputContext {
             .locks_taken
             .iter()
             .filter(|lock| !self.hide_lock(lock))
-            .map(TracedLock::from)
+            .map(|lock| self.output_lock(lock))
             .filter(|lock| !locks_at_start.contains(lock))
             .sorted_by_key(|lock| {
                 (
@@ -123,18 +137,24 @@ impl OutputContext {
     fn hide_lock(&self, lock: &Lock) -> bool {
         self.output_settings.only_dangerous_locks && !lock.mode.dangerous()
     }
-    pub fn new(output_settings: Settings) -> Self {
+    pub fn new(output_settings: Settings, duration_millis_total: u64) -> Self {
         OutputContext {
             output_settings,
             statement_number: 1,
             held_locks_context: vec![],
             duration_millis_so_far: 0,
+            duration_millis_total,
         }
     }
 }
 
 pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullTraceData {
-    let mut context = OutputContext::new(output_settings);
+    let total_duration = trace
+        .statements
+        .iter()
+        .map(|st| st.duration.as_millis() as u64)
+        .sum();
+    let mut context = OutputContext::new(output_settings, total_duration);
     let mut statements = vec![];
     for (i, statement) in trace.statements.iter().enumerate() {
         statements.push(context.output_statement(statement, &trace.triggered_hints[i]));

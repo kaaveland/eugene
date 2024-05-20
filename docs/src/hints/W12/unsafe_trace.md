@@ -56,9 +56,9 @@ No locks held at the start of this statement.
 
 #### New locks taken
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 #### Hints
 
@@ -86,9 +86,9 @@ alter table authors alter column email set not null
 
 #### Locks at start
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 #### New locks taken
 

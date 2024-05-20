@@ -74,9 +74,9 @@ No locks held at the start of this statement.
 
 #### New locks taken
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 
 
@@ -92,17 +92,17 @@ alter table prices alter price set data type bigint
 
 #### Locks at start
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 #### New locks taken
 
-| Schema | Object | Mode | Relkind | OID | Safe |
-|--------|--------|------|---------|-----|------|
-| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ |
-| `public` | `prices` | `ShareLock` | Table | 1 | ❌ |
-| `public` | `prices_pkey` | `AccessExclusiveLock` | Index | 1 | ❌ |
+| Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
+|--------|--------|------|---------|-----|------|--------------------|
+| `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
+| `public` | `prices` | `ShareLock` | Table | 1 | ❌ | 10 |
+| `public` | `prices_pkey` | `AccessExclusiveLock` | Index | 1 | ❌ | 10 |
 
 #### Hints
 

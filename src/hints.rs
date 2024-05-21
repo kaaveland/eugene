@@ -356,4 +356,13 @@ mod tests {
         let ids: HashSet<_> = super::all_hints().iter().map(|hint| hint.meta.id).collect();
         assert_eq!(ids.len(), super::all_hints().len());
     }
+
+    #[test]
+    fn test_all_are_in_hint_data() {
+        super::HINTS.iter().for_each(|hint| {
+            assert!(crate::hint_data::ALL
+                .iter()
+                .any(|data| data.id == hint.meta.id));
+        })
+    }
 }

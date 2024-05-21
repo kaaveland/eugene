@@ -473,11 +473,12 @@ pub fn all_rules() -> impl Iterator<Item = &'static LintRule> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
-
     #[test]
-    fn test_no_duplicated_ids() {
-        let ids: HashSet<_> = super::all_rules().map(|rule| rule.id()).collect();
-        assert_eq!(ids.len(), super::all_rules().count());
+    fn test_all_are_in_static_data() {
+        super::all_rules().for_each(|rule| {
+            assert!(crate::hint_data::ALL
+                .iter()
+                .any(|hint| hint.id == rule.id()));
+        });
     }
 }

@@ -368,6 +368,7 @@ fn create_enum(stmt: &CreateEnumStmt) -> anyhow::Result<StatementSummary> {
 #[cfg(test)]
 mod tests {
     use crate::lints::StatementSummary;
+    use pretty_assertions::assert_eq;
 
     fn parse_s(s: &str) -> StatementSummary {
         super::describe(

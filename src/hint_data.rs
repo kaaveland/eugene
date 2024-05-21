@@ -133,3 +133,17 @@ pub const ALL: &[&StaticHintData] = &[
     &CREATING_ENUM,
     &ADD_PRIMARY_KEY_USING_INDEX,
 ];
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_no_duplicated_id_or_name() {
+        let mut ids = std::collections::HashSet::new();
+        let mut names = std::collections::HashSet::new();
+        for hint in super::ALL {
+            assert!(ids.insert(hint.id), "Duplicated id: {}", hint.id);
+            assert!(ids.insert(&hint.id[1..]), "Duplicated id: {}", hint.id);
+            assert!(names.insert(hint.name), "Duplicated name: {}", hint.name);
+        }
+    }
+}

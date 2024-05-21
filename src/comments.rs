@@ -1,4 +1,6 @@
 use anyhow::Context;
+use once_cell::sync::Lazy;
+use regex::Regex;
 
 use crate::hint_data::HintId;
 
@@ -10,10 +12,11 @@ pub enum LintAction<'a> {
     Continue,
 }
 
+const EUGENE_COMMENT_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"-- eugene: ([^\n]+)").expect("Failed to compile regex"));
 /// Detect `sql` containing a comment with an instruction for eugene
 pub fn find_comment_action(sql: &str) -> anyhow::Result<LintAction> {
-    let eugene_comment_regex = regex::Regex::new(r"-- eugene: ([^\n]+)")?;
-    if let Some(captures) = eugene_comment_regex.captures(sql.as_ref()) {
+    if let Some(captures) = EUGENE_COMMENT_REGEX.captures(sql.as_ref()) {
         let cap = captures
             .get(1)
             .map(|m| m.as_str())
@@ -48,6 +51,7 @@ pub fn filter_rules<'a, T: HintId + 'static>(
 mod tests {
     use crate::lints::rules;
     use crate::lints::rules::LOCKTIMEOUT_WARNING;
+    use pretty_assertions::assert_eq;
 
     use super::*;
 

@@ -3,6 +3,7 @@ use chrono::DateTime;
 use handlebars::Handlebars;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use pretty_assertions::assert_eq;
 use rayon::prelude::*;
 use serde::Serialize;
 use std::ffi::OsString;
@@ -17,6 +18,18 @@ use crate::{
 };
 
 const DEFAULT_SETTINGS: Lazy<Settings> = Lazy::new(|| Settings::new(true, true));
+const HBARS: Lazy<Handlebars> = Lazy::new(|| {
+    let mut hbars = Handlebars::new();
+    hbars.set_strict_mode(true);
+    hbars.register_escape_fn(handlebars::no_escape);
+    hbars
+        .register_template_string("hint_page", include_str!("hint_page.md.hbs"))
+        .expect("Failed to register hint_page");
+    hbars
+        .register_template_string("summary", include_str!("doc_summary.md.hbs"))
+        .expect("Failed to register summary");
+    hbars
+});
 
 #[test]
 fn every_lint_has_an_example_migration() -> Result<()> {
@@ -124,20 +137,29 @@ fn hint_folder<S: AsRef<str>>(id: S) -> String {
     format!("docs/src/hints/{}", id.as_ref())
 }
 
-fn write_lints(id: &str) -> Result<()> {
+fn write_lints(id: &str) -> Result<bool> {
+    let mut changed = false;
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
         let bad = snapshot_lint(id, "bad")?;
         let bad_path = format!("{hint_folder}/unsafe_lint.md");
+        let prior = fs::read_to_string(&bad_path).unwrap_or_default();
+        if prior != bad {
+            changed = true;
+        }
         fs::write(bad_path, bad)?;
     }
     if is_migration_set_up(id, "good") {
         let good = snapshot_lint(id, "good")?;
         let good_path = format!("{hint_folder}/safer_lint.md");
+        let prior = fs::read_to_string(&good_path).unwrap_or_default();
+        if prior != good {
+            changed = true;
+        }
         fs::write(good_path, good)?;
     }
-    Ok(())
+    Ok(changed)
 }
 
 fn is_migration_set_up(id: &str, subfolder: &str) -> bool {
@@ -145,7 +167,8 @@ fn is_migration_set_up(id: &str, subfolder: &str) -> bool {
     fs::metadata(example_path).is_ok()
 }
 
-fn write_traces(id: &str) -> Result<()> {
+fn write_traces(id: &str) -> Result<bool> {
+    let mut out = false;
     hint_data::ALL
         .iter()
         .find(|hint| hint.id == id)
@@ -155,34 +178,58 @@ fn write_traces(id: &str) -> Result<()> {
     if is_migration_set_up(id, "bad") {
         let bad = snapshot_trace(id, "bad", &DEFAULT_SETTINGS)?;
         let bad_path = format!("{hint_folder}/unsafe_trace.md");
+        let prior = fs::read_to_string(&bad_path).unwrap_or_default();
+        if prior != bad {
+            out = true;
+        }
         fs::write(bad_path, bad)?;
     }
     if is_migration_set_up(id, "good") {
         let good = snapshot_trace(id, "good", &DEFAULT_SETTINGS)?;
         let good_path = format!("{hint_folder}/safer_trace.md");
+        let prior = fs::read_to_string(&good_path).unwrap_or_default();
+        if prior != good {
+            out = true;
+        }
         fs::write(good_path, good)?;
     }
-    Ok(())
+    Ok(out)
 }
 
 #[test]
 fn snapshot_lints() -> Result<()> {
+    let mut changed_lints = vec![];
     for hint in hint_data::ALL.iter() {
-        println!("Writing lints for {}", hint.id);
-        write_lints(hint.id)?;
+        let changed = write_lints(hint.id)?;
+        if changed {
+            changed_lints.push(hint.id);
+        }
     }
+    assert!(
+        changed_lints.is_empty(),
+        "Changed lint snapshots, check in if : {:?}",
+        changed_lints
+    );
     Ok(())
 }
 
 #[test]
 fn snapshot_traces() -> Result<()> {
-    hint_data::ALL
+    let results: Vec<Result<(String, bool)>> = hint_data::ALL
         .into_par_iter()
-        .map(|hint| {
-            println!("Writing traces for {}", hint.id);
-            write_traces(hint.id)
-        })
-        .collect::<Result<Vec<()>>>()?;
+        .map(|hint| write_traces(hint.id).map(|changed| (hint.id.to_string(), changed)))
+        .collect();
+    let results: Result<Vec<_>> = results.into_iter().collect();
+    let changed_snapshots: Vec<_> = results?
+        .into_iter()
+        .filter(|(_, changed)| *changed)
+        .map(|(id, _)| id)
+        .collect();
+    assert!(
+        changed_snapshots.is_empty(),
+        "Changed trace snapshots, check in if : {:?}",
+        changed_snapshots
+    );
     Ok(())
 }
 
@@ -190,35 +237,40 @@ fn snapshot_traces() -> Result<()> {
 fn test_trace_with_extra_locks() {
     let output_settings = Settings::new(false, true);
     let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
-    fs::write("examples/snapshots/extra_locks.md", r).unwrap();
+    let path = "examples/snapshots/extra_locks.md";
+    let prior = fs::read_to_string(path).unwrap_or_default();
+    fs::write(path, &r).unwrap();
+    assert_eq!(
+        prior, r,
+        "Extra locks have changed, check in the result if that's expected"
+    );
 }
 
 #[test]
 fn test_trace_with_summary() {
     let output_settings = Settings::new(true, false);
     let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
-    fs::write("examples/snapshots/summary.md", r).unwrap();
+    let path = "examples/snapshots/summary.md";
+    let prior = fs::read_to_string(path).unwrap_or_default();
+    fs::write(path, &r).unwrap();
+    assert_eq!(
+        prior, r,
+        "Summary has changed, check in the result if that's expected"
+    );
 }
 
 #[test]
 fn test_trace_with_summary_and_extra_locks() {
     let output_settings = Settings::new(true, true);
     let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
-    fs::write("examples/snapshots/summary_extra_locks.md", r).unwrap();
+    let path = "examples/snapshots/summary_extra_locks.md";
+    let prior = fs::read_to_string(path).unwrap_or_default();
+    fs::write(path, &r).unwrap();
+    assert_eq!(
+        prior, r,
+        "Summary and extra locks have changed, check in the result if that's expected"
+    );
 }
-
-const HBARS: Lazy<Handlebars> = Lazy::new(|| {
-    let mut hbars = Handlebars::new();
-    hbars.set_strict_mode(true);
-    hbars.register_escape_fn(handlebars::no_escape);
-    hbars
-        .register_template_string("hint_page", include_str!("hint_page.md.hbs"))
-        .expect("Failed to register hint_page");
-    hbars
-        .register_template_string("summary", include_str!("doc_summary.md.hbs"))
-        .expect("Failed to register summary");
-    hbars
-});
 
 #[derive(Serialize)]
 struct HintPage<'a> {
@@ -332,5 +384,10 @@ fn render_toc_for_docbook() {
     }
     let toc_structure = TocStructure { rules, examples };
     let toc = HBARS.render("summary", &toc_structure).unwrap();
-    fs::write("docs/src/SUMMARY.md", toc).unwrap();
+    let prior = fs::read_to_string("docs/src/SUMMARY.md").unwrap_or_default();
+    fs::write("docs/src/SUMMARY.md", &toc).unwrap();
+    assert_eq!(
+        prior, toc,
+        "Table of contents has changed, check in the result if that's expected"
+    );
 }

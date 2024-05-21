@@ -45,6 +45,7 @@ mod tests {
     use crate::hint_data;
     use crate::pg_types::contype::Contype;
     use crate::pg_types::lock_modes::LockMode;
+    use pretty_assertions::assert_eq;
 
     fn get_client() -> Client {
         let test_db = generate_new_test_db();

@@ -49,6 +49,8 @@ pub fn is_concurrently<S: AsRef<str>>(sql: S) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     #[test]
     fn test_split_statements_with_comments() -> anyhow::Result<()> {
         let sql = "SELECT * FROM tab; -- This is a comment\nSELECT * FROM tab; /* This is a block comment */";

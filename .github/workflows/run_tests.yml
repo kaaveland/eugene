@@ -79,6 +79,8 @@ jobs:
   run_tests_windows:
     name: Test on Windows
     runs-on: windows-latest
+    env:
+      GIT_CRLFAUTOCONVERT: false
     steps:
       - uses: actions/checkout@v4
       - name: Install postgres with choco

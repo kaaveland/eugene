@@ -22,7 +22,7 @@ statement.
 
 | Started at | Total duration (ms) | Number of dangerous locks |
 |------------|----------------------|--------------------------|
-| 2024-05-18T02:00:00+02:00 | 10 | 0 ✅|
+| 2021-01-01T00:00:00+00:00 | 10 | 0 ✅|
 
 No locks acquired on database objects that already exist.
 
@@ -88,7 +88,7 @@ statement.
 
 | Started at | Total duration (ms) | Number of dangerous locks |
 |------------|----------------------|--------------------------|
-| 2024-05-18T02:00:00+02:00 | 10 | 4 ❌|
+| 2021-01-01T00:00:00+00:00 | 10 | 4 ❌|
 
 #### All locks found
 | Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |

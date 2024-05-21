@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use crate::comments::{filter_rules, find_comment_action};
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use postgres::types::Oid;
 use postgres::Transaction;
@@ -70,7 +70,7 @@ pub struct TxLockTracer<'a> {
     /// All locks taken so far in the transaction.
     pub(crate) all_locks: HashSet<Lock>,
     /// The time the trace started
-    pub(crate) trace_start: DateTime<Local>,
+    pub(crate) trace_start: DateTime<Utc>,
     /// All columns in the database, along with their metadata
     pub(crate) columns: HashMap<ColumnIdentifier, ColumnMetadata>,
     /// All constraints in the database
@@ -256,7 +256,7 @@ impl<'a> TxLockTracer<'a> {
             initial_objects: trace_targets,
             statements: vec![],
             all_locks: HashSet::new(),
-            trace_start: Local::now(),
+            trace_start: Utc::now(),
             columns,
             constraints,
             concurrent: false,
@@ -299,7 +299,7 @@ impl<'a> TxLockTracer<'a> {
                 })
                 .collect(),
             all_locks: HashSet::new(),
-            trace_start: Local::now(),
+            trace_start: Utc::now(),
             columns: HashMap::new(),
             constraints: HashMap::new(),
             concurrent: true,

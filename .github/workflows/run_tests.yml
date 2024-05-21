@@ -33,6 +33,7 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
+          TZ: UTC
         options: >-
           --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
@@ -44,6 +45,8 @@ jobs:
       - name: Init testdb
         run: psql --host localhost --port 5432 -U postgres < db-initscripts/init-testdb.sql
       - name: Run tests
+        env:
+          TZ: UTC
         run: cargo test --all-targets --all-features
 
   run_tests_macos:
@@ -54,6 +57,8 @@ jobs:
       - name: Install psql and postgres
         run: brew install postgresql
       - name: Init postgres db
+        env:
+          TZ: UTC
         run: |
           initdb -E UTF-8 -U postgres $HOME/pgdata
           pg_ctl -D $HOME/pgdata start
@@ -66,6 +71,8 @@ jobs:
       - name: Init testdb
         run: psql -U postgres < db-initscripts/init-testdb.sql
       - name: Run tests
+        env:
+          TZ: UTC
         run: cargo test --all-targets --all-features
       - name: Stop postgres
         run: pg_ctl -D $HOME/pgdata stop
@@ -76,6 +83,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install postgres with choco
         shell: bash
+        env:
+          TZ: UTC
         run: |
           choco install postgresql16 --params "/Password:postgres"
           echo 'C:\Program Files\PostgreSQL\16\bin' >> $GITHUB_PATH
@@ -95,4 +104,6 @@ jobs:
           echo "localhost:5432:*:postgres:postgres" > $APPDATA/postgresql/pgpass.conf          
           psql -U postgres < db-initscripts/init-testdb.sql
       - name: Run tests
+        env:
+          TZ: UTC
         run: cargo test --all-targets --all-features

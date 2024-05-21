@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
 use crate::hint_data::StaticHintData;
@@ -177,7 +177,7 @@ pub struct FullSqlStatementLockTrace {
 pub struct FullTraceData {
     pub name: Option<String>,
     #[serde(with = "datefmt")]
-    pub start_time: DateTime<Local>,
+    pub start_time: DateTime<Utc>,
     pub total_duration_millis: u64,
     pub all_locks_acquired: Vec<TracedLock>,
     pub statements: Vec<FullSqlStatementLockTrace>,
@@ -186,9 +186,9 @@ pub struct FullTraceData {
 }
 
 mod datefmt {
-    use chrono::{DateTime, Local};
+    use chrono::{DateTime, Utc};
 
-    pub fn serialize<S>(date: &DateTime<Local>, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(date: &DateTime<Utc>, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {

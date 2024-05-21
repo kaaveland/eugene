@@ -1,15 +1,15 @@
+use std::ffi::OsString;
+use std::fs;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use handlebars::Handlebars;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use rayon::prelude::*;
 use serde::Serialize;
-use std::ffi::OsString;
-use std::fs;
-use std::path::PathBuf;
-use std::str::FromStr;
 
 use crate::output::{full_trace_data, GenericHint, Settings};
 use crate::{
@@ -109,7 +109,8 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Resu
         let mut report = full_trace_data(&trace, output_settings.clone());
 
         // Try to make the report deterministic
-        report.start_time = DateTime::from_str("2024-05-18T00:00:00Z")?;
+        report.start_time =
+            DateTime::parse_from_rfc3339("2021-01-01T00:00:00Z")?.with_timezone(&Utc);
         report.all_locks_acquired.iter_mut().for_each(|lock| {
             lock.oid = 1;
             lock.lock_duration_millis = 10;

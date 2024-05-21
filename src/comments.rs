@@ -1,5 +1,6 @@
 use anyhow::Context;
 use once_cell::sync::Lazy;
+
 use regex::Regex;
 
 use crate::hint_data::HintId;
@@ -12,7 +13,7 @@ pub enum LintAction<'a> {
     Continue,
 }
 
-const EUGENE_COMMENT_REGEX: Lazy<Regex> =
+static EUGENE_COMMENT_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"-- eugene: ([^\n]+)").expect("Failed to compile regex"));
 /// Detect `sql` containing a comment with an instruction for eugene
 pub fn find_comment_action(sql: &str) -> anyhow::Result<LintAction> {

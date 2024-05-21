@@ -80,7 +80,9 @@ fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
     for script in sorted_dir_files(example_path.as_str())? {
         let path = script
             .to_str()
-            .context("Path is not a valid UTF-8 string")?;
+            .context("Path is not a valid UTF-8 string")?
+            // This isn't very nice, but the snapshots must generate the path text on Windows
+            .replace("\\", "/");
         let sql = fs::read_to_string(&script)?;
         let report = lints::lint(Some(path.into()), sql, &[])?;
         reports.push(output::markdown::lint_report_to_markdown(&report)?);
@@ -210,7 +212,7 @@ fn snapshot_lints() -> Result<()> {
     }
     assert!(
         changed_lints.is_empty(),
-        "Changed lint snapshots, check in if : {:?}",
+        "Changed lint snapshots, check in if intentional: {:?}",
         changed_lints
     );
     Ok(())
@@ -230,7 +232,7 @@ fn snapshot_traces() -> Result<()> {
         .collect();
     assert!(
         changed_snapshots.is_empty(),
-        "Changed trace snapshots, check in if : {:?}",
+        "Changed trace snapshots, check in if intentional: {:?}",
         changed_snapshots
     );
     Ok(())

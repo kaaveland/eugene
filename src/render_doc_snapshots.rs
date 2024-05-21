@@ -96,8 +96,10 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Resu
     for script in sorted_dir_files(example_path.as_str())? {
         let path = script
             .to_str()
-            .context("Path is not a valid UTF-8 string")?;
-        let trace_settings = TraceSettings::new(path.into(), true, &[])?;
+            .context("Path is not a valid UTF-8 string")?
+            // This isn't very nice, but the snapshots must generate the path text on Windows
+            .replace("\\", "/");
+        let trace_settings = TraceSettings::new(path, true, &[])?;
         let connection_settings = ConnectionSettings::new(
             "postgres".to_string(),
             db.clone(),

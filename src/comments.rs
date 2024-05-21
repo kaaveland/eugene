@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn sql_with_no_comment() {
         let sql = "SELECT * FROM foo;";
-        let action = super::find_comment_action(sql).unwrap();
+        let action = find_comment_action(sql).unwrap();
         assert_eq!(action, super::LintAction::Continue);
     }
 

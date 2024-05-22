@@ -2,11 +2,11 @@ Lint SQL migration script by analyzing syntax tree
 
 `eugene lint` exits with failure if any lint is detected.
 
-Usage: eugene lint [OPTIONS] <PATH>
+Usage: eugene lint [OPTIONS] [paths]...
 
 Arguments:
-  <PATH>
-          Path to SQL migration script, or '-' to read from stdin
+  [paths]...
+          Path to SQL migration scripts, directories, or '-' to read from stdin
 
 Options:
   -v, --var <PLACEHOLDERS>

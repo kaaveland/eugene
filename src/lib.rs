@@ -10,10 +10,11 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
-use postgres::{Client, NoTls};
+use postgres::{Client, NoTls, Transaction};
+
 use tracing::trace_transaction;
 
-use crate::sqltext::{read_sql_statements, resolve_placeholders, sql_statements};
+use crate::sqltext::sql_statements;
 use crate::tracing::TxLockTracer;
 
 /// Static data for hints and lints, used to identify them in output or input.
@@ -37,6 +38,9 @@ pub mod sqltext;
 /// internal to the crate, their fields are not part of the public API.
 pub mod tracing;
 
+/// Walk the file system and list migration scripts in sorted order
+pub mod script_discovery;
+
 /// Internal module for parsing eugene comment intstructions
 pub(crate) mod comments;
 
@@ -50,6 +54,7 @@ pub struct ConnectionSettings {
     host: String,
     port: u16,
     password: String,
+    client: Option<Client>,
 }
 
 impl ConnectionSettings {
@@ -67,34 +72,52 @@ impl ConnectionSettings {
             host,
             port,
             password,
+            client: None,
         }
+    }
+
+    pub fn with_client<T>(
+        &mut self,
+        f: impl FnOnce(&mut Client) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        if let Some(ref mut client) = self.client {
+            f(client)
+        } else {
+            let client = Client::connect(self.connection_string().as_str(), NoTls)?;
+            self.client = Some(client);
+            f(self.client.as_mut().unwrap())
+        }
+    }
+
+    pub fn in_transaction<T>(
+        &mut self,
+        commit: bool,
+        f: impl FnOnce(&mut Transaction) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        self.with_client(|client| {
+            let mut tx = client.transaction()?;
+            let result = f(&mut tx)?;
+            if commit {
+                tx.commit()?;
+            } else {
+                tx.rollback()?;
+            }
+            Ok(result)
+        })
     }
 }
 
 /// Settings for tracing locks taken by SQL statements.
 pub struct TraceSettings<'a> {
-    path: String,
+    name: String,
+    sql: &'a str,
     commit: bool,
-    placeholders: HashMap<&'a str, &'a str>,
 }
 
 impl<'a> TraceSettings<'a> {
     /// Create a new TraceSettings instance.
-    /// # Arguments
-    /// * `path` - Path to the SQL script to trace, or "-" to read from stdin.
-    /// * `commit` - Whether to commit the transaction at the end of the trace.
-    /// * `placeholders` - `${}`-Placeholders to replace in the SQL script, provided
-    ///   as a slice of strings in the form of `"name=value"`.
-    pub fn new(
-        path: String,
-        commit: bool,
-        placeholders: &'a [String],
-    ) -> Result<TraceSettings<'a>, anyhow::Error> {
-        Ok(TraceSettings {
-            path,
-            commit,
-            placeholders: parse_placeholders(placeholders)?,
-        })
+    pub fn new(name: String, sql: &'a str, commit: bool) -> TraceSettings<'a> {
+        TraceSettings { name, sql, commit }
     }
 }
 
@@ -115,45 +138,34 @@ pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&st
 /// trace_settings.
 pub fn perform_trace<'a>(
     trace: &TraceSettings,
-    connection_settings: &ConnectionSettings,
+    connection_settings: &mut ConnectionSettings,
     ignored_hints: &'a [&'a str],
 ) -> anyhow::Result<TxLockTracer<'a>> {
-    let script_content = read_sql_statements(&trace.path)?;
-    let name = if trace.path == "-" {
-        None
-    } else {
-        Some(trace.path.clone())
-    };
-    let sql_script = resolve_placeholders(&script_content, &trace.placeholders)?;
-    let sql_statements = sql_statements(&sql_script)?;
-
+    let sql_statements = sql_statements(trace.sql)?;
     let all_concurrently = sql_statements.iter().all(sqltext::is_concurrently);
+    if all_concurrently && trace.commit {
+        connection_settings.with_client(|client| {
+            for s in sql_statements.iter() {
+                client.execute(*s, &[])?;
+            }
+            Ok(())
+        })?;
 
-    let mut conn = Client::connect(connection_settings.connection_string().as_str(), NoTls)?;
-
-    let result = if all_concurrently && trace.commit {
-        for s in sql_statements.iter() {
-            conn.execute(*s, &[])?;
-        }
-        TxLockTracer::tracer_for_concurrently(name, sql_statements.iter(), ignored_hints)
+        Ok(TxLockTracer::tracer_for_concurrently(
+            Some(trace.name.clone()),
+            sql_statements.iter(),
+            ignored_hints,
+        ))
     } else {
-        let mut tx = conn.transaction()?;
-
-        // TODO: We probably need to special case create index concurrently here, since it's
-        // illegal to run concurrently in a transaction, eg. we'd need to run it with auto-commit.
-
-        let trace_result = trace_transaction(name, &mut tx, sql_statements.iter(), ignored_hints)?;
-
-        if trace.commit {
-            tx.commit()?;
-        } else {
-            tx.rollback()?;
-        }
-
-        trace_result
-    };
-    conn.close()?;
-    Ok(result)
+        connection_settings.in_transaction(trace.commit, |conn| {
+            trace_transaction(
+                Some(trace.name.clone()),
+                conn,
+                sql_statements.iter(),
+                ignored_hints,
+            )
+        })
+    }
 }
 
 #[cfg(test)]

@@ -394,6 +394,7 @@ dependencies = [
  "clap",
  "handlebars",
  "itertools 0.12.1",
+ "nom",
  "once_cell",
  "pg_query",
  "postgres",

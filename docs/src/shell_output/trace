@@ -4,11 +4,11 @@ Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
 
 `eugene trace` exits with failure if any problems are detected.
 
-Usage: eugene trace [OPTIONS] <PATH>
+Usage: eugene trace [OPTIONS] [paths]...
 
 Arguments:
-  <PATH>
-          Path to SQL migration script, or '-' to read from stdin
+  [paths]...
+          Path to SQL migration script, directories, or '-' to read from stdin
 
 Options:
   -c, --commit

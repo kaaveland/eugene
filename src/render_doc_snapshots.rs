@@ -11,14 +11,15 @@ use pretty_assertions::assert_eq;
 use rayon::prelude::*;
 use serde::Serialize;
 
+use crate::lints::lint;
 use crate::output::{full_trace_data, GenericHint, Settings};
+use crate::script_discovery::{discover_scripts, script_filters};
 use crate::{
-    generate_new_test_db, hint_data, lints, output, perform_trace, ConnectionSettings,
-    TraceSettings,
+    generate_new_test_db, hint_data, output, perform_trace, ConnectionSettings, TraceSettings,
 };
 
-const DEFAULT_SETTINGS: Lazy<Settings> = Lazy::new(|| Settings::new(true, true));
-const HBARS: Lazy<Handlebars> = Lazy::new(|| {
+static DEFAULT_SETTINGS: Lazy<Settings> = Lazy::new(|| Settings::new(true, true));
+static HBARS: Lazy<Handlebars> = Lazy::new(|| {
     let mut hbars = Handlebars::new();
     hbars.set_strict_mode(true);
     hbars.register_escape_fn(handlebars::no_escape);
@@ -82,9 +83,9 @@ fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
             .to_str()
             .context("Path is not a valid UTF-8 string")?
             // This isn't very nice, but the snapshots must generate the path text on Windows
-            .replace("\\", "/");
+            .replace('\\', "/");
         let sql = fs::read_to_string(&script)?;
-        let report = lints::lint(Some(path.into()), sql, &[])?;
+        let report = lint(Some(path), sql, &[])?;
         reports.push(output::markdown::lint_report_to_markdown(&report)?);
     }
     Ok(reports.join("\n"))
@@ -94,23 +95,21 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Resu
     let example_path = format!("examples/{}/{}", id, subfolder);
     let mut reports = vec![];
     let db = generate_new_test_db();
+    let mut connection_settings = ConnectionSettings::new(
+        "postgres".to_string(),
+        db.clone(),
+        "localhost".to_string(),
+        5432,
+        "postgres".to_string(),
+    );
+    let sources = discover_scripts(&example_path, script_filters::never, true)?;
 
-    for script in sorted_dir_files(example_path.as_str())? {
-        let path = script
-            .to_str()
-            .context("Path is not a valid UTF-8 string")?
-            // This isn't very nice, but the snapshots must generate the path text on Windows
-            .replace("\\", "/");
-        let trace_settings = TraceSettings::new(path, true, &[])?;
-        let connection_settings = ConnectionSettings::new(
-            "postgres".to_string(),
-            db.clone(),
-            "localhost".to_string(),
-            5432,
-            "postgres".to_string(),
-        );
-        let trace = perform_trace(&trace_settings, &connection_settings, &[])?;
-        let mut report = full_trace_data(&trace, output_settings.clone());
+    for script in sources {
+        let path = script.name().replace('\\', "/");
+        let sql = script.read()?;
+        let trace_settings = TraceSettings::new(path, &sql, true);
+        let trace = perform_trace(&trace_settings, &mut connection_settings, &[])?;
+        let mut report = full_trace_data(&trace, *output_settings);
 
         // Try to make the report deterministic
         report.start_time =

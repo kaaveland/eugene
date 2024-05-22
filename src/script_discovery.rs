@@ -3,13 +3,13 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
-use nom::{IResult, Parser};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, char, digit1};
 use nom::combinator::{eof, map, map_res, recognize};
 use nom::multi::{many0, many_till, separated_list1};
 use nom::sequence::terminated;
+use nom::{IResult, Parser};
 
 use crate::script_discovery::script_filters::ScriptFilter;
 
@@ -343,7 +343,11 @@ impl ReadFrom {
 ///
 /// If the path is a file, it is returned as is. If the path is -, stdin is
 /// returned.
-pub fn discover_scripts(path: &str, filter: ScriptFilter, sort: bool) -> anyhow::Result<Vec<ReadFrom>> {
+pub fn discover_scripts(
+    path: &str,
+    filter: ScriptFilter,
+    sort: bool,
+) -> anyhow::Result<Vec<ReadFrom>> {
     let data = std::fs::metadata(path)?;
     if !data.is_file() && path == "-" {
         Ok(vec![ReadFrom::Stdin])
@@ -542,10 +546,12 @@ mod tests {
                     let entry = entry.unwrap();
                     let path = entry.path();
                     if path.is_dir() {
-                        assert!(
-                            sorted_migration_scripts_from_folder(&path, script_filters::never)
-                                .is_ok()
-                        );
+                        assert!(sorted_migration_scripts_from_folder(
+                            &path,
+                            script_filters::never,
+                            true
+                        )
+                        .is_ok());
                     }
                 }
             }

@@ -18,7 +18,7 @@ create table authors (
 ```
 #### Lints
 
-##### Add a new JSON column
+##### [Add a new JSON column](https://kaveland.no/eugene/hints/E3/)
 
 ID: `E3`
 

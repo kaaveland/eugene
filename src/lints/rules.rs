@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use pg_query::protobuf::ConstrType;
 
-use crate::hint_data::{HintId, StaticHintData};
+use crate::hint_data::{hint_url, HintId, StaticHintData};
 use crate::lints::ast::AlterTableAction;
 use crate::lints::{LintContext, StatementSummary};
 use crate::output::output_format::Hint;
@@ -41,6 +41,7 @@ impl LintRule {
             workaround: self.workaround().to_string(),
             condition: self.condition().to_string(),
             help,
+            url: hint_url(self.id()),
         })
     }
 }

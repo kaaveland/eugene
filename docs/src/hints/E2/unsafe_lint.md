@@ -39,7 +39,7 @@ alter table authors alter column name set not null
 ```
 #### Lints
 
-##### Validating table with a new `NOT NULL` column
+##### [Validating table with a new `NOT NULL` column](https://kaveland.no/eugene/hints/E2/)
 
 ID: `E2`
 

@@ -39,7 +39,7 @@ alter table authors add constraint unique_name unique(name)
 ```
 #### Lints
 
-##### Creating a new unique constraint
+##### [Creating a new unique constraint](https://kaveland.no/eugene/hints/E7/)
 
 ID: `E7`
 

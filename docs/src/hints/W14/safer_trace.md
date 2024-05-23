@@ -111,13 +111,13 @@ No locks held at the start of this statement.
 
 #### Hints
 
-##### Validating table with a new constraint
+##### [Validating table with a new constraint](https://kaveland.no/eugene/hints/E1/)
 ID: `E1`
 
 A new constraint was added and it is already `VALID`. This blocks all table access until all rows are validated. A safer way is: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.
 
 A new constraint `authors_name_pkey` of type `PRIMARY KEY` was added to the table `public.authors` as `VALID`. Constraints that are `NOT VALID` can be made `VALID` by `ALTER TABLE public.authors VALIDATE CONSTRAINT authors_name_pkey` which takes a lesser lock.
-##### Taking dangerous lock without timeout
+##### [Taking dangerous lock without timeout](https://kaveland.no/eugene/hints/E9/)
 ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.

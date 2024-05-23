@@ -62,7 +62,7 @@ No locks held at the start of this statement.
 
 #### Hints
 
-##### Validating table with a new constraint
+##### [Validating table with a new constraint](https://kaveland.no/eugene/hints/E1/)
 ID: `E1`
 
 A new constraint was added and it is already `VALID`. This blocks all table access until all rows are validated. A safer way is: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.

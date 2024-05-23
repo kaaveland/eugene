@@ -39,7 +39,7 @@ create index authors_name_idx on authors (name)
 ```
 #### Lints
 
-##### Creating a new index on an existing table
+##### [Creating a new index on an existing table](https://kaveland.no/eugene/hints/E6/)
 
 ID: `E6`
 

@@ -74,7 +74,7 @@ Options:
       --sort-mode <SORT_MODE>
           Sort mode for script discovery, auto, name or none
           
-          This is used to order scripts an argument  contains many scripts.
+          This is used to order scripts when an argument contains many scripts.
           
           `auto` will sort by versions or sequence numbers.
           

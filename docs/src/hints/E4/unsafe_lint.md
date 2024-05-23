@@ -45,7 +45,7 @@ select count(*) from authors
 ```
 #### Lints
 
-##### Running more statements after taking `AccessExclusiveLock`
+##### [Running more statements after taking `AccessExclusiveLock`](https://kaveland.no/eugene/hints/E4/)
 
 ID: `E4`
 

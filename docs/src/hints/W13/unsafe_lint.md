@@ -14,7 +14,7 @@ create type document_type as enum ('invoice', 'receipt', 'other')
 ```
 #### Lints
 
-##### Creating an enum
+##### [Creating an enum](https://kaveland.no/eugene/hints/W13/)
 
 ID: `W13`
 

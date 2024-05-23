@@ -62,7 +62,7 @@ No locks held at the start of this statement.
 
 #### Hints
 
-##### Validating table with a new `NOT NULL` column
+##### [Validating table with a new `NOT NULL` column](https://kaveland.no/eugene/hints/E2/)
 ID: `E2`
 
 A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.

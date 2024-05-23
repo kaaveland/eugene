@@ -36,7 +36,7 @@ alter table prices add column id serial
 ```
 #### Lints
 
-##### Adding a `SERIAL` or `GENERATED ... STORED` column
+##### [Adding a `SERIAL` or `GENERATED ... STORED` column](https://kaveland.no/eugene/hints/E11/)
 
 ID: `E11`
 

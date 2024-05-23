@@ -36,7 +36,7 @@ alter table authors add constraint name_not_null check (name is not null)
 ```
 #### Lints
 
-##### Validating table with a new constraint
+##### [Validating table with a new constraint](https://kaveland.no/eugene/hints/E1/)
 
 ID: `E1`
 

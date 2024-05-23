@@ -47,7 +47,7 @@ No locks held at the start of this statement.
 
 #### Hints
 
-##### Taking dangerous lock without timeout
+##### [Taking dangerous lock without timeout](https://kaveland.no/eugene/hints/E9/)
 ID: `E9`
 
 A lock that would block many common operations was taken without a timeout. This can block all other operations on the table indefinitely if any other transaction holds a conflicting lock while `idle in transaction` or `active`. A safer way is: Run `SET LOCAL lock_timeout = '2s';` before the statement and retry the migration if necessary.

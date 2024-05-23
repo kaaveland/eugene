@@ -52,7 +52,7 @@ alter table authors add constraint authors_name_pkey primary key using index aut
 ```
 #### Lints
 
-##### Adding a primary key using an index
+##### [Adding a primary key using an index](https://kaveland.no/eugene/hints/W14/)
 
 ID: `W14`
 

@@ -36,7 +36,7 @@ alter table prices alter price set data type bigint
 ```
 #### Lints
 
-##### Type change requiring table rewrite
+##### [Type change requiring table rewrite](https://kaveland.no/eugene/hints/E5/)
 
 ID: `E5`
 

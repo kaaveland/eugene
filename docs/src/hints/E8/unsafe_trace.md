@@ -63,13 +63,13 @@ No locks held at the start of this statement.
 
 #### Hints
 
-##### Creating a new index on an existing table
+##### [Creating a new index on an existing table](https://kaveland.no/eugene/hints/E6/)
 ID: `E6`
 
 A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
 
 A new index was created on the table `public.authors`. The index `public.authors_name_excl` was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
-##### Creating a new exclusion constraint
+##### [Creating a new exclusion constraint](https://kaveland.no/eugene/hints/E8/)
 ID: `E8`
 
 Found a new exclusion constraint. This blocks all reads and writes to the table while the constraint index is being created. A safer way is: There is no safe way to add an exclusion constraint to an existing table.

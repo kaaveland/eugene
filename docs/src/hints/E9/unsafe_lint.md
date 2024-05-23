@@ -33,7 +33,7 @@ alter table authors add column email text
 ```
 #### Lints
 
-##### Taking dangerous lock without timeout
+##### [Taking dangerous lock without timeout](https://kaveland.no/eugene/hints/E9/)
 
 ID: `E9`
 

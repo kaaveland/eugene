@@ -71,7 +71,7 @@ alter table authors add constraint authors_name_pkey primary key using index aut
 ```
 #### Lints
 
-##### Taking dangerous lock without timeout
+##### [Taking dangerous lock without timeout](https://kaveland.no/eugene/hints/E9/)
 
 ID: `E9`
 
@@ -79,7 +79,7 @@ A lock that would block many common operations was taken without a timeout. This
 
 Statement takes lock on `public.authors`, but does not set a lock timeout.
 
-##### Adding a primary key using an index
+##### [Adding a primary key using an index](https://kaveland.no/eugene/hints/W14/)
 
 ID: `W14`
 

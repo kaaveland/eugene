@@ -85,7 +85,7 @@ No new locks taken by this statement.
 
 #### Hints
 
-##### Running more statements after taking `AccessExclusiveLock`
+##### [Running more statements after taking `AccessExclusiveLock`](https://kaveland.no/eugene/hints/E4/)
 ID: `E4`
 
 A transaction that holds an `AccessExclusiveLock` started a new statement. This blocks all access to the table for the duration of this statement. A safer way is: Run this statement in a new transaction.

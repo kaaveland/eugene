@@ -43,7 +43,7 @@ alter table authors alter column email set not null
 ```
 #### Lints
 
-##### Multiple `ALTER TABLE` statements where one will do
+##### [Multiple `ALTER TABLE` statements where one will do](https://kaveland.no/eugene/hints/W12/)
 
 ID: `W12`
 

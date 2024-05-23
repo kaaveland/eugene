@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::hint_data::StaticHintData;
+use crate::hint_data::{hint_url, HintId, StaticHintData};
 use crate::hints::HintInfo;
 use crate::pg_types::locks::LockableTarget;
 use crate::tracing::queries::ColumnMetadata;
@@ -15,6 +15,7 @@ pub struct GenericHint {
     pub workaround: String,
     pub has_lint: bool,
     pub has_trace: bool,
+    pub url: String,
 }
 
 impl From<&HintInfo> for GenericHint {
@@ -29,6 +30,7 @@ impl From<&HintInfo> for GenericHint {
             has_trace: crate::hints::all_hints()
                 .iter()
                 .any(|hint| hint.code() == value.code()),
+            url: value.url(),
         }
     }
 }
@@ -45,6 +47,7 @@ impl From<&StaticHintData> for GenericHint {
             has_trace: crate::hints::all_hints()
                 .iter()
                 .any(|hint| hint.code() == value.id),
+            url: value.url(),
         }
     }
 }
@@ -204,6 +207,7 @@ pub struct Hint {
     pub effect: String,
     pub workaround: String,
     pub help: String,
+    pub url: String,
 }
 
 impl Hint {
@@ -222,6 +226,7 @@ impl Hint {
             effect: effect.to_string(),
             workaround: workaround.to_string(),
             help: help.to_string(),
+            url: hint_url(code),
         }
     }
 }

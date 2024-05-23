@@ -1,5 +1,12 @@
+pub fn hint_url<S: AsRef<str>>(id: S) -> String {
+    format!("https://kaveland.no/eugene/hints/{}/", id.as_ref())
+}
+
 pub trait HintId {
     fn id(&self) -> &str;
+    fn url(&self) -> String {
+        hint_url::<&str>(self.id())
+    }
 }
 
 pub struct StaticHintData {

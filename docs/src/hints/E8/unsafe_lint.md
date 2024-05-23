@@ -36,7 +36,7 @@ alter table authors add constraint authors_name_excl exclude (name with =)
 ```
 #### Lints
 
-##### Creating a new exclusion constraint
+##### [Creating a new exclusion constraint](https://kaveland.no/eugene/hints/E8/)
 
 ID: `E8`
 

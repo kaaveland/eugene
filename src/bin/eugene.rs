@@ -69,6 +69,18 @@ enum Commands {
         /// Will still fail for errors in the SQL script.
         #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
         accept_failures: bool,
+
+        /// Sort mode for script discovery, auto, name or none
+        ///
+        /// This is used to order scripts when an argument contains many scripts.
+        ///
+        /// `auto` will sort by versions or sequence numbers.
+        ///
+        /// `auto` requires all files to have the same naming scheme.
+        ///
+        /// `name` will sort lexically by name.
+        #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
+        sort_mode: String,
     },
     /// Trace effects by running statements from SQL migration script
     ///
@@ -129,6 +141,17 @@ enum Commands {
         /// Will still fail for invalid SQL or connection problems.
         #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
         accept_failures: bool,
+        /// Sort mode for script discovery, auto, name or none
+        ///
+        /// This is used to order scripts when an argument contains many scripts.
+        ///
+        /// `auto` will sort by versions or sequence numbers.
+        ///
+        /// `auto` requires all files to have the same naming scheme.
+        ///
+        /// `name` will sort lexically by name.
+        #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
+        sort_mode: String,
     },
     /// List postgres lock modes
     Modes {
@@ -238,31 +261,31 @@ pub fn main() -> Result<()> {
             ignored_hints,
             format,
             accept_failures: exit_success,
+            sort_mode,
         }) => {
             let placeholders = parse_placeholders(&placeholders)?;
             let format: TraceFormat = format.try_into()?;
             let mut failed = false;
-            for target in paths {
-                for read_from in
-                    script_discovery::discover_scripts(&target, script_filters::never, true)?
-                {
-                    let sql = read_from.read()?;
-                    let name = read_from.name();
-                    let sql = resolve_placeholders(&sql, &placeholders)?;
-                    let report = eugene::lints::lint(
-                        Some(name.to_string()),
-                        sql,
-                        &ignored_hints.iter().map(|s| s.as_str()).collect_vec(),
-                    )?;
-                    failed = failed || report.lints.iter().any(|stmt| !stmt.lints.is_empty());
-                    let out = if matches!(format, TraceFormat::Json) {
-                        serde_json::to_string_pretty(&report)?
-                    } else {
-                        output::markdown::lint_report_to_markdown(&report)?
-                    };
-                    println!("{}", out);
-                }
+            for read_from in
+                script_discovery::discover_all(paths, script_filters::never, sort_mode.try_into()?)?
+            {
+                let sql = read_from.read()?;
+                let name = read_from.name();
+                let sql = resolve_placeholders(&sql, &placeholders)?;
+                let report = eugene::lints::lint(
+                    Some(name.to_string()),
+                    sql,
+                    &ignored_hints.iter().map(|s| s.as_str()).collect_vec(),
+                )?;
+                failed = failed || report.lints.iter().any(|stmt| !stmt.lints.is_empty());
+                let out = if matches!(format, TraceFormat::Json) {
+                    serde_json::to_string_pretty(&report)?
+                } else {
+                    output::markdown::lint_report_to_markdown(&report)?
+                };
+                println!("{}", out);
             }
+
             if failed && !exit_success {
                 Err(anyhow!("Lint detected"))
             } else {
@@ -282,6 +305,7 @@ pub fn main() -> Result<()> {
             format,
             ignored_hints,
             accept_failures: exit_success,
+            sort_mode,
         }) => {
             let config = TraceConfiguration {
                 trace_format: format.try_into()?,
@@ -299,31 +323,34 @@ pub fn main() -> Result<()> {
                 .map(|s| s.as_str())
                 .collect_vec();
 
-            for target in paths {
-                let script_source = script_discovery::discover_scripts(
-                    &target,
-                    script_filters::skip_downgrade_and_repeatable,
-                    true,
-                )?;
-                for read_from in script_source {
-                    let sql = read_from.read()?;
-                    let sql = resolve_placeholders(&sql, &placeholders)?;
-                    let name = read_from.name();
-                    let trace_settings = TraceSettings::new(name.to_string(), &sql, commit);
-                    let trace =
-                        perform_trace(&trace_settings, &mut connection_settings, &ignore_list)?;
-                    let full_trace = output::full_trace_data(
-                        &trace,
-                        output::Settings::new(!config.extra_lock_info, config.skip_summary),
-                    );
-                    failed = failed || !trace.success();
-                    let report = match config.trace_format {
-                        TraceFormat::Json => full_trace.to_pretty_json(),
-                        TraceFormat::Plain => full_trace.to_plain_text(),
-                        TraceFormat::Markdown => full_trace.to_markdown(),
-                    }?;
-                    println!("{}", report);
-                }
+            let script_source = script_discovery::discover_all(
+                paths,
+                script_filters::skip_downgrade_and_repeatable,
+                sort_mode.try_into()?,
+            )?;
+            if !commit && script_source.len() > 1 {
+                return Err(anyhow!(
+                    "{} detected, use --commit if you want to trace them in sequence",
+                    script_source.len()
+                ));
+            }
+            for read_from in script_source {
+                let sql = read_from.read()?;
+                let sql = resolve_placeholders(&sql, &placeholders)?;
+                let name = read_from.name();
+                let trace_settings = TraceSettings::new(name.to_string(), &sql, commit);
+                let trace = perform_trace(&trace_settings, &mut connection_settings, &ignore_list)?;
+                let full_trace = output::full_trace_data(
+                    &trace,
+                    output::Settings::new(!config.extra_lock_info, config.skip_summary),
+                );
+                failed = failed || !trace.success();
+                let report = match config.trace_format {
+                    TraceFormat::Json => full_trace.to_pretty_json(),
+                    TraceFormat::Plain => full_trace.to_plain_text(),
+                    TraceFormat::Markdown => full_trace.to_markdown(),
+                }?;
+                println!("{}", report);
             }
 
             if failed || !exit_success {

@@ -43,8 +43,8 @@ fn parse_sql_file_name_til_eof(name: &str) -> IResult<&str, &str> {
 
 fn parse_versioned_name_r(name: &str) -> IResult<&str, VersionedName> {
     let whole_name = name;
-    let (name, script_type) = map(char('R'), |_| ScriptType::Repeatable)(name)?;
-    let (name, _) = tag("__")(name)?;
+    let (name, script_type) =
+        map(terminated(char('R'), tag("__")), |_| ScriptType::Repeatable)(name)?;
     let (rem, name) = parse_sql_file_name_til_eof(name)?;
     Ok((
         rem,
@@ -56,6 +56,7 @@ fn parse_versioned_name_r(name: &str) -> IResult<&str, VersionedName> {
         },
     ))
 }
+
 fn parse_versioned_name_uv(name: &str) -> IResult<&str, VersionedName> {
     let whole_name = name;
     let (name, script_type) = alt((
@@ -64,8 +65,7 @@ fn parse_versioned_name_uv(name: &str) -> IResult<&str, VersionedName> {
     ))(name)?;
     let sep = alt((char('.'), char('_')));
     let version_part = map_res(digit1, |s: &str| s.parse::<u32>());
-    let (name, version) = separated_list1(sep, version_part)(name)?;
-    let (name, _) = tag("__")(name)?;
+    let (name, version) = terminated(separated_list1(sep, version_part), tag("__"))(name)?;
     let (rem, name) = parse_sql_file_name_til_eof(name)?;
     Ok((
         rem,
@@ -209,7 +209,7 @@ fn parse_sql_script(name: &str) -> IResult<&str, SqlScript> {
     ))(name)
 }
 
-/// Parse a script name from a file path.
+/// Discover the most likely naming scheme of a script and parse it into a [SqlScript]
 pub fn parse(path: &Path) -> anyhow::Result<SqlScript> {
     let name = path
         .file_name()
@@ -298,13 +298,17 @@ fn sort_paths_by_script_type(
 pub fn sorted_migration_scripts_from_folder(
     dir: &Path,
     filter: ScriptFilter,
-    sort: bool,
+    sort: SortMode,
 ) -> anyhow::Result<Vec<PathBuf>> {
     let paths = all_files_with_sql_suffix(dir)?;
-    if sort {
-        sort_paths_by_script_type(&paths, filter)
-    } else {
-        Ok(paths)
+    match sort {
+        SortMode::Auto => sort_paths_by_script_type(&paths, filter),
+        SortMode::Unsorted => Ok(paths),
+        SortMode::Lexicographic => {
+            let mut paths = paths;
+            paths.sort();
+            Ok(paths)
+        }
     }
 }
 
@@ -333,20 +337,16 @@ impl ReadFrom {
         }
     }
 }
-
 /// Discover scripts from a path, which can be a file or a directory, or -.
 ///
 /// If the path is a directory, all files with the .sql suffix are discovered.
-/// When `sort` is true, the scripts are sorted by the version names if they
-/// are versioned, or by the sequence number if they are sequenced. If the
-/// sorting is ambiguous, an error is returned.
 ///
 /// If the path is a file, it is returned as is. If the path is -, stdin is
-/// returned.
+/// returned. Otherwise, [SortMode] determines how the scripts are sorted.
 pub fn discover_scripts(
     path: &str,
     filter: ScriptFilter,
-    sort: bool,
+    sort: SortMode,
 ) -> anyhow::Result<Vec<ReadFrom>> {
     let data = std::fs::metadata(path)?;
     if !data.is_file() && path == "-" {
@@ -361,6 +361,74 @@ pub fn discover_scripts(
             .collect())
     } else {
         Err(anyhow!("Path is not a file or directory"))
+    }
+}
+
+/// Discover scripts from `paths`, where each item can be a file or a directory, or -.
+///
+/// If the path is a directory, all files with the .sql suffix are discovered.
+///
+/// If the path is a file, it is returned as is. If the path is -, stdin is
+/// returned. Otherwise, [SortMode] determines how the scripts are sorted.
+pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
+    paths: T,
+    filter: ScriptFilter,
+    sort: SortMode,
+) -> anyhow::Result<Vec<ReadFrom>> {
+    let mut all = vec![];
+    for path in paths {
+        all.extend(discover_scripts(path.as_ref(), filter, sort)?);
+    }
+    Ok(all)
+}
+
+/// Which order to return discovered scripts from a folder
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum SortMode {
+    /// Automatically determine the sorting mode by scanning the matching scripts
+    ///
+    /// We categorize the scripts into three groups:
+    ///
+    /// Versioned scripts:
+    ///
+    /// These either match `"[UV]_([0-9]+[_.])*([0-9]+)__[^.]+\.sql"` or `"R__[^.]+\.sql"`
+    ///
+    /// Sequenced scripts:
+    ///
+    /// These match `"[0-9]+_+[^.]+\.sql"`
+    ///
+    /// Unsorted scripts:
+    ///
+    /// When they are not versioned or sequenced
+    ///
+    /// If all scripts are versioned, they are sorted by version number. If all scripts are
+    /// sequenced, they are sorted by sequence number. If there are unsorted scripts, an error
+    /// is returned.
+    Auto,
+    /// Do not sort the scripts, return them in the order they were discovered
+    Unsorted,
+    /// Sort the scripts lexicographically by their name
+    Lexicographic,
+}
+
+impl TryFrom<&str> for SortMode {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "auto" => Ok(SortMode::Auto),
+            "none" => Ok(SortMode::Unsorted),
+            "name" => Ok(SortMode::Lexicographic),
+            _ => Err(anyhow!("Invalid sort mode: {}", value)),
+        }
+    }
+}
+
+impl TryFrom<String> for SortMode {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        SortMode::try_from(value.as_str())
     }
 }
 
@@ -549,7 +617,7 @@ mod tests {
                         assert!(sorted_migration_scripts_from_folder(
                             &path,
                             script_filters::never,
-                            true
+                            SortMode::Auto
                         )
                         .is_ok());
                     }

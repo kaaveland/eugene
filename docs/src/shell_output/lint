@@ -40,5 +40,19 @@ Options:
           
           Will still fail for errors in the SQL script.
 
+      --sort-mode <SORT_MODE>
+          Sort mode for script discovery, auto, name or none
+          
+          This is used to order scripts an argument  contains many scripts.
+          
+          `auto` will sort by versions or sequence numbers.
+          
+          `auto` requires all files to have the same naming scheme.
+          
+          `name` will sort lexically by name.
+          
+          [default: auto]
+          [possible values: auto, name, none]
+
   -h, --help
           Print help (see a summary with '-h')

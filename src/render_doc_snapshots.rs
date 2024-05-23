@@ -13,7 +13,7 @@ use serde::Serialize;
 
 use crate::lints::lint;
 use crate::output::{full_trace_data, GenericHint, Settings};
-use crate::script_discovery::{discover_scripts, script_filters};
+use crate::script_discovery::{discover_scripts, script_filters, SortMode};
 use crate::{
     generate_new_test_db, hint_data, output, perform_trace, ConnectionSettings, TraceSettings,
 };
@@ -102,7 +102,7 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Resu
         5432,
         "postgres".to_string(),
     );
-    let sources = discover_scripts(&example_path, script_filters::never, true)?;
+    let sources = discover_scripts(&example_path, script_filters::never, SortMode::Auto)?;
 
     for script in sources {
         let path = script.name().replace('\\', "/");

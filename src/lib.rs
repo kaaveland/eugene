@@ -102,6 +102,7 @@ impl ConnectionSettings {
             } else {
                 tx.rollback()?;
             }
+            client.execute("RESET ALL", &[])?;
             Ok(result)
         })
     }

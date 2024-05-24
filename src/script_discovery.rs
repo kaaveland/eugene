@@ -369,7 +369,7 @@ pub fn discover_scripts(
 /// If the path is a directory, all files with the .sql suffix are discovered.
 ///
 /// If the path is a file, it is returned as is. If the path is -, stdin is
-/// returned. Otherwise, [SortMode] determines how the scripts are sorted.
+/// returned.
 pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
     paths: T,
     filter: ScriptFilter,
@@ -377,9 +377,29 @@ pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
 ) -> anyhow::Result<Vec<ReadFrom>> {
     let mut all = vec![];
     for path in paths {
-        all.extend(discover_scripts(path.as_ref(), filter, sort)?);
+        all.extend(discover_scripts(path.as_ref(), filter, SortMode::Unsorted)?);
     }
-    Ok(all)
+    match sort {
+        SortMode::Auto => {
+            let all_paths: Vec<_> = all
+                .into_iter()
+                .map(|r| match r {
+                    ReadFrom::File(p) => PathBuf::from(p),
+                    ReadFrom::Stdin => PathBuf::from("stdin"),
+                })
+                .collect();
+            let all_paths = sort_paths_by_script_type(&all_paths, filter)?;
+            Ok(all_paths
+                .into_iter()
+                .map(|p| ReadFrom::File(p.to_string_lossy().to_string()))
+                .collect())
+        }
+        SortMode::Unsorted => Ok(all),
+        SortMode::Lexicographic => {
+            all.sort_by(|left, right| left.name().cmp(right.name()));
+            Ok(all)
+        }
+    }
 }
 
 /// Which order to return discovered scripts from a folder
@@ -624,5 +644,39 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn sorts_like_flyway() {
+        // make a temporary directory
+        let temp_dir = std::env::temp_dir().join("eugene_test");
+        let a_files = vec!["V2__foo.sql", "V3__bar.sql"];
+        let b_files = vec!["V1__foo.sql", "V4__bar.sql"];
+        let a_dir = temp_dir.join("a");
+        let b_dir = temp_dir.join("b");
+        std::fs::create_dir_all(&a_dir).unwrap();
+        std::fs::create_dir_all(&b_dir).unwrap();
+        for file in a_files {
+            std::fs::write(a_dir.join(file), "").unwrap();
+        }
+        for file in b_files {
+            std::fs::write(b_dir.join(file), "").unwrap();
+        }
+        let all = discover_all(
+            vec![a_dir.to_string_lossy(), b_dir.to_string_lossy()],
+            script_filters::never,
+            SortMode::Auto,
+        )
+        .unwrap();
+        let names: Vec<PathBuf> = all.iter().map(|r| r.name().into()).collect::<Vec<_>>();
+        assert_eq!(
+            names,
+            vec![
+                b_dir.join("V1__foo.sql"),
+                a_dir.join("V2__foo.sql"),
+                a_dir.join("V3__bar.sql"),
+                b_dir.join("V4__bar.sql")
+            ]
+        );
     }
 }

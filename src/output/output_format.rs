@@ -246,4 +246,5 @@ pub struct LintReport {
     pub name: Option<String>,
     pub statements: Vec<LintedStatement>,
     pub passed_all_checks: bool,
+    pub skip_summary: bool,
 }

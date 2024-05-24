@@ -6,7 +6,6 @@ or by passing --ignore E123 on the command line.
 
 The migration script did not pass all the checks ❌
 
-
 ### Statement number 1
 #### SQL
 ```sql

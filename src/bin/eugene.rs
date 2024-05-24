@@ -62,7 +62,7 @@ enum Commands {
         #[arg(short = 'i', long = "ignore")]
         ignored_hints: Vec<String>,
         /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "json", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md"]))]
+        #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
         format: String,
         /// Exit successfully even if problems are detected.
         ///
@@ -119,7 +119,7 @@ enum Commands {
         #[arg(short = 's', long = "skip-summary", default_value_t = false)]
         skip_summary: bool,
         /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "json", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
+        #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
         format: String,
         /// Ignore the hints with these IDs, use `eugene hints` to see available hints
         ///
@@ -277,13 +277,19 @@ pub fn main() -> Result<()> {
                     sql,
                     &ignored_hints.iter().map(|s| s.as_str()).collect_vec(),
                 )?;
-                failed = failed || report.lints.iter().any(|stmt| !stmt.lints.is_empty());
-                let out = if matches!(format, TraceFormat::Json) {
-                    serde_json::to_string_pretty(&report)?
-                } else {
-                    output::markdown::lint_report_to_markdown(&report)?
-                };
-                println!("{}", out);
+                failed = failed
+                    || report
+                        .statements
+                        .iter()
+                        .any(|stmt| !stmt.triggered_rules.is_empty());
+                let out = match format {
+                    TraceFormat::Json => Ok(serde_json::to_string_pretty(&report)?),
+                    TraceFormat::Plain => output::templates::lint_text(&report),
+                    TraceFormat::Markdown => output::templates::lint_report_to_markdown(&report),
+                }?;
+                if !out.trim().is_empty() {
+                    println!("{}", out);
+                }
             }
 
             if failed && !exit_success {
@@ -330,7 +336,7 @@ pub fn main() -> Result<()> {
             )?;
             if !commit && script_source.len() > 1 {
                 return Err(anyhow!(
-                    "{} detected, use --commit if you want to trace them in sequence",
+                    "{} scripts detected, use --commit if you want to trace them in sequence",
                     script_source.len()
                 ));
             }
@@ -339,7 +345,8 @@ pub fn main() -> Result<()> {
                 let sql = resolve_placeholders(&sql, &placeholders)?;
                 let name = read_from.name();
                 let trace_settings = TraceSettings::new(name.to_string(), &sql, commit);
-                let trace = perform_trace(&trace_settings, &mut connection_settings, &ignore_list)?;
+                let trace = perform_trace(&trace_settings, &mut connection_settings, &ignore_list)
+                    .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 let full_trace = output::full_trace_data(
                     &trace,
                     output::Settings::new(!config.extra_lock_info, config.skip_summary),
@@ -350,7 +357,9 @@ pub fn main() -> Result<()> {
                     TraceFormat::Plain => full_trace.to_plain_text(),
                     TraceFormat::Markdown => full_trace.to_markdown(),
                 }?;
-                println!("{}", report);
+                if !report.trim().is_empty() {
+                    println!("{}", report);
+                }
             }
 
             if failed || !exit_success {

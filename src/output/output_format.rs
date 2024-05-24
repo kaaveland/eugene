@@ -162,6 +162,7 @@ impl From<&crate::tracing::tracer::ModifiedConstraint> for ModifiedConstraint {
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
 pub struct FullSqlStatementLockTrace {
     pub statement_number_in_transaction: usize,
+    pub line_number: usize,
     pub sql: String,
     pub duration_millis: u64,
     pub start_time_millis: u64,
@@ -173,7 +174,7 @@ pub struct FullSqlStatementLockTrace {
     pub altered_constraints: Vec<ModifiedConstraint>,
     pub new_objects: Vec<DbObject>,
     pub lock_timeout_millis: u64,
-    pub triggered_hints: Vec<Hint>,
+    pub triggered_rules: Vec<Hint>,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Serialize)]
@@ -186,6 +187,7 @@ pub struct FullTraceData {
     pub statements: Vec<FullSqlStatementLockTrace>,
     pub skip_summary: bool,
     pub dangerous_locks_count: usize,
+    pub passed_all_checks: bool,
 }
 
 mod datefmt {
@@ -232,15 +234,16 @@ impl Hint {
 }
 
 #[derive(Debug, Serialize, Clone, Eq, PartialEq)]
-pub struct Lint {
+pub struct LintedStatement {
     pub statement_number: usize,
+    pub line_number: usize,
     pub sql: String,
-    pub lints: Vec<Hint>,
+    pub triggered_rules: Vec<Hint>,
 }
 
 #[derive(Debug, Serialize, Clone, Eq, PartialEq)]
 pub struct LintReport {
     pub name: Option<String>,
-    pub lints: Vec<Lint>,
+    pub statements: Vec<LintedStatement>,
     pub passed_all_checks: bool,
 }

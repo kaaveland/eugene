@@ -4,20 +4,20 @@ use serde::Serialize;
 
 pub use output_format::{
     Column, Constraint, DbObject, FullSqlStatementLockTrace, FullTraceData, GenericHint, Hint,
-    Lint, LintReport, ModifiedColumn, ModifiedConstraint, TracedLock,
+    LintReport, LintedStatement, ModifiedColumn, ModifiedConstraint, TracedLock,
 };
 
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::locks::Lock;
 use crate::tracing::{SqlStatementTrace, TxLockTracer};
 
-/// Markdown rendering utilities for lock traces and lints.
-pub mod markdown;
 /// Output types for the lock tracing library, exportable to JSON and public API.
 ///
 /// The intention is to provide serialization and eventually deserialization for lock traces
 /// using these record types.
 pub mod output_format;
+/// Markdown rendering utilities for lock traces and lints.
+pub mod templates;
 
 #[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub struct Settings {
@@ -38,6 +38,7 @@ impl Settings {
 struct OutputContext {
     output_settings: Settings,
     statement_number: usize,
+    line_number: usize,
     held_locks_context: Vec<TracedLock>,
     duration_millis_so_far: u64,
     duration_millis_total: u64,
@@ -94,6 +95,7 @@ impl OutputContext {
 
         let result = FullSqlStatementLockTrace {
             statement_number_in_transaction: self.statement_number,
+            line_number: self.line_number,
             sql: statement.sql.clone(),
             duration_millis: statement.duration.as_millis() as u64,
             start_time_millis: self.duration_millis_so_far,
@@ -125,9 +127,10 @@ impl OutputContext {
                 .map(DbObject::from)
                 .collect(),
             lock_timeout_millis: statement.lock_timeout_millis,
-            triggered_hints: hints.to_vec(),
+            triggered_rules: hints.to_vec(),
         };
         self.statement_number += 1;
+        self.line_number += result.sql.lines().count();
         self.held_locks_context
             .extend(result.new_locks_taken.clone());
         self.duration_millis_so_far += result.duration_millis;
@@ -141,6 +144,7 @@ impl OutputContext {
         OutputContext {
             output_settings,
             statement_number: 1,
+            line_number: 1,
             held_locks_context: vec![],
             duration_millis_so_far: 0,
             duration_millis_total,
@@ -159,6 +163,7 @@ pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullT
     for (i, statement) in trace.statements.iter().enumerate() {
         statements.push(context.output_statement(statement, &trace.triggered_hints[i]));
     }
+    let passed_all_checks = statements.iter().all(|st| st.triggered_rules.is_empty());
     context.held_locks_context.sort_by_key(|lock| {
         (
             lock.schema.clone(),
@@ -181,6 +186,7 @@ pub fn full_trace_data(trace: &TxLockTracer, output_settings: Settings) -> FullT
         statements,
         skip_summary: output_settings.skip_summary_section,
         dangerous_locks_count,
+        passed_all_checks,
     }
 }
 
@@ -212,41 +218,11 @@ impl FullTraceData {
     }
     /// Render a terse terminal-friendly representation of the trace.
     pub fn to_plain_text(&self) -> anyhow::Result<String> {
-        let mut result = String::new();
-        result.push_str(&format!(
-            "Trace of \"{}\", started at: {}\n",
-            self.name.as_deref().unwrap_or("unnamed"),
-            self.start_time.to_rfc3339()
-        ));
-        result.push_str(&format!(
-            "Total duration: {} ms\n",
-            self.total_duration_millis
-        ));
-        result.push_str("All locks acquired:\n");
-        for lock in &self.all_locks_acquired {
-            result.push_str(&format!("{}\n", serde_json::to_string(lock)?));
-        }
-        for statement in &self.statements {
-            result.push_str(&format!(
-                "Statement #{}:\n",
-                statement.statement_number_in_transaction
-            ));
-            result.push_str(&format!("SQL: {}\n", statement.sql));
-            result.push_str(&format!("Duration: {} ms\n", statement.duration_millis));
-            result.push_str("Locks at start:\n");
-            for lock in &statement.locks_at_start {
-                result.push_str(&format!("{}\n", serde_json::to_string(lock)?));
-            }
-            result.push_str("New locks taken:\n");
-            for lock in &statement.new_locks_taken {
-                result.push_str(&format!("{}\n", serde_json::to_string(lock)?));
-            }
-        }
-        Ok(result)
+        templates::trace_text(self)
     }
     /// Render a markdown report suitable for human consumption from the trace.
     pub fn to_markdown(&self) -> anyhow::Result<String> {
-        markdown::to_markdown(self)
+        templates::to_markdown(self)
     }
 }
 

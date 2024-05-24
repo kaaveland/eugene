@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use crate::comments::filter_rules;
 pub use crate::lints::ast::StatementSummary;
-use crate::output::output_format::{Lint, LintReport};
+use crate::output::output_format::{LintReport, LintedStatement};
 
 /// The `ast` module provides a way to describe a parsed SQL statement in a structured way,
 /// using simpler trees than the ones provided by `pg_query`.
@@ -117,6 +117,7 @@ pub fn lint<S: AsRef<str>>(
     let mut ctx = TransactionState::default();
     let mut lints = Vec::new();
     let mut no: usize = 1;
+    let mut line_number: usize = 1;
     let mut passed_all = true;
     for stmt in statements {
         let action = crate::comments::find_comment_action(sql.as_ref())?;
@@ -132,20 +133,22 @@ pub fn lint<S: AsRef<str>>(
                         .collect();
                     passed_all = passed_all && matched_lints.is_empty();
 
-                    lints.push(Lint {
+                    lints.push(LintedStatement {
                         statement_number: no,
+                        line_number,
                         sql: stmt.trim().to_string(),
-                        lints: matched_lints,
+                        triggered_rules: matched_lints,
                     });
                     ctx.update_from(&summary);
                     no += 1;
+                    line_number += stmt.lines().count();
                 }
             }
         }
     }
     Ok(LintReport {
         name,
-        lints,
+        statements: lints,
         passed_all_checks: passed_all,
     })
 }
@@ -161,9 +164,9 @@ mod tests {
 
     fn matched_lint_rule(report: &LintReport, rule_id: &str) -> bool {
         report
-            .lints
+            .statements
             .iter()
-            .any(|lint| lint.lints.iter().any(|hint| hint.id == rule_id))
+            .any(|lint| lint.triggered_rules.iter().any(|hint| hint.id == rule_id))
     }
 
     #[test]

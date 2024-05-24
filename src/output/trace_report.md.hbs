@@ -81,10 +81,10 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
     {{/if}}
 
-    {{#if this.triggered_hints }}
+    {{#if this.triggered_rules }}
 #### Hints
 
-      {{#each this.triggered_hints}}
+      {{#each this.triggered_rules}}
 ##### [{{this.name}}]({{this.url}})
 ID: `{{this.id}}`
 

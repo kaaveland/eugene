@@ -33,7 +33,7 @@ Options:
           Output format, plain, json or markdown
           
           [default: json]
-          [possible values: json, markdown, md]
+          [possible values: json, markdown, md, plain]
 
   -a, --accept-failures
           Exit successfully even if problems are detected.

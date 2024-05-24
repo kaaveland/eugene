@@ -11,15 +11,15 @@ The migration script did not pass all the checks ❌
 {{/if}}
 
 
-{{#each lints}}
+{{#each statements}}
 ### Statement number {{this.statement_number}}
 #### SQL
 ```sql
 {{this.sql}}
 ```
-  {{#if this.lints}}
+  {{#if this.triggered_rules}}
 #### Lints
-    {{#each this.lints}}
+    {{#each this.triggered_rules}}
 
 ##### [{{this.name}}]({{this.url}})
 

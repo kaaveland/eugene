@@ -86,7 +86,7 @@ fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
             .replace('\\', "/");
         let sql = fs::read_to_string(&script)?;
         let report = lint(Some(path), sql, &[])?;
-        reports.push(output::markdown::lint_report_to_markdown(&report)?);
+        reports.push(output::templates::lint_report_to_markdown(&report)?);
     }
     Ok(reports.join("\n"))
 }

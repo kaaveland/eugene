@@ -112,6 +112,7 @@ pub fn lint<S: AsRef<str>>(
     name: Option<String>,
     sql: S,
     ignored_lints: &[&str],
+    skip_summary: bool,
 ) -> anyhow::Result<LintReport> {
     let statements = pg_query::split_with_parser(sql.as_ref())?;
     let mut ctx = TransactionState::default();
@@ -150,11 +151,12 @@ pub fn lint<S: AsRef<str>>(
         name,
         statements: lints,
         passed_all_checks: passed_all,
+        skip_summary,
     })
 }
 
 pub fn anon_lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
-    lint(None, sql, &[])
+    lint(None, sql, &[], false)
 }
 
 #[cfg(test)]

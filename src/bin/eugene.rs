@@ -81,6 +81,9 @@ enum Commands {
         /// `name` will sort lexically by name.
         #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
         sort_mode: String,
+        /// Skip the summary section for markdown output
+        #[arg(short = 's', long = "skip-summary", default_value_t = false)]
+        skip_summary: bool,
     },
     /// Trace effects by running statements from SQL migration script
     ///
@@ -262,6 +265,7 @@ pub fn main() -> Result<()> {
             format,
             accept_failures: exit_success,
             sort_mode,
+            skip_summary,
         }) => {
             let placeholders = parse_placeholders(&placeholders)?;
             let format: TraceFormat = format.try_into()?;
@@ -276,6 +280,7 @@ pub fn main() -> Result<()> {
                     Some(name.to_string()),
                     sql,
                     &ignored_hints.iter().map(|s| s.as_str()).collect_vec(),
+                    skip_summary,
                 )?;
                 failed = failed
                     || report

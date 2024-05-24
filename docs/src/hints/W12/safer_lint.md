@@ -6,7 +6,6 @@ or by passing --ignore E123 on the command line.
 
 The migration script passed all the checks ✅
 
-
 ### Statement number 1
 #### SQL
 ```sql
@@ -21,7 +20,6 @@ Keep in mind that lints can be ignored by adding a `-- eugene: ignore E123` comm
 or by passing --ignore E123 on the command line.
 
 The migration script passed all the checks ✅
-
 
 ### Statement number 1
 #### SQL

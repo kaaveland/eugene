@@ -85,7 +85,7 @@ fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
             // This isn't very nice, but the snapshots must generate the path text on Windows
             .replace('\\', "/");
         let sql = fs::read_to_string(&script)?;
-        let report = lint(Some(path), sql, &[])?;
+        let report = lint(Some(path), sql, &[], false)?;
         reports.push(output::templates::lint_report_to_markdown(&report)?);
     }
     Ok(reports.join("\n"))

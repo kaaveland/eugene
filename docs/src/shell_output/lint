@@ -32,7 +32,7 @@ Options:
   -f, --format <FORMAT>
           Output format, plain, json or markdown
           
-          [default: json]
+          [default: plain]
           [possible values: json, markdown, md, plain]
 
   -a, --accept-failures
@@ -53,6 +53,9 @@ Options:
           
           [default: auto]
           [possible values: auto, name, none]
+
+  -s, --skip-summary
+          Skip the summary section for markdown output
 
   -h, --help
           Print help (see a summary with '-h')

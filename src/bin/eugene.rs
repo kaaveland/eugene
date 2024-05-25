@@ -267,6 +267,7 @@ impl TryFrom<String> for TraceFormat {
 }
 
 pub fn main() -> Result<()> {
+    env_logger::init();
     let args = Eugene::parse();
     match args.command {
         Some(Commands::Lint {

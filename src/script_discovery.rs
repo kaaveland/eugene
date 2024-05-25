@@ -3,6 +3,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
+use log::trace;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, char, digit1};
@@ -281,7 +282,13 @@ fn sort_paths_by_script_type(
             "Can not sort scripts without a sequence number or version"
         ));
     }
-    scripts.retain(|(_, s)| filter(s));
+    scripts.retain(|(_, s)| {
+        let keep = filter(s);
+        if !keep {
+            trace!("Skipping: {:?}", s.whole_name());
+        }
+        keep
+    });
     scripts.sort_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     Ok(scripts.into_iter().map(|(p, _)| p).collect())
 }
@@ -388,7 +395,13 @@ pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
                     ReadFrom::Stdin => PathBuf::from("stdin"),
                 })
                 .collect();
+            for p in all_paths.iter() {
+                trace!("Discovered: {:?}", p);
+            }
             let all_paths = sort_paths_by_script_type(&all_paths, filter)?;
+            for p in all_paths.iter() {
+                trace!("Sorted: {:?}", p);
+            }
             Ok(all_paths
                 .into_iter()
                 .map(|p| ReadFrom::File(p.to_string_lossy().to_string()))

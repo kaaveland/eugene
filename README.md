@@ -13,6 +13,13 @@ available over at the [user documentation site](https://kaveland.no/eugene). Thi
 is primarily for development work on `eugene`, with only small convenience sections
 for users.
 
+Links:
+
+- [User Documentation](https://kaveland.no/eugene)
+- [crates.io/crates/eugene](https://crates.io/crates/eugene)
+- [docs.rs/eugene](https://docs.rs/eugene)
+- [Repository](https://github.com/kaaveland/eugene)
+
 ## Installation
 
 The tool documentation at [kaveland.no/eugene](https://kaveland.no/eugene) is the 

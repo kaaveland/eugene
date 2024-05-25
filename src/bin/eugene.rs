@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::generate;
+use clap_complete::Shell::{Bash, Elvish, Fish, PowerShell, Zsh};
 use itertools::Itertools;
 use serde::Serialize;
 
@@ -175,6 +177,15 @@ enum Commands {
         /// Output format, json
         #[arg(short = 'f', long = "format", default_value = "json")]
         format: String,
+    },
+
+    /// Generate shell completions for eugene
+    ///
+    /// Add the output to your shell configuration file or the preferred location
+    /// for completions.
+    Completions {
+        #[arg(short, long, default_value = "bash", value_parser=clap::builder::PossibleValuesParser::new(["bash", "zsh", "fish", "pwsh", "powershell"]))]
+        shell: String,
     },
 }
 
@@ -399,6 +410,33 @@ pub fn main() -> Result<()> {
                 .collect();
             let hints = HintContainer { hints };
             println!("{}", serde_json::to_string_pretty(&hints)?);
+            Ok(())
+        }
+        Some(Commands::Completions { shell }) => {
+            let mut com = Eugene::command();
+            match shell.as_str() {
+                "bash" => {
+                    generate(Bash, &mut com, "eugene", &mut std::io::stdout());
+                    Ok(())
+                }
+                "zsh" => {
+                    generate(Zsh, &mut com, "eugene", &mut std::io::stdout());
+                    Ok(())
+                }
+                "fish" => {
+                    generate(Fish, &mut com, "eugene", &mut std::io::stdout());
+                    Ok(())
+                }
+                "powershell" | "pwsh" => {
+                    generate(PowerShell, &mut com, "eugene", &mut std::io::stdout());
+                    Ok(())
+                }
+                "elvish" => {
+                    generate(Elvish, &mut com, "eugene", &mut std::io::stdout());
+                    Ok(())
+                }
+                _ => Err(anyhow!("Unsupported shell: {shell}")),
+            }?;
             Ok(())
         }
     }

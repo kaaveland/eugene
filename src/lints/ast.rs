@@ -1,4 +1,5 @@
 use anyhow::Context;
+use log::trace;
 use pg_query::protobuf::node::Node;
 use pg_query::protobuf::{
     AlterTableCmd, AlterTableType, ColumnDef, ConstrType, CreateEnumStmt, CreateStmt,
@@ -107,6 +108,7 @@ fn set_statement(child: &VariableSetStmt) -> anyhow::Result<StatementSummary> {
 }
 
 fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
+    trace!("create_table: {:?}", child);
     if let Some(rel) = &child.relation {
         let schema = rel.schemaname.clone();
         let name = rel.relname.clone();
@@ -115,6 +117,7 @@ fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
             .iter()
             .map(|node| {
                 let inner = node.node.as_ref().map(|node| node.to_ref());
+                trace!("create_table elt: {:?}", inner);
                 if let Some(NodeRef::ColumnDef(coldef)) = inner {
                     let name = coldef.colname.clone();
                     let type_name = col_type_as_string(coldef)?;
@@ -187,6 +190,7 @@ fn create_index(child: &IndexStmt) -> anyhow::Result<StatementSummary> {
 }
 
 fn col_type_as_string(coldef: &ColumnDef) -> anyhow::Result<String> {
+    trace!("col_type_as_string: {:?}", coldef);
     if let Some(tp) = &coldef.type_name {
         let names: anyhow::Result<Vec<String>> = tp
             .names
@@ -205,6 +209,7 @@ fn col_type_as_string(coldef: &ColumnDef) -> anyhow::Result<String> {
 fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableAction> {
     let subtype = AlterTableType::from_i32(child.subtype)
         .context(format!("Invalid AlterTableCmd subtype: {}", child.subtype))?;
+    trace!("parse_alter_table_action: {:?} {:?}", subtype, child);
     match subtype {
         AlterTableType::AtAlterColumnType => {
             let col = expect_coldef(child)?;
@@ -246,6 +251,7 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableA
 }
 
 fn expect_constraint_def(child: &AlterTableCmd) -> anyhow::Result<&pg_query::protobuf::Constraint> {
+    trace!("expect_constraint_def: {:?}", child);
     if let Some(def) = &child.def {
         let next = def.node.as_ref();
         if let Some(n) = next {
@@ -269,6 +275,7 @@ fn expect_constraint_def(child: &AlterTableCmd) -> anyhow::Result<&pg_query::pro
 }
 
 fn expect_coldef(child: &AlterTableCmd) -> anyhow::Result<&ColumnDef> {
+    trace!("expect_coldef: {:?}", child);
     if let Some(def) = &child.def {
         let next = def.node.as_ref();
         if let Some(n) = next {
@@ -334,6 +341,7 @@ fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<Sta
 /// If the parse tree has an unexpected structure, an error can be returned. This could be for example,
 /// a parse tree that represents an `alter column set type` command, but without a new type declaration.
 pub fn describe(statement: &NodeRef) -> anyhow::Result<StatementSummary> {
+    trace!("receiving {:?}", statement);
     match statement {
         NodeRef::VariableSetStmt(child) => set_statement(child),
         // CREATE TABLE

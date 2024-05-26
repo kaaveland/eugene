@@ -1,4 +1,4 @@
-FROM alpine
+FROM postgres:alpine
 
 ARG TARGETARCH
 COPY ./eugene-${TARGETARCH} /usr/local/bin/eugene

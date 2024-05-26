@@ -192,6 +192,7 @@ mod tests {
 
     #[test]
     fn can_make_temporary_dbserver() {
+        env_logger::init();
         let mut s = TempServer::new().unwrap();
         let rows: Vec<_> = s
             .with_client(|client| Ok(client.query("SELECT 1 + 1", &[]).unwrap()))

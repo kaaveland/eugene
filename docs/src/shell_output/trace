@@ -85,5 +85,14 @@ Options:
           [default: auto]
           [possible values: auto, name, none]
 
+      --disable-temporary
+          Disable creation of temporary postgres server for tracing
+          
+          By default, trace will create a postgres server in a temporary directory
+          
+          This relies on having `initdb` and `pg_ctl` in PATH, which eugene images have.
+          
+          Eugene deletes the temporary database cluster when done tracing.
+
   -h, --help
           Print help (see a summary with '-h')

@@ -49,6 +49,7 @@ jobs:
       - name: Run tests
         env:
           TZ: UTC
+          RUST_LOG: eugene=trace
         run: cargo test --all-targets --all-features
 
   run_tests_macos:
@@ -75,6 +76,7 @@ jobs:
       - name: Run tests
         env:
           TZ: UTC
+          RUST_LOG: eugene=trace
         run: cargo test --all-targets --all-features
       - name: Stop postgres
         run: pg_ctl -D $HOME/pgdata stop
@@ -110,4 +112,5 @@ jobs:
       - name: Run tests
         env:
           TZ: UTC
+          RUST_LOG: eugene=trace
         run: cargo test --all-targets --all-features

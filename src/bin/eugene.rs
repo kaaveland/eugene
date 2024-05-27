@@ -357,6 +357,7 @@ pub fn main() -> Result<()> {
             sort_mode,
             temporary_postgres,
         }) => {
+            let commit = commit || temporary_postgres;
             let config = TraceConfiguration {
                 trace_format: format.try_into()?,
                 extra_lock_info: extra,

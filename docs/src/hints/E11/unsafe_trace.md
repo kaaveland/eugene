@@ -7,7 +7,9 @@
 #### SQL
 
 ```sql
-create table prices (price int not null)
+create table prices (
+    price int not null
+)
 ```
 
 #### Locks at start
@@ -47,7 +49,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table prices add column id serial
+alter table prices
+    add column id serial
 ```
 
 #### Locks at start

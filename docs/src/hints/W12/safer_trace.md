@@ -7,7 +7,12 @@
 #### SQL
 
 ```sql
-create table authors(id integer generated always as identity primary key, name text, email text)
+create table authors(
+    id integer generated always as identity
+        primary key,
+    name text,
+    email text
+)
 ```
 
 #### Locks at start

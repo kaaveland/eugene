@@ -8,7 +8,8 @@
 
 ```sql
 create table authors(
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null
 )
 ```
@@ -32,7 +33,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-create unique index concurrently authors_name_unique on authors(name)
+create unique index concurrently
+    authors_name_unique on authors(name)
 ```
 
 #### Locks at start
@@ -72,7 +74,9 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table authors add constraint unique_name unique using index authors_name_unique
+alter table authors
+    add constraint unique_name
+        unique using index authors_name_unique
 ```
 
 #### Locks at start

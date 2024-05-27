@@ -9,7 +9,9 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table authors(name text)
+create table authors(
+    name text
+)
 ```
 No checks matched for this statement. ✅
 
@@ -24,7 +26,8 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create unique index concurrently authors_name_key on authors(name)
+create unique index concurrently
+    authors_name_key on authors(name)
 ```
 No checks matched for this statement. ✅
 
@@ -48,7 +51,8 @@ No checks matched for this statement. ✅
 -- eugene: ignore E2
 -- This is a demo of W14, so we can ignore E2 instead of the
 -- multi-step migration to make the column NOT NULL safely
-alter table authors alter column name set not null
+alter table authors
+    alter column name set not null
 ```
 No checks matched for this statement. ✅
 
@@ -63,7 +67,9 @@ The migration script did not pass all the checks ❌
 ### Statement number 1
 #### SQL
 ```sql
-alter table authors add constraint authors_name_pkey primary key using index authors_name_key
+alter table authors
+    add constraint authors_name_pkey
+        primary key using index authors_name_key
 ```
 #### Lints
 

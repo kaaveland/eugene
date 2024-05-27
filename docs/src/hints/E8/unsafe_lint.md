@@ -9,7 +9,11 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table authors (id integer generated always as identity primary key, name text not null)
+create table authors (
+    id integer generated always as identity
+        primary key,
+    name text not null
+)
 ```
 No checks matched for this statement. ✅
 
@@ -30,7 +34,9 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table authors add constraint authors_name_excl exclude (name with =)
+alter table authors
+    add constraint authors_name_excl
+        exclude (name with =)
 ```
 #### Lints
 

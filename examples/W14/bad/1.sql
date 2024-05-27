@@ -1,1 +1,3 @@
-create table authors(name text);
+create table authors(
+    name text
+);

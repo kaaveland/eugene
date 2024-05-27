@@ -15,8 +15,13 @@
 ```sql
 -- 1.sql
 
-create type document_type as enum ('invoice', 'receipt', 'other');
-create table document (id int generated always as identity primary key, type document_type);
+create type document_type
+    as enum ('invoice', 'receipt', 'other');
+create table document (
+    id int generated always as identity
+        primary key,
+    type document_type
+);
 
 ```
 
@@ -25,9 +30,17 @@ create table document (id int generated always as identity primary key, type doc
 ```sql
 -- 1.sql
 
-create table document_type(type_name text primary key);
-insert into document_type values('invoice'), ('receipt'), ('other');
-create table document (id int generated always as identity primary key, type text references document_type(type_name));
+create table document_type(
+    type_name text primary key
+);
+insert into document_type
+  values('invoice'), ('receipt'), ('other');
+create table document (
+    id int generated always as identity
+        primary key,
+    type text
+        references document_type(type_name)
+);
 
 ```
 

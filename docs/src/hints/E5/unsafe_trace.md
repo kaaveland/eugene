@@ -7,7 +7,11 @@
 #### SQL
 
 ```sql
-create table prices (id integer generated always as identity primary key, price int not null)
+create table prices (
+    id integer generated always as identity
+        primary key,
+    price int not null
+)
 ```
 
 #### Locks at start
@@ -47,7 +51,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table prices alter price set data type bigint
+alter table prices
+    alter price set data type bigint
 ```
 
 #### Locks at start

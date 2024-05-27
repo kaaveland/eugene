@@ -7,7 +7,9 @@
 #### SQL
 
 ```sql
-create table authors(name text)
+create table authors(
+    name text
+)
 ```
 
 #### Locks at start
@@ -29,7 +31,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-create unique index concurrently authors_name_key on authors(name)
+create unique index concurrently
+    authors_name_key on authors(name)
 ```
 
 #### Locks at start
@@ -69,7 +72,9 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table authors add constraint authors_name_pkey primary key using index authors_name_key
+alter table authors
+    add constraint authors_name_pkey
+        primary key using index authors_name_key
 ```
 
 #### Locks at start

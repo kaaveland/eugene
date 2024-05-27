@@ -2,7 +2,7 @@
 
 ## Description
 
-**Triggered when**: Found a new unique constraint and a new index.
+**Triggered when**: Adding a new unique constraint implicitly creates index.
 
 **Effect**: This blocks all writes to the table while the index is being created and validated.
 
@@ -16,14 +16,16 @@
 -- 1.sql
 
 create table authors(
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null
 );
 
 -- 2.sql
 
 set local lock_timeout = '2s';
-alter table authors add constraint unique_name unique(name);
+alter table authors
+    add constraint unique_name unique(name);
 
 ```
 
@@ -33,19 +35,23 @@ alter table authors add constraint unique_name unique(name);
 -- 1.sql
 
 create table authors(
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null
 );
 
 -- 2.sql
 
-create unique index concurrently authors_name_unique on authors(name);
+create unique index concurrently
+    authors_name_unique on authors(name);
 
 
 -- 3.sql
 
 set local lock_timeout = '2s';
-alter table authors add constraint unique_name unique using index authors_name_unique;
+alter table authors
+    add constraint unique_name
+        unique using index authors_name_unique;
 
 ```
 

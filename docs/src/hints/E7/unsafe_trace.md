@@ -8,7 +8,8 @@
 
 ```sql
 create table authors(
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null
 )
 ```
@@ -50,7 +51,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table authors add constraint unique_name unique(name)
+alter table authors
+    add constraint unique_name unique(name)
 ```
 
 #### Locks at start
@@ -75,7 +77,7 @@ A new index was created on the table `public.authors`. The index `public.unique_
 ##### [Creating a new unique constraint](https://kaveland.no/eugene/hints/E7/)
 ID: `E7`
 
-Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
+Adding a new unique constraint implicitly creates index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
 A new unique constraint `unique_name` was added to the table `public.authors`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unique constraint by using the index: `ALTER TABLE public.authors ADD CONSTRAINT unique_name UNIQUE USING INDEX public.unique_name;`
 

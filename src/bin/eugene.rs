@@ -29,7 +29,6 @@ concurrent transactions that would be blocked.
 "
 )]
 struct Eugene {
-    /// Output format, plain, json
     #[command(subcommand)]
     command: Option<Commands>,
 }

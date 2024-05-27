@@ -7,7 +7,8 @@
 #### SQL
 
 ```sql
-create type document_type as enum ('invoice', 'receipt', 'other')
+create type document_type
+    as enum ('invoice', 'receipt', 'other')
 ```
 
 #### Locks at start
@@ -25,7 +26,11 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-create table document (id int generated always as identity primary key, type document_type)
+create table document (
+    id int generated always as identity
+        primary key,
+    type document_type
+)
 ```
 
 #### Locks at start

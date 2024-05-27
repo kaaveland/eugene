@@ -9,7 +9,9 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table prices (price int not null)
+create table prices (
+    price int not null
+)
 ```
 No checks matched for this statement. ✅
 
@@ -30,7 +32,8 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table prices add column id serial
+alter table prices
+    add column id serial
 ```
 #### Lints
 

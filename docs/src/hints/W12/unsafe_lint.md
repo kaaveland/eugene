@@ -9,7 +9,12 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table authors(id integer generated always as identity primary key, name text, email text)
+create table authors(
+    id integer generated always as identity
+        primary key,
+    name text,
+    email text
+)
 ```
 No checks matched for this statement. ✅
 
@@ -30,14 +35,16 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table authors alter column name set not null
+alter table authors
+    alter column name set not null
 ```
 No checks matched for this statement. ✅
 ### Statement number 3
 #### SQL
 ```sql
 -- eugene: ignore E2, E4
-alter table authors alter column email set not null
+alter table authors
+    alter column email set not null
 ```
 #### Lints
 

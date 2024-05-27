@@ -9,7 +9,12 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table authors(id integer generated always as identity primary key, name text, email text)
+create table authors(
+    id integer generated always as identity
+        primary key,
+    name text,
+    email text
+)
 ```
 No checks matched for this statement. ✅
 

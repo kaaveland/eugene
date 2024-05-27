@@ -7,7 +7,12 @@
 #### SQL
 
 ```sql
-create table authors(id integer generated always as identity primary key, name text, email text)
+create table authors(
+    id integer generated always as identity
+        primary key,
+    name text,
+    email text
+)
 ```
 
 #### Locks at start
@@ -47,7 +52,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table authors alter column name set not null
+alter table authors
+    alter column name set not null
 ```
 
 #### Locks at start
@@ -81,7 +87,8 @@ The column `name` in the table `public.authors` was changed to `NOT NULL`. If th
 
 ```sql
 -- eugene: ignore E2, E4
-alter table authors alter column email set not null
+alter table authors
+    alter column email set not null
 ```
 
 #### Locks at start

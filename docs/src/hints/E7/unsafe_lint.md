@@ -10,7 +10,8 @@ The migration script passed all the checks ✅
 #### SQL
 ```sql
 create table authors(
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null
 )
 ```
@@ -33,7 +34,8 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table authors add constraint unique_name unique(name)
+alter table authors
+    add constraint unique_name unique(name)
 ```
 #### Lints
 
@@ -41,6 +43,6 @@ alter table authors add constraint unique_name unique(name)
 
 ID: `E7`
 
-Found a new unique constraint and a new index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
+Adding a new unique constraint implicitly creates index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
 
 New constraint unique_name creates implicit index on `public.authors`, blocking writes until index is created and validated.

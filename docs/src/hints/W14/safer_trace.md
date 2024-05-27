@@ -7,7 +7,9 @@
 #### SQL
 
 ```sql
-create table authors(name text)
+create table authors(
+    name text
+)
 ```
 
 #### Locks at start
@@ -29,7 +31,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-create unique index concurrently authors_name_key on authors(name)
+create unique index concurrently
+    authors_name_key on authors(name)
 ```
 
 #### Locks at start
@@ -72,7 +75,8 @@ No new locks taken by this statement.
 -- eugene: ignore E2
 -- This is a demo of W14, so we can ignore E2 instead of the
 -- multi-step migration to make the column NOT NULL safely
-alter table authors alter column name set not null
+alter table authors
+    alter column name set not null
 ```
 
 #### Locks at start
@@ -96,7 +100,9 @@ No locks held at the start of this statement.
 #### SQL
 
 ```sql
-alter table authors add constraint authors_name_pkey primary key using index authors_name_key
+alter table authors
+    add constraint authors_name_pkey
+        primary key using index authors_name_key
 ```
 
 #### Locks at start

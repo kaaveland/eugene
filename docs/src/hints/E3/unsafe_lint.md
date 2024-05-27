@@ -10,7 +10,8 @@ The migration script did not pass all the checks ❌
 #### SQL
 ```sql
 create table authors (
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null,
     meta json
 )

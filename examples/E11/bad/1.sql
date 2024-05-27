@@ -1,1 +1,3 @@
-create table prices (price int not null);
+create table prices (
+    price int not null
+);

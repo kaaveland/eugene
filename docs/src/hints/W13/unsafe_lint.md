@@ -9,7 +9,8 @@ The migration script did not pass all the checks ❌
 ### Statement number 1
 #### SQL
 ```sql
-create type document_type as enum ('invoice', 'receipt', 'other')
+create type document_type
+    as enum ('invoice', 'receipt', 'other')
 ```
 #### Lints
 
@@ -23,6 +24,10 @@ Created enum `document_type`. Enumerated types are not recommended for use in ne
 ### Statement number 2
 #### SQL
 ```sql
-create table document (id int generated always as identity primary key, type document_type)
+create table document (
+    id int generated always as identity
+        primary key,
+    type document_type
+)
 ```
 No checks matched for this statement. ✅

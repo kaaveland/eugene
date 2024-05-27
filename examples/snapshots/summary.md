@@ -33,7 +33,11 @@ No locks acquired on database objects that already exist.
 #### SQL
 
 ```sql
-create table prices (id integer generated always as identity primary key, price int not null)
+create table prices (
+    id integer generated always as identity
+        primary key,
+    price int not null
+)
 ```
 
 #### Locks at start
@@ -51,7 +55,11 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-create table authors (id integer generated always as identity primary key, name text not null)
+create table authors (
+    id integer generated always as identity
+        primary key,
+    name text not null
+)
 ```
 
 #### Locks at start
@@ -181,7 +189,8 @@ No locks held at the start of this statement.
 ```sql
 -- eugene: ignore E5, E4
 -- causes table rewrite, but this example isnt't about that
-alter table prices alter price set data type bigint
+alter table prices
+    alter price set data type bigint
 ```
 
 #### Locks at start

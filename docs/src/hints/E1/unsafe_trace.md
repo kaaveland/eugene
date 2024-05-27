@@ -7,7 +7,11 @@
 #### SQL
 
 ```sql
-create table authors(id integer generated always as identity primary key, name text)
+create table authors(
+    id integer generated always as identity
+        primary key,
+    name text
+)
 ```
 
 #### Locks at start
@@ -47,7 +51,9 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table authors add constraint name_not_null check (name is not null)
+alter table authors
+    add constraint name_not_null
+        check (name is not null)
 ```
 
 #### Locks at start

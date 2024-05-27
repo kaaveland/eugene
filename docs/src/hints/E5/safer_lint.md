@@ -9,7 +9,11 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table prices (id integer generated always as identity primary key, price int not null)
+create table prices (
+    id integer generated always as identity
+        primary key,
+    price int not null
+)
 ```
 No checks matched for this statement. ✅
 
@@ -30,7 +34,8 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table prices add column new_price bigint
+alter table prices
+    add column new_price bigint
 ```
 No checks matched for this statement. ✅
 
@@ -57,7 +62,9 @@ No checks matched for this statement. ✅
 ### Statement number 3
 #### SQL
 ```sql
-alter table prices add constraint check_new_price_not_null check (new_price is not null) not valid
+alter table prices
+    add constraint check_new_price_not_null
+        check (new_price is not null) not valid
 ```
 No checks matched for this statement. ✅
 
@@ -78,7 +85,9 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table prices validate constraint check_new_price_not_null, drop column price
+alter table prices
+    validate constraint check_new_price_not_null,
+    drop column price
 ```
 No checks matched for this statement. ✅
 ### Statement number 3
@@ -86,6 +95,7 @@ No checks matched for this statement. ✅
 ```sql
 -- eugene: ignore E4
 -- this has to run in the same transaction as dropping the old price column
-alter table prices rename column new_price to price
+alter table prices
+    rename column new_price to price
 ```
 No checks matched for this statement. ✅

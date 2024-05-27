@@ -7,7 +7,9 @@
 #### SQL
 
 ```sql
-create table document_type(type_name text primary key)
+create table document_type(
+    type_name text primary key
+)
 ```
 
 #### Locks at start
@@ -25,7 +27,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-insert into document_type values('invoice'), ('receipt'), ('other')
+insert into document_type
+  values('invoice'), ('receipt'), ('other')
 ```
 
 #### Locks at start
@@ -43,7 +46,12 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-create table document (id int generated always as identity primary key, type text references document_type(type_name))
+create table document (
+    id int generated always as identity
+        primary key,
+    type text
+        references document_type(type_name)
+)
 ```
 
 #### Locks at start

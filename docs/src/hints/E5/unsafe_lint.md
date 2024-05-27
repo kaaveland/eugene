@@ -9,7 +9,11 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table prices (id integer generated always as identity primary key, price int not null)
+create table prices (
+    id integer generated always as identity
+        primary key,
+    price int not null
+)
 ```
 No checks matched for this statement. ✅
 
@@ -30,7 +34,8 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table prices alter price set data type bigint
+alter table prices
+    alter price set data type bigint
 ```
 #### Lints
 

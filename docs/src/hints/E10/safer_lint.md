@@ -9,13 +9,21 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table prices (id integer generated always as identity primary key, price int not null)
+create table prices (
+    id integer generated always as identity
+        primary key,
+    price int not null
+)
 ```
 No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-create table authors (id integer generated always as identity primary key, name text not null)
+create table authors (
+    id integer generated always as identity
+        primary key,
+    name text not null
+)
 ```
 No checks matched for this statement. ✅
 
@@ -36,7 +44,8 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table authors add column meta jsonb
+alter table authors
+    add column meta jsonb
 ```
 No checks matched for this statement. ✅
 
@@ -59,6 +68,7 @@ No checks matched for this statement. ✅
 ```sql
 -- eugene: ignore E5, E4
 -- causes table rewrite, but this example isnt't about that
-alter table prices alter price set data type bigint
+alter table prices
+    alter price set data type bigint
 ```
 No checks matched for this statement. ✅

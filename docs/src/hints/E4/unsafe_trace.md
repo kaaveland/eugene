@@ -8,7 +8,8 @@
 
 ```sql
 create table authors (
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null
 )
 ```
@@ -50,7 +51,8 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
-alter table authors add column email text not null
+alter table authors
+    add column email text not null
 ```
 
 #### Locks at start

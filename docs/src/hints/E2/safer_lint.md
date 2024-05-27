@@ -10,7 +10,8 @@ The migration script passed all the checks ✅
 #### SQL
 ```sql
 create table authors(
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text
 )
 ```
@@ -33,7 +34,9 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table authors add constraint check_name_not_null check (name is not null) not valid
+alter table authors
+    add constraint check_name_not_null
+        check (name is not null) not valid
 ```
 No checks matched for this statement. ✅
 
@@ -54,7 +57,8 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-alter table authors validate constraint check_name_not_null
+alter table authors
+    validate constraint check_name_not_null
 ```
 No checks matched for this statement. ✅
 
@@ -77,6 +81,7 @@ No checks matched for this statement. ✅
 ```sql
 -- eugene trace knows name has a valid not null check, but eugene lint doesn't
 -- eugene: ignore E2
-alter table authors alter name set not null
+alter table authors
+    alter name set not null
 ```
 No checks matched for this statement. ✅

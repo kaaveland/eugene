@@ -9,18 +9,26 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
-create table document_type(type_name text primary key)
+create table document_type(
+    type_name text primary key
+)
 ```
 No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-insert into document_type values('invoice'), ('receipt'), ('other')
+insert into document_type
+  values('invoice'), ('receipt'), ('other')
 ```
 No checks matched for this statement. ✅
 ### Statement number 3
 #### SQL
 ```sql
-create table document (id int generated always as identity primary key, type text references document_type(type_name))
+create table document (
+    id int generated always as identity
+        primary key,
+    type text
+        references document_type(type_name)
+)
 ```
 No checks matched for this statement. ✅

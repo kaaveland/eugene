@@ -67,7 +67,7 @@ pub const NEW_INDEX_ON_EXISTING_TABLE_IS_NONCONCURRENT: StaticHintData = StaticH
 pub const NEW_UNIQUE_CONSTRAINT_CREATED_INDEX: StaticHintData = StaticHintData {
     id: "E7",
     name: "Creating a new unique constraint",
-    condition: "Found a new unique constraint and a new index",
+    condition: "Adding a new unique constraint implicitly creates index",
     workaround: "`CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index",
     effect: "This blocks all writes to the table while the index is being created and validated",
 };

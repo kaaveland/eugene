@@ -10,7 +10,8 @@ The migration script passed all the checks ✅
 #### SQL
 ```sql
 create table authors (
-    id integer generated always as identity primary key,
+    id integer generated always as identity
+        primary key,
     name text not null
 )
 ```
@@ -33,7 +34,8 @@ No checks matched for this statement. ✅
 ### Statement number 2
 #### SQL
 ```sql
-create index authors_name_idx on authors (name)
+create index
+    authors_name_idx on authors (name)
 ```
 #### Lints
 

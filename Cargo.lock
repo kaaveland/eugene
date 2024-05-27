@@ -434,10 +434,12 @@ dependencies = [
  "pg_query",
  "postgres",
  "pretty_assertions",
+ "rand",
  "rayon",
  "regex",
  "serde",
  "serde_json",
+ "tempfile",
  "uuid",
 ]
 

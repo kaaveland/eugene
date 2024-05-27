@@ -47,6 +47,10 @@ pub(crate) mod comments;
 #[cfg(test)]
 mod render_doc_snapshots;
 
+/// This module is for creating and destroying postgres
+/// database instances for eugene to trace.
+pub mod tempserver;
+
 /// Connection settings for connecting to a PostgreSQL database.
 pub struct ConnectionSettings {
     user: String,
@@ -75,21 +79,15 @@ impl ConnectionSettings {
             client: None,
         }
     }
+}
 
-    pub fn with_client<T>(
+pub trait WithClient {
+    fn with_client<T>(
         &mut self,
         f: impl FnOnce(&mut Client) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
-        if let Some(ref mut client) = self.client {
-            f(client)
-        } else {
-            let client = Client::connect(self.connection_string().as_str(), NoTls)?;
-            self.client = Some(client);
-            f(self.client.as_mut().unwrap())
-        }
-    }
+    ) -> anyhow::Result<T>;
 
-    pub fn in_transaction<T>(
+    fn in_transaction<T>(
         &mut self,
         commit: bool,
         f: impl FnOnce(&mut Transaction) -> anyhow::Result<T>,
@@ -108,6 +106,20 @@ impl ConnectionSettings {
     }
 }
 
+impl WithClient for ConnectionSettings {
+    fn with_client<T>(
+        &mut self,
+        f: impl FnOnce(&mut Client) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
+        if let Some(ref mut client) = self.client {
+            f(client)
+        } else {
+            let client = Client::connect(self.connection_string().as_str(), NoTls)?;
+            self.client = Some(client);
+            f(self.client.as_mut().unwrap())
+        }
+    }
+}
 /// Settings for tracing locks taken by SQL statements.
 pub struct TraceSettings<'a> {
     name: String,
@@ -137,9 +149,9 @@ pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&st
 
 /// Perform a lock trace of a SQL script and optionally commit the transaction, depending on
 /// trace_settings.
-pub fn perform_trace<'a>(
+pub fn perform_trace<'a, T: WithClient>(
     trace: &TraceSettings,
-    connection_settings: &mut ConnectionSettings,
+    connection_settings: &mut T,
     ignored_hints: &'a [&'a str],
 ) -> anyhow::Result<TxLockTracer<'a>> {
     let sql_statements = sql_statements(trace.sql)?;

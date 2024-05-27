@@ -3,6 +3,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::generate;
 use clap_complete::Shell::{Bash, Elvish, Fish, PowerShell, Zsh};
 use itertools::Itertools;
+use postgres::Client;
 use serde::Serialize;
 
 use eugene::output::output_format::GenericHint;
@@ -11,8 +12,10 @@ use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
 use eugene::script_discovery::script_filters;
 use eugene::sqltext::resolve_placeholders;
+use eugene::tempserver::TempServer;
 use eugene::{
     output, parse_placeholders, perform_trace, script_discovery, ConnectionSettings, TraceSettings,
+    WithClient,
 };
 
 #[derive(Parser)]
@@ -156,6 +159,16 @@ enum Commands {
         /// `name` will sort lexically by name.
         #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
         sort_mode: String,
+
+        /// Disable creation of temporary postgres server for tracing
+        ///
+        /// By default, trace will create a postgres server in a temporary directory
+        ///
+        /// This relies on having `initdb` and `pg_ctl` in PATH, which eugene images have.
+        ///
+        /// Eugene deletes the temporary database cluster when done tracing.
+        #[arg(long = "disable-temporary", default_value_t = true)]
+        temporary_postgres: bool,
     },
     /// List postgres lock modes
     Modes {
@@ -265,6 +278,20 @@ impl TryFrom<String> for TraceFormat {
     }
 }
 
+enum ClientSource {
+    TempDb(TempServer),
+    Connect(ConnectionSettings),
+}
+
+impl WithClient for ClientSource {
+    fn with_client<T>(&mut self, f: impl FnOnce(&mut Client) -> Result<T>) -> Result<T> {
+        match self {
+            ClientSource::TempDb(temp) => temp.with_client(f),
+            ClientSource::Connect(settings) => settings.with_client(f),
+        }
+    }
+}
+
 pub fn main() -> Result<()> {
     env_logger::init();
     let args = Eugene::parse();
@@ -328,15 +355,22 @@ pub fn main() -> Result<()> {
             ignored_hints,
             accept_failures: exit_success,
             sort_mode,
+            temporary_postgres,
         }) => {
+            let commit = commit || temporary_postgres;
             let config = TraceConfiguration {
                 trace_format: format.try_into()?,
                 extra_lock_info: extra,
                 skip_summary,
                 ignored_hints,
             };
-            let mut connection_settings =
-                ProvidedConnectionSettings::new(user, database, host, port).try_into()?;
+            let provided = ProvidedConnectionSettings::new(user, database, host, port);
+            let mut client_source = if temporary_postgres {
+                ClientSource::TempDb(TempServer::new()?)
+            } else {
+                ClientSource::Connect(provided.try_into()?)
+            };
+
             let mut failed = false;
             let placeholders = parse_placeholders(&placeholders)?;
             let ignore_list = config
@@ -361,7 +395,7 @@ pub fn main() -> Result<()> {
                 let sql = resolve_placeholders(&sql, &placeholders)?;
                 let name = read_from.name();
                 let trace_settings = TraceSettings::new(name.to_string(), &sql, commit);
-                let trace = perform_trace(&trace_settings, &mut connection_settings, &ignore_list)
+                let trace = perform_trace(&trace_settings, &mut client_source, &ignore_list)
                     .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 let full_trace = output::full_trace_data(
                     &trace,

@@ -39,14 +39,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up psql
-        run: sudo apt-get install -y postgresql-client
+        run: sudo apt-get install -y postgresql-client postgresql
       - name: Make ~/.pgpass
         run: echo "localhost:5432:*:postgres:$PGPASS" > ~/.pgpass && chmod 600 ~/.pgpass
       - name: Init testdb
         run: psql --host localhost --port 5432 -U postgres < db-initscripts/init-testdb.sql
+      - name: Put postgres binaries on PATH for tests
+        run: echo "/usr/lib/postgresql/14/bin" >> $GITHUB_PATH
       - name: Run tests
         env:
           TZ: UTC
+          RUST_LOG: eugene=trace
         run: cargo test --all-targets --all-features
 
   run_tests_macos:
@@ -73,6 +76,7 @@ jobs:
       - name: Run tests
         env:
           TZ: UTC
+          RUST_LOG: eugene=trace
         run: cargo test --all-targets --all-features
       - name: Stop postgres
         run: pg_ctl -D $HOME/pgdata stop
@@ -108,4 +112,5 @@ jobs:
       - name: Run tests
         env:
           TZ: UTC
+          RUST_LOG: eugene=trace
         run: cargo test --all-targets --all-features

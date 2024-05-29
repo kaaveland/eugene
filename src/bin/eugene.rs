@@ -169,6 +169,20 @@ enum Commands {
         /// Eugene deletes the temporary database cluster when done tracing.
         #[arg(long = "disable-temporary", default_value_t = true)]
         temporary_postgres: bool,
+
+        /// Portgres options to pass to the temporary postgres server
+        ///
+        /// Example: `eugene trace -o "-c fsync=off -c log_statement=all"`
+        #[arg(short = 'o', long = "postgres-options", default_value = "")]
+        postgres_options: String,
+
+        /// Initdb options to pass when creating the temporary postgres server
+        ///
+        /// Example: `eugene trace --initdb "--encoding=UTF8"`
+        ///
+        /// Supply it more than once to add multiple options.
+        #[arg(long = "initdb")]
+        initdb_options: Vec<String>,
     },
     /// List postgres lock modes
     Modes {
@@ -356,6 +370,8 @@ pub fn main() -> Result<()> {
             accept_failures: exit_success,
             sort_mode,
             temporary_postgres,
+            postgres_options,
+            initdb_options,
         }) => {
             let commit = commit || temporary_postgres;
             let config = TraceConfiguration {
@@ -366,7 +382,7 @@ pub fn main() -> Result<()> {
             };
             let provided = ProvidedConnectionSettings::new(user, database, host, port);
             let mut client_source = if temporary_postgres {
-                ClientSource::TempDb(TempServer::new()?)
+                ClientSource::TempDb(TempServer::new(postgres_options.as_str(), &initdb_options)?)
             } else {
                 ClientSource::Connect(provided.try_into()?)
             };

@@ -18,7 +18,7 @@ pub struct TempServer {
 }
 
 impl TempServer {
-    pub fn new() -> Result<Self> {
+    pub fn new(postgres_options: &str, initdb_options: &[String]) -> Result<Self> {
         let port = find_free_port_on_localhost()?;
         check_required_postgres_commands()?;
         let dbpath = TempDir::new()?;
@@ -32,15 +32,18 @@ impl TempServer {
         let mut pwfile = tempfile::NamedTempFile::new()?;
         pwfile.write_all(superuser_password.as_bytes())?;
 
-        assert!(dbpath.path().exists());
-        let initdb = Command::new("initdb")
+        let mut initdb = Command::new("initdb");
+        initdb
             .arg("-D")
             .arg(dbpath.path())
             .arg("--pwfile")
             .arg(pwfile.path())
             .arg("--username")
-            .arg("postgres")
-            .output()?;
+            .arg("postgres");
+        for option in initdb_options {
+            initdb.arg(option);
+        }
+        let initdb = initdb.output()?;
 
         if !initdb.status.success() {
             return Err(anyhow!("initdb failed: {initdb:?}",));
@@ -58,7 +61,9 @@ impl TempServer {
             .arg(format!(
                 "-c unix_socket_directories={}",
                 dbpath.path().to_string_lossy()
-            ));
+            ))
+            .arg("-o")
+            .arg(postgres_options);
 
         let mut child = pg.spawn()?;
         let (sender, receiver) = channel();
@@ -193,7 +198,7 @@ mod tests {
     #[test]
     fn can_make_temporary_dbserver() {
         env_logger::init();
-        let mut s = TempServer::new().unwrap();
+        let mut s = TempServer::new("", &[]).unwrap();
         let rows: Vec<_> = s
             .with_client(|client| Ok(client.query("SELECT 1 + 1", &[]).unwrap()))
             .unwrap();

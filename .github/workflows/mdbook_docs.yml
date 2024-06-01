@@ -33,6 +33,7 @@ jobs:
           chmod +x mdbook
           ./mdbook --version
           ./mdbook build docs
+          git branch -D doc-pages || true
           git checkout -b doc-pages
           git add -f docs/book
           git config user.name "mdbook docs bot"

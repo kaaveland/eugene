@@ -6,7 +6,7 @@ src = "src"
 title = "Eugene Documentation"
 
 [output.html]
-site-url = "/eugene"
+site-url = "/eugene/"
 git-repository-url = "https://github.com/kaaveland/eugene"
 
 [output.html.fold]

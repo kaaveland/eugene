@@ -469,6 +469,7 @@ impl TryFrom<String> for SortMode {
 mod tests {
     use nom::error::ErrorKind::Eof;
     use pretty_assertions::assert_eq;
+    use tempfile::TempDir;
 
     use super::*;
 
@@ -662,11 +663,12 @@ mod tests {
     #[test]
     fn sorts_like_flyway() {
         // make a temporary directory
-        let temp_dir = std::env::temp_dir().join("eugene_test");
+        let temp_dir = TempDir::new().unwrap();
+        let p = temp_dir.path();
         let a_files = vec!["V2__foo.sql", "V3__bar.sql"];
         let b_files = vec!["V1__foo.sql", "V4__bar.sql"];
-        let a_dir = temp_dir.join("a");
-        let b_dir = temp_dir.join("b");
+        let a_dir = p.join("a");
+        let b_dir = p.join("b");
         std::fs::create_dir_all(&a_dir).unwrap();
         std::fs::create_dir_all(&b_dir).unwrap();
         for file in a_files {

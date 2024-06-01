@@ -193,15 +193,21 @@ impl Drop for TempServer {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
     use super::*;
 
     #[test]
-    fn can_make_temporary_dbserver() {
+    fn temp_server_cleans_up_when_leaving_scope() {
         env_logger::init();
-        let mut s = TempServer::new("", &[]).unwrap();
-        let rows: Vec<_> = s
-            .with_client(|client| Ok(client.query("SELECT 1 + 1", &[]).unwrap()))
-            .unwrap();
-        assert!(!rows.is_empty());
+        fn inner() -> String {
+            let mut s = TempServer::new("", &[]).unwrap();
+            let rows: Vec<_> = s
+                .with_client(|client| Ok(client.query("SELECT 1 + 1", &[]).unwrap()))
+                .unwrap();
+            assert!(!rows.is_empty());
+            s.dbpath.as_ref().unwrap().path().to_string_lossy().to_string()
+        }
+        let path = inner();
+        assert!(!Path::new(&path).exists());
     }
 }

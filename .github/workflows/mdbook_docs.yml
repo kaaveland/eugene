@@ -35,6 +35,8 @@ jobs:
           ./mdbook build docs
           git checkout -b doc-pages
           git add -f docs/book
+          git config user.name "mdbook docs bot"
+          git config user.email "kaaveland@gmail.com"
           git commit -m 'Build mdbook docs'
           git push --force origin doc-pages
 

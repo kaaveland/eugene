@@ -94,5 +94,19 @@ Options:
           
           Eugene deletes the temporary database cluster when done tracing.
 
+  -o, --postgres-options <POSTGRES_OPTIONS>
+          Portgres options to pass to the temporary postgres server
+          
+          Example: `eugene trace -o "-c fsync=off -c log_statement=all"`
+          
+          [default: ]
+
+      --initdb <INITDB_OPTIONS>
+          Initdb options to pass when creating the temporary postgres server
+          
+          Example: `eugene trace --initdb "--encoding=UTF8"`
+          
+          Supply it more than once to add multiple options.
+
   -h, --help
           Print help (see a summary with '-h')

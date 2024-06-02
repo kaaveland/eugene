@@ -101,10 +101,10 @@ refer to the previous section [Building the code](#building-the-code).
 
 The tool documentation is built with `mdBooks` and is hosted on
 [kaveland.no/eugene](https://kaveland.no/eugene). You can build it
-using `mdbook serve docs`if you've already generated the
+using `mdbook serve eugene/docs`if you've already generated the
 `SUMMARY.md` file with `cargo test`. **Note that direct changes to the
 summary file will be overwritten by the tests, change the template
-at `src/doc_summary.md.hbs` instead.**
+at `eugene/src/doc_summary.md.hbs` instead.**
 
 The crate documentation is built using `cargo doc --open` -- the
 open instruction is optional and will open the documentation in your
@@ -140,7 +140,7 @@ To release a new version:
 
 ## High level design
 
-1. `src/bin/eugene.rs` should contain only code related to the command line interface 
+1. `eugene/src/bin/eugene.rs` should contain only code related to the command line interface 
    and standard in/err/out.
 2. Structs that have public fields go somewhere in `eugene::output::output_format`, these
    are the structs we're OK with serializing to json or yaml, so we should consider them
@@ -164,7 +164,7 @@ in a transaction.
 [pg_query.rs](https://github.com/pganalyze/pg_query.rs) breaks the script into statements and we convert
 each statement into its syntax tree. These trees are pretty complex, because they can contain all possible
 syntax in postgres, so they're converted to a more lightweight representation that fits better
-for writing linting rules, see `src/linting/ast.rs`. Lint rules need a context, which is built gradually
+for writing linting rules, see `eugene/src/linting/ast.rs`. Lint rules need a context, which is built gradually
 from statements within each script, in addition to the lightweight syntax tree to work. This avoids some
 false positives, by allowing the lints to skip checking statements that affect objects that can't be visible
 to concurrent transactions. This means that `eugene lint` will not trigger on a `create index` statement

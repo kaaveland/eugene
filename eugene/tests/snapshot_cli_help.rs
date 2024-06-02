@@ -1,8 +1,8 @@
 #[cfg(not(windows))]
 #[test]
 fn snapshot_cli_help() {
-    let debug_eugene = "target/debug/eugene";
-    let release_eugene = "target/release/eugene";
+    let debug_eugene = "../target/debug/eugene";
+    let release_eugene = "../target/release/eugene";
     // pick the most recent binary that exists
     let eugene = if std::path::Path::new(debug_eugene).exists() {
         debug_eugene

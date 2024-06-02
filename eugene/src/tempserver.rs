@@ -193,8 +193,8 @@ impl Drop for TempServer {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn temp_server_cleans_up_when_leaving_scope() {
@@ -205,7 +205,12 @@ mod tests {
                 .with_client(|client| Ok(client.query("SELECT 1 + 1", &[]).unwrap()))
                 .unwrap();
             assert!(!rows.is_empty());
-            s.dbpath.as_ref().unwrap().path().to_string_lossy().to_string()
+            s.dbpath
+                .as_ref()
+                .unwrap()
+                .path()
+                .to_string_lossy()
+                .to_string()
         }
         let path = inner();
         assert!(!Path::new(&path).exists());

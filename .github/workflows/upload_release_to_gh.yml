@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify that tag matches Cargo.toml version
         run: |
-          version="$(cargo read-manifest | jq -r .version)"
+          version="$(cargo read-manifest --manifest-path=eugene/Cargo.toml | jq -r .version)"
           tag="$(echo ${{ github.ref }} | sed 's/refs\/tags\///')"
           if [ "$tag" != "$version" ]; then
             echo "Tag $tag does not match Cargo.toml version $version"
@@ -25,7 +25,7 @@ jobs:
           fi
       - name: Create release
         run: |
-          version="$(cargo read-manifest | jq -r .version)"
+          version="$(cargo read-manifest --manifest-path=eugene/Cargo.toml | jq -r .version)"
           echo "Creating release $version"
           gh release create $version -t $version --generate-notes -d
   upload_source_to_release:
@@ -38,8 +38,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Upload source code
         run: |
-          version="$(cargo read-manifest | jq -r .version)"
-          tar czf eugene-$version-sources.tar.gz Cargo.toml Cargo.lock src
+          version="$(cargo read-manifest --manifest-path=eugene/Cargo.toml | jq -r .version)"
+          tar czf eugene-$version-sources.tar.gz Cargo.toml Cargo.lock eugene/src eugene/examples eugene/tests eugene/Cargo.toml 
           gh release upload "$version" eugene-$version-sources.tar.gz
   build_release:
     needs:
@@ -109,7 +109,7 @@ jobs:
         - uses: actions/checkout@v4
         - name: Publish release
           run: |
-            version="$(cargo read-manifest | jq -r .version)"
+            version="$(cargo read-manifest --manifest-path eugene/Cargo.toml | jq -r .version)"
             gh release edit "$version" --draft=false
 
   build_images:
@@ -123,7 +123,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Fetch release artifacts for linux/arm64 and linux/amd64
         run: |
-          version="$(cargo read-manifest | jq -r .version)"
+          version="$(cargo read-manifest --manifest-path eugene/Cargo.toml | jq -r .version)"
           gh release download "$version" 
           cp eugene-x86_64-unknown-linux-musl eugene-amd64
           cp eugene-aarch64-unknown-linux-musl eugene-arm64
@@ -135,7 +135,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build docker image
         run: |
-          version="$(cargo read-manifest | jq -r .version)"
+          version="$(cargo read-manifest --manifest-path eugene/Cargo.toml | jq -r .version)"
           docker buildx create --use
           docker buildx build . \
             --platform "linux/amd64,linux/arm64" \

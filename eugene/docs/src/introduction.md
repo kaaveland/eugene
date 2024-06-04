@@ -13,7 +13,7 @@ will analyze the scripts and let you know if it found any issues.
 
 <div class="demo-area">
 <form 
-  hx-post="http://localhost:3001/eugene/app/lint.html"
+  hx-post="/eugene/app/lint.html"
   hx-target="#output">
 <textarea id="sql" name="sql" rows="20" class="full-width">
 -- You can use file markers like this to break migrations

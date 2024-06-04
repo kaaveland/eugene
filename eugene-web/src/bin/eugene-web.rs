@@ -20,7 +20,12 @@ async fn main() {
         .nest("/eugene/app", webapp::routes())
         .layer(ServiceBuilder::new().layer(logger).into_inner())
         .layer(RequestBodyLimitLayer::new(1024 * 50))
-        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any));
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        );
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app).await.unwrap();

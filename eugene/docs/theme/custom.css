@@ -1,0 +1,19 @@
+.float-left {
+    float: left;
+    margin: 1rem;
+}
+
+.float-right {
+    float: right;
+    margin: 1rem;
+}
+
+.full-width {
+    width: 100%;
+    padding: 1rem;
+}
+
+.button-cta {
+    padding: 0.5rem;
+    font-size: 18px;
+}

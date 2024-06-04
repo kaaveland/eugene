@@ -1,7 +1,7 @@
 {{#if passed}}
-<h3>All checks passed ✅</h3>
+<h3>✅ All checks passed</h3>
 {{else}}
-<h3>Checks failed ❌</h3>
+<h3>❌ {{ exclamation }}</h3>
 <ul>
   {{#each triggered_rules}}
     <li><a href="{{this.rule.url}}">{{this.rule.id}}</a> {{this.rule.name}} at {{this.file_name}}:{{this.line_number}}</li>

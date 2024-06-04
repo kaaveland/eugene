@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["eugene"]
+members = ["eugene", "eugene-web"]
 resolver = "2"
 
 [workspace.package]

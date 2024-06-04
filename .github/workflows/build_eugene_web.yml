@@ -1,15 +1,13 @@
-name: Build eugene web image main
+name: Deploy eugene web image from main
 
 on:
   push:
     branches:
       - main
-      - eugene-web
 
 jobs:
     build:
         runs-on: ubuntu-latest
-
         steps:
         - uses: actions/checkout@v4
         - name: Cache Cargo registry
@@ -22,6 +20,13 @@ jobs:
             key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
             restore-keys: |
               ${{ runner.os }}-cargo-registry-
+        - name: Cache Cargo build
+          uses: actions/cache@v2
+          with:
+            path: target
+            key: ${{ runner.os }}-cargo-build-release-${{ hashFiles('**/Cargo.lock') }}
+            restore-keys: |
+              ${{ runner.os }}-cargo-build-release-
         - name: Build eugene web release
           run: cargo build --release
         - name: Set up Docker Buildx
@@ -39,3 +44,10 @@ jobs:
               -f eugene-web/Dockerfile .
             docker push ghcr.io/${{ github.repository}}-web:latest
             docker push ghcr.io/${{ github.repository}}-web:$GITHUB_SHA
+        - name: Install doctl
+          uses: digitalocean/action-doctl@v2
+          with:
+            token:
+              ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+        - name: Create new eugene-web deployment
+          run: doctl apps create-deployment "${{ secrets.DIGITALOCEAN_APPID }}" --wait --format Progress,Phase,Created,Updated

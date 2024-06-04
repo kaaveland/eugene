@@ -1,0 +1,25 @@
+{{#* inline "body" }}
+    <h2>Enter some scripts</h2>
+    <form hx-post="/eugene/app/lint.html" hx-target="#result">
+        <label for="sql">SQL</label>
+        <textarea id="sql" name="sql" rows="20" style="width: 100%">
+-- file: create_table.sql
+create table books (
+    id serial primary key,
+    title text,
+    author text,
+    published date
+);
+-- file: alter_table.sql
+alter table books
+  alter column text set not null;
+alter table books
+  alter column author set not null;
+        </textarea>
+        <div>
+            <button style="float: right;" type="submit">Lint</button>
+        </div>
+    </form>
+    <div id="result"></div>
+{{/inline}}
+{{> base }}

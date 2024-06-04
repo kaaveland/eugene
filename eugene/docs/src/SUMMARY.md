@@ -4,6 +4,7 @@
 - [eugene lint](lint.md)
 - [eugene trace](trace.md)
 - [Ignoring hints](ignores.md)
+- [eugene web](web.md)
 - [Hint reference](hints.md)
   - [E1 Validating table with a new constraint](./hints/E1/index.md)
   - [E2 Validating table with a new `NOT NULL` column](./hints/E2/index.md)

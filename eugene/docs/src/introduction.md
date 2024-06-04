@@ -5,6 +5,48 @@ the most straightforward way to make a change to your database schema is also qu
 due to locking issues and lock queues. Eugene has two modes that can help you spot these
 dangerous patterns and can suggest a safer way to achieve the same effect in many cases.
 
+<h2><label for="sql">Demo</label></h2>
+
+Feel free to try out Eugene by playing around with the SQL script
+in the text area below. When you click the "Check" button, Eugene 
+will analyze the scripts and let you know if it found any issues.
+
+<div class="demo-area">
+<form 
+  hx-post="/eugene/app/lint.html"
+  hx-target="#output">
+<textarea id="sql" name="sql" rows="20" class="full-width">
+-- You can use file markers like this to break migrations
+-- into steps and run them in order.
+-- file: create_table.sql
+create table books (
+    id serial primary key,
+    title text,
+    author text,
+    published date
+);
+-- file: alter_table.sql
+alter table books
+  alter column text set not null;
+alter table books
+  alter column author set not null;
+-- file: set_unique.sql
+set local lock_timeout = '2s';
+alter table books add constraint 
+  unique_title_author unique (title, author);
+</textarea>
+<div>
+<button class="float-right button-cta" id="submit">Check</button>
+</div>
+</form>
+
+<div id="output"></div>
+</div>
+
+The demo corresponds to using `eugene lint` on a folder of SQL scripts
+on your local machine. You can also use `eugene trace` to run the scripts,
+which can pick up more issues, some of which `eugene lint` can't detect.
+
 ## Installing eugene
 
 You can install `eugene` using cargo:

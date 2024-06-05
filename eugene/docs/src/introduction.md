@@ -12,10 +12,9 @@ in the text area below. When you click the "Check" button, Eugene
 will analyze the scripts and let you know if it found any issues.
 
 <div class="demo-area">
-<form
-  hx-post="/eugene/app/lint.html"
-  hx-target="#output">
-<textarea id="sql" name="sql" rows="20" class="full-width">
+<form hx-post="/eugene/app/lint.html" hx-target="#output">
+<input type="hidden" name="sql" id="sql-input" value="">
+<div id="sql" class="sql-playground">
 -- You can use file markers like this to break migrations
 -- into steps and run them in order.
 -- file: create_table.sql
@@ -34,15 +33,26 @@ alter table books
 set local lock_timeout = '2s';
 alter table books add constraint
   unique_title_author unique (title, author);
-</textarea>
-<div>
-<button class="float-right button-cta" id="submit">Check</button>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.34.2/ace.js" integrity="sha512-WdJDvPkK4mLIW1kpkWRd7dFtAF6Z0xnfD3XbfrNsK2/f36vMNGt/44iqYQuliJZwCFw32CrxDRh2hpM2TJS1Ew==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+var editor = ace.edit("sql", {
+  mode: "ace/mode/sql",
+  selectionStyle: "text",
+  minLines: 20,
+  maxLines: 40,
+});
+editor.resize();
+document.getElementById('sql-input').value = editor.getValue();
+editor.session.on('change', function() {
+  document.getElementById('sql-input').value = editor.getValue();
+});
+</script>
+<button class="float-right button-cta" id="submit">Check</button>
 </form>
 
 <div id="output"></div>
 </div>
-
 The demo corresponds to using `eugene lint` on a folder of SQL scripts
 on your local machine. You can also use `eugene trace` to run the scripts,
 which can pick up more issues, some of which `eugene lint` can't detect.
@@ -102,3 +112,13 @@ can catch.
 ## Hints provided by eugene
 
 See [hints](./hints.md) for a list of hints that Eugene can give you.
+
+## Blog
+
+I frequently blog about software development and other topics, here's
+[blog posts about egene](https://kaaveland.github.io/tags/eugene/).
+
+## Release notes
+
+The [releases page](https://github.com/kaaveland/eugene/releases) is 
+the best place to find release notes for `eugene`.

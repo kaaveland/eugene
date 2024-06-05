@@ -8,11 +8,11 @@ dangerous patterns and can suggest a safer way to achieve the same effect in man
 <h2><label for="sql">Demo</label></h2>
 
 Feel free to try out Eugene by playing around with the SQL script
-in the text area below. When you click the "Check" button, Eugene 
+in the text area below. When you click the "Check" button, Eugene
 will analyze the scripts and let you know if it found any issues.
 
 <div class="demo-area">
-<form 
+<form
   hx-post="/eugene/app/lint.html"
   hx-target="#output">
 <textarea id="sql" name="sql" rows="20" class="full-width">
@@ -32,7 +32,7 @@ alter table books
   alter column author set not null;
 -- file: set_unique.sql
 set local lock_timeout = '2s';
-alter table books add constraint 
+alter table books add constraint
   unique_title_author unique (title, author);
 </textarea>
 <div>
@@ -59,8 +59,8 @@ It is also available as a Docker image:
 
 ```sh
 docker run --rm -v $(pwd):/workdir \
-  kaaveland/eugene:latest \ 
-  lint /workdir/my_script.sql
+  ghcr.io/kaaveland/eugene:latest \
+  lint /workdir
 ```
 
 Eugene is available as a binary for Linux and macOS. You can download the latest release from
@@ -92,9 +92,9 @@ The two main subcommands are [`eugene lint`](./lint.md)
 and [`eugene trace`](./trace.md), which both have their own page.
 `eugene lint` will perform syntax tree analysis of your SQL script
 using the PostgreSQL parser, while `eugene trace` will actually run
-it in a transaction and inspect the effects of the script on the 
+it in a transaction and inspect the effects of the script on the
 database. It will be easier to get started with `eugene lint` and
-it can catch many dangerous patterns, but it may also report some 
+it can catch many dangerous patterns, but it may also report some
 false positives and might not pick up everything that `eugene trace`
 can catch.
 

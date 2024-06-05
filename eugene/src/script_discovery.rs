@@ -324,6 +324,7 @@ pub fn sorted_migration_scripts_from_folder(
 pub enum ReadFrom {
     Stdin,
     File(String),
+    FileFromDirEntry(String),
 }
 
 impl ReadFrom {
@@ -334,13 +335,15 @@ impl ReadFrom {
                 std::io::stdin().read_to_string(&mut buf)?;
                 Ok(buf)
             }
-            ReadFrom::File(path) => Ok(std::fs::read_to_string(path)?),
+            ReadFrom::File(path) | ReadFrom::FileFromDirEntry(path) => {
+                Ok(std::fs::read_to_string(path)?)
+            }
         }
     }
     pub fn name(&self) -> &str {
         match self {
             ReadFrom::Stdin => "stdin",
-            ReadFrom::File(path) => path,
+            ReadFrom::File(path) | ReadFrom::FileFromDirEntry(path) => path,
         }
     }
 }
@@ -355,16 +358,17 @@ pub fn discover_scripts(
     filter: ScriptFilter,
     sort: SortMode,
 ) -> anyhow::Result<Vec<ReadFrom>> {
+    if path == "-" {
+        return Ok(vec![ReadFrom::Stdin]);
+    }
     let data = std::fs::metadata(path)?;
-    if !data.is_file() && path == "-" {
-        Ok(vec![ReadFrom::Stdin])
-    } else if data.is_file() {
+    if data.is_file() {
         Ok(vec![ReadFrom::File(path.to_string())])
     } else if data.is_dir() {
         let paths = sorted_migration_scripts_from_folder(&PathBuf::from(path), filter, sort)?;
         Ok(paths
             .into_iter()
-            .map(|p| ReadFrom::File(p.to_string_lossy().to_string()))
+            .map(|p| ReadFrom::FileFromDirEntry(p.to_string_lossy().to_string()))
             .collect())
     } else {
         Err(anyhow!("Path is not a file or directory"))
@@ -386,12 +390,17 @@ pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
     for path in paths {
         all.extend(discover_scripts(path.as_ref(), filter, SortMode::Unsorted)?);
     }
+
+    let any_is_dir = all
+        .iter()
+        .any(|p| matches!(p, ReadFrom::FileFromDirEntry(_)));
+
     match sort {
-        SortMode::Auto => {
+        SortMode::Auto if any_is_dir || all.len() > 1 => {
             let all_paths: Vec<_> = all
                 .into_iter()
                 .map(|r| match r {
-                    ReadFrom::File(p) => PathBuf::from(p),
+                    ReadFrom::File(p) | ReadFrom::FileFromDirEntry(p) => PathBuf::from(p),
                     ReadFrom::Stdin => PathBuf::from("stdin"),
                 })
                 .collect();
@@ -407,11 +416,11 @@ pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
                 .map(|p| ReadFrom::File(p.to_string_lossy().to_string()))
                 .collect())
         }
-        SortMode::Unsorted => Ok(all),
         SortMode::Lexicographic => {
             all.sort_by(|left, right| left.name().cmp(right.name()));
             Ok(all)
         }
+        SortMode::Unsorted | SortMode::Auto => Ok(all),
     }
 }
 

@@ -26,7 +26,7 @@ create table books (
 );
 -- file: alter_table.sql
 alter table books
-  alter column text set not null;
+  alter column title set not null;
 alter table books
   alter column author set not null;
 -- file: set_unique.sql

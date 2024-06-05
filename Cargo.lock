@@ -593,6 +593,7 @@ dependencies = [
  "log",
  "nom",
  "once_cell",
+ "pg_query",
  "pretty_assertions",
  "rand",
  "regex",

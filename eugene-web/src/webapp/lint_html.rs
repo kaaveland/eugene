@@ -6,7 +6,7 @@ use eugene::output::Hint;
 
 use crate::webapp::error::WebAppError;
 use crate::webapp::templates;
-use crate::{parse_scripts, webapp};
+use crate::{parse_scripts, validate_syntax, webapp};
 
 #[derive(Deserialize)]
 pub struct LintHtmlRequest {
@@ -24,6 +24,7 @@ pub struct TriggeredRule {
 pub struct LintHtmlContext {
     passed: bool,
     triggered_rules: Vec<TriggeredRule>,
+    syntax_errors: Vec<String>,
     exclamation: &'static str,
 }
 
@@ -43,18 +44,28 @@ pub(crate) async fn lint_html(
     let mut context = LintHtmlContext {
         passed: true,
         triggered_rules: vec![],
+        syntax_errors: vec![],
         exclamation: EXCLAMATIONS[choice],
     };
     for (name, sql) in scripts {
-        let report = eugene::lints::lint(name.map(|s| s.to_string()), sql, &[], true)?;
-        context.passed = context.passed && report.passed_all_checks;
-        for st in report.statements {
-            for hint in st.triggered_rules {
-                context.triggered_rules.push(TriggeredRule {
-                    file_name: name.unwrap_or("unnamed.sql").to_string(),
-                    line_number: st.line_number,
-                    rule: hint,
-                });
+        if let Some(err) = validate_syntax(sql) {
+            context.passed = false;
+            if let Some(name) = name {
+                context.syntax_errors.push(format!("{name}: {:?}", err));
+            } else {
+                context.syntax_errors.push(format!("{:?}", err));
+            }
+        } else {
+            let report = eugene::lints::lint(name.map(|s| s.to_string()), sql, &[], true)?;
+            context.passed = context.passed && report.passed_all_checks;
+            for st in report.statements {
+                for hint in st.triggered_rules {
+                    context.triggered_rules.push(TriggeredRule {
+                        file_name: name.unwrap_or("unnamed.sql").to_string(),
+                        line_number: st.line_number,
+                        rule: hint,
+                    });
+                }
             }
         }
     }

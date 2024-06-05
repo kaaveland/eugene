@@ -3,6 +3,9 @@
 {{else}}
 <h3>❌ {{ exclamation }}</h3>
 <ul>
+  {{#each syntax_errors}}
+      <li>{{this}}</li>
+  {{/each}}
   {{#each triggered_rules}}
     <li><a href="{{this.rule.url}}">{{this.rule.id}}</a> {{this.rule.name}} at {{this.file_name}}:{{this.line_number}}</li>
   {{/each}}

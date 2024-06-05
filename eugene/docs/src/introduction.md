@@ -50,9 +50,9 @@ editor.session.on('change', function() {
 </script>
 <button class="float-right button-cta" id="submit">Check</button>
 </form>
-
 <div id="output"></div>
 </div>
+
 The demo corresponds to using `eugene lint` on a folder of SQL scripts
 on your local machine. You can also use `eugene trace` to run the scripts,
 which can pick up more issues, some of which `eugene lint` can't detect.

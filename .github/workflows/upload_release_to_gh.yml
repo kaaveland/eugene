@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - '*.*.*'
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -39,7 +40,7 @@ jobs:
       - name: Upload source code
         run: |
           version="$(cargo read-manifest --manifest-path=eugene/Cargo.toml | jq -r .version)"
-          tar czf eugene-$version-sources.tar.gz Cargo.toml Cargo.lock eugene/src eugene/examples eugene/tests eugene/Cargo.toml 
+          tar czf eugene-$version-sources.tar.gz Cargo.toml Cargo.lock eugene/src eugene/examples eugene/tests eugene/Cargo.toml
           gh release upload "$version" eugene-$version-sources.tar.gz
   build_release:
     needs:
@@ -90,7 +91,7 @@ jobs:
       - name: rename release
         shell: bash
         run: |
-          version="$(cargo read-manifest | jq -r .version)"
+          version="$(cargo read-manifest --manifest-path=eugene/Cargo.toml | jq -r .version)"
           mv target/${{ matrix.target.toolchain }}/release/eugene eugene-${{ matrix.target.toolchain }}
           if [[ "${{ matrix.target.runs-on }}" == "macos-latest" ]]; then
             shasum -a 256 eugene-${{ matrix.target.toolchain }} > eugene-${{ matrix.target.toolchain }}.sha256
@@ -124,7 +125,7 @@ jobs:
       - name: Fetch release artifacts for linux/arm64 and linux/amd64
         run: |
           version="$(cargo read-manifest --manifest-path eugene/Cargo.toml | jq -r .version)"
-          gh release download "$version" 
+          gh release download "$version"
           cp eugene-x86_64-unknown-linux-musl eugene-amd64
           cp eugene-aarch64-unknown-linux-musl eugene-arm64
       - name: Log in to GitHub Container Registry

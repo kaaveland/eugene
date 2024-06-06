@@ -71,11 +71,11 @@ struct LintOptions {
 
     /// Sort mode for script discovery, auto, name or none
     ///
-    /// This is used to order scripts when an argument contains many scripts.
+    /// This is used to order scripts when a path is a directory, or many paths are provided.
     ///
     /// `auto` will sort by versions or sequence numbers.
     ///
-    /// `auto` requires all files to have the same naming scheme.
+    /// `auto` requires all files to have the same naming scheme, either flyway-style or leading sequence numbers.
     ///
     /// `name` will sort lexically by name.
     #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
@@ -116,6 +116,44 @@ struct ProvidedConnectionSettings {
     port: u16,
 }
 
+#[derive(Parser)]
+struct Trace {
+    #[command(flatten)]
+    opts: LintOptions,
+    /// Disable creation of temporary postgres server for tracing
+    ///
+    /// By default, trace will create a postgres server in a temporary directory
+    ///
+    /// This relies on having `initdb` and `pg_ctl` in PATH, which eugene images have.
+    ///
+    /// Eugene deletes the temporary database cluster when done tracing.
+    #[arg(long = "disable-temporary", default_value_t = false)]
+    disable_temp_postgres: bool,
+    /// Portgres options to pass to the temporary postgres server
+    ///
+    /// Example: `eugene trace -o "-c fsync=off -c log_statement=all"`
+    #[arg(short = 'o', long = "postgres-options", default_value = "")]
+    postgres_options: String,
+
+    /// Initdb options to pass when creating the temporary postgres server
+    ///
+    /// Example: `eugene trace --initdb "--encoding=UTF8"`
+    ///
+    /// Supply it more than once to add multiple options.
+    #[arg(long = "initdb")]
+    initdb_options: Vec<String>,
+    #[command(flatten)]
+    connection_settings: ProvidedConnectionSettings,
+    /// Commit at the end of the transaction.
+    ///
+    /// Commit is always enabled for the temporary server, otherwise rollback is default.
+    #[arg(short = 'c', long = "commit", default_value_t = false)]
+    commit: bool,
+    /// Show locks that are normally not in conflict with application code.
+    #[arg(short = 'e', long = "extra", default_value_t = false)]
+    extra: bool,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint SQL migration script by analyzing syntax tree
@@ -127,43 +165,12 @@ enum Commands {
     },
     /// Trace effects by running statements from SQL migration script
     ///
+    /// `eugene trace` will set up a temporary postgres server to run against, unless disabled.
+    ///
     /// Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
     ///
     /// `eugene trace` exits with failure if any problems are detected.
-    Trace {
-        #[command(flatten)]
-        opts: LintOptions,
-        /// Disable creation of temporary postgres server for tracing
-        ///
-        /// By default, trace will create a postgres server in a temporary directory
-        ///
-        /// This relies on having `initdb` and `pg_ctl` in PATH, which eugene images have.
-        ///
-        /// Eugene deletes the temporary database cluster when done tracing.
-        #[arg(long = "disable-temporary", default_value_t = true)]
-        temporary_postgres: bool,
-        /// Portgres options to pass to the temporary postgres server
-        ///
-        /// Example: `eugene trace -o "-c fsync=off -c log_statement=all"`
-        #[arg(short = 'o', long = "postgres-options", default_value = "")]
-        postgres_options: String,
-
-        /// Initdb options to pass when creating the temporary postgres server
-        ///
-        /// Example: `eugene trace --initdb "--encoding=UTF8"`
-        ///
-        /// Supply it more than once to add multiple options.
-        #[arg(long = "initdb")]
-        initdb_options: Vec<String>,
-        #[command(flatten)]
-        connection_settings: ProvidedConnectionSettings,
-        /// Commit at the end of the transaction. Roll back by default.
-        #[arg(short = 'c', long = "commit", default_value_t = false)]
-        commit: bool,
-        /// Show locks that are normally not in conflict with application code.
-        #[arg(short = 'e', long = "extra", default_value_t = false)]
-        extra: bool,
-    },
+    Trace(Trace),
     /// List postgres lock modes
     Modes {
         /// Output format, json
@@ -195,10 +202,10 @@ enum Commands {
     },
 }
 
-impl TryFrom<ProvidedConnectionSettings> for ClientSource {
+impl TryFrom<&ProvidedConnectionSettings> for ClientSource {
     type Error = anyhow::Error;
 
-    fn try_from(value: ProvidedConnectionSettings) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &ProvidedConnectionSettings) -> std::result::Result<Self, Self::Error> {
         let password = if let Ok(password) = std::env::var("PGPASS") {
             password
         } else {
@@ -208,20 +215,13 @@ impl TryFrom<ProvidedConnectionSettings> for ClientSource {
                 .to_string()
         };
         Ok(ClientSource::new(
-            value.user,
-            value.database,
-            value.host,
+            value.user.clone(),
+            value.database.clone(),
+            value.host.clone(),
             value.port,
             password,
         ))
     }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-struct TraceConfiguration {
-    trace_format: TraceFormat,
-    extra_lock_info: bool,
-    skip_summary: bool,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -256,6 +256,21 @@ impl TryFrom<&str> for TraceFormat {
 enum GetClient {
     TempDb(TempServer),
     Connect(ClientSource),
+}
+
+impl TryFrom<&Trace> for GetClient {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Trace) -> std::result::Result<Self, Self::Error> {
+        if value.disable_temp_postgres {
+            Ok(GetClient::Connect((&value.connection_settings).try_into()?))
+        } else {
+            Ok(GetClient::TempDb(TempServer::new(
+                &value.postgres_options,
+                &value.initdb_options,
+            )?))
+        }
+    }
 }
 
 impl WithClient for GetClient {
@@ -310,34 +325,18 @@ pub fn main() -> Result<()> {
                 Ok(())
             }
         }
-        Some(Commands::Trace {
-            opts,
-            connection_settings,
-            commit,
-            extra,
-            temporary_postgres,
-            postgres_options,
-            initdb_options,
-        }) => {
-            let commit = commit || temporary_postgres;
-            let config = TraceConfiguration {
-                trace_format: opts.format()?,
-                extra_lock_info: extra,
-                skip_summary: opts.skip_summary,
-            };
-            let mut client_source = if temporary_postgres {
-                GetClient::TempDb(TempServer::new(postgres_options.as_str(), &initdb_options)?)
-            } else {
-                GetClient::Connect(connection_settings.try_into()?)
-            };
+        Some(Commands::Trace(trace_opts)) => {
+            let commit = trace_opts.commit || !trace_opts.disable_temp_postgres;
+            let format = trace_opts.opts.format()?;
+            let mut client_source: GetClient = (&trace_opts).try_into()?;
 
             let mut failed = false;
-            let placeholders = opts.placeholders()?;
+            let placeholders = trace_opts.opts.placeholders()?;
 
             let script_source = script_discovery::discover_all(
-                &opts.paths,
+                &trace_opts.opts.paths,
                 script_filters::skip_downgrade_and_repeatable,
-                opts.sort_mode()?,
+                trace_opts.opts.sort_mode()?,
             )?;
             if !commit && script_source.len() > 1 {
                 return Err(anyhow!(
@@ -345,7 +344,7 @@ pub fn main() -> Result<()> {
                     script_source.len()
                 ));
             }
-            let ignored = opts.ignored_hints();
+            let ignored = trace_opts.opts.ignored_hints();
             for read_from in script_source {
                 let sql = read_from.read()?;
                 let sql = resolve_placeholders(&sql, &placeholders)?;
@@ -355,10 +354,10 @@ pub fn main() -> Result<()> {
                     .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 let full_trace = output::full_trace_data(
                     &trace,
-                    output::Settings::new(!config.extra_lock_info, config.skip_summary),
+                    output::Settings::new(!trace_opts.extra, trace_opts.opts.skip_summary),
                 );
                 failed = failed || !trace.success();
-                let report = match config.trace_format {
+                let report = match format {
                     TraceFormat::Json => full_trace.to_pretty_json(),
                     TraceFormat::Plain => full_trace.to_plain_text(),
                     TraceFormat::Markdown => full_trace.to_markdown(),
@@ -368,7 +367,7 @@ pub fn main() -> Result<()> {
                 }
             }
 
-            if failed && !opts.accept_failures {
+            if failed && !trace_opts.opts.accept_failures {
                 Err(anyhow!("Trace uncovered problems"))
             } else {
                 Ok(())

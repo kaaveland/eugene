@@ -1,5 +1,7 @@
 Trace effects by running statements from SQL migration script
 
+`eugene trace` will set up a temporary postgres server to run against, unless disabled.
+
 Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
 
 `eugene trace` exits with failure if any problems are detected.
@@ -43,11 +45,11 @@ Options:
       --sort-mode <SORT_MODE>
           Sort mode for script discovery, auto, name or none
           
-          This is used to order scripts when an argument contains many scripts.
+          This is used to order scripts when a path is a directory, or many paths are provided.
           
           `auto` will sort by versions or sequence numbers.
           
-          `auto` requires all files to have the same naming scheme.
+          `auto` requires all files to have the same naming scheme, either flyway-style or leading sequence numbers.
           
           `name` will sort lexically by name.
           
@@ -101,7 +103,9 @@ Options:
           [default: 5432]
 
   -c, --commit
-          Commit at the end of the transaction. Roll back by default
+          Commit at the end of the transaction.
+          
+          Commit is always enabled for the temporary server, otherwise rollback is default.
 
   -e, --extra
           Show locks that are normally not in conflict with application code

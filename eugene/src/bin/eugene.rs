@@ -36,58 +36,64 @@ struct Eugene {
     command: Option<Commands>,
 }
 
+#[derive(Parser)]
+struct LintOptions {
+    /// Path to SQL migration scripts, directories, or '-' to read from stdin
+    #[arg(name = "paths")]
+    paths: Vec<String>,
+    /// Provide name=value for replacing ${name} with value in the SQL script
+    ///
+    /// Can be used multiple times to provide more placeholders.
+    #[arg(short = 'v', long = "var")]
+    placeholders: Vec<String>,
+    /// Ignore the hints with these IDs, use `eugene hints` to see available hints
+    ///
+    /// Can be used multiple times.
+    ///
+    /// Example: `eugene lint -i E3 -i E4`
+    ///
+    /// Or comment your SQL statement like this:
+    ///
+    /// `-- eugene-ignore: E3, E4`
+    ///
+    /// alter table foo add column bar json;
+    ///
+    /// This will ignore hints E3 and E4 for this statement only.
+    #[arg(short = 'i', long = "ignore")]
+    ignored_hints: Vec<String>,
+    /// Output format, plain, json or markdown
+    #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
+    format: String,
+    /// Exit successfully even if problems are detected.
+    ///
+    /// Will still fail for errors in the SQL script.
+    #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
+    accept_failures: bool,
+
+    /// Sort mode for script discovery, auto, name or none
+    ///
+    /// This is used to order scripts when an argument contains many scripts.
+    ///
+    /// `auto` will sort by versions or sequence numbers.
+    ///
+    /// `auto` requires all files to have the same naming scheme.
+    ///
+    /// `name` will sort lexically by name.
+    #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
+    sort_mode: String,
+    /// Skip the summary section for markdown output
+    #[arg(short = 's', long = "skip-summary", default_value_t = false)]
+    skip_summary: bool,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint SQL migration script by analyzing syntax tree
     ///
     /// `eugene lint` exits with failure if any lint is detected.
     Lint {
-        /// Path to SQL migration scripts, directories, or '-' to read from stdin
-        #[arg(name = "paths")]
-        paths: Vec<String>,
-        /// Provide name=value for replacing ${name} with value in the SQL script
-        ///
-        /// Can be used multiple times to provide more placeholders.
-        #[arg(short = 'v', long = "var")]
-        placeholders: Vec<String>,
-        /// Ignore the hints with these IDs, use `eugene hints` to see available hints
-        ///
-        /// Can be used multiple times.
-        ///
-        /// Example: `eugene lint -i E3 -i E4`
-        ///
-        /// Or comment your SQL statement like this:
-        ///
-        /// `-- eugene-ignore: E3, E4`
-        ///
-        /// alter table foo add column bar json;
-        ///
-        /// This will ignore hints E3 and E4 for this statement only.
-        #[arg(short = 'i', long = "ignore")]
-        ignored_hints: Vec<String>,
-        /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
-        format: String,
-        /// Exit successfully even if problems are detected.
-        ///
-        /// Will still fail for errors in the SQL script.
-        #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
-        accept_failures: bool,
-
-        /// Sort mode for script discovery, auto, name or none
-        ///
-        /// This is used to order scripts when an argument contains many scripts.
-        ///
-        /// `auto` will sort by versions or sequence numbers.
-        ///
-        /// `auto` requires all files to have the same naming scheme.
-        ///
-        /// `name` will sort lexically by name.
-        #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
-        sort_mode: String,
-        /// Skip the summary section for markdown output
-        #[arg(short = 's', long = "skip-summary", default_value_t = false)]
-        skip_summary: bool,
+        #[command(flatten)]
+        opts: LintOptions,
     },
     /// Trace effects by running statements from SQL migration script
     ///
@@ -95,17 +101,11 @@ enum Commands {
     ///
     /// `eugene trace` exits with failure if any problems are detected.
     Trace {
-        /// Path to SQL migration script, directories, or '-' to read from stdin
-        #[arg(name = "paths")]
-        paths: Vec<String>,
+        #[command(flatten)]
+        opts: LintOptions,
         /// Commit at the end of the transaction. Roll back by default.
         #[arg(short = 'c', long = "commit", default_value_t = false)]
         commit: bool,
-        /// Provide name=value for replacing ${name} with value in the SQL script
-        ///
-        /// Can be used multiple times to provide more placeholders.
-        #[arg(short = 'v', long = "var")]
-        placeholders: Vec<String>,
         /// Username to use for connecting to postgres
         #[arg(short = 'U', long = "user", default_value = "postgres")]
         user: String,
@@ -122,44 +122,6 @@ enum Commands {
         /// Show locks that are normally not in conflict with application code.
         #[arg(short = 'e', long = "extra", default_value_t = false)]
         extra: bool,
-        /// Skip the summary section for markdown output
-        #[arg(short = 's', long = "skip-summary", default_value_t = false)]
-        skip_summary: bool,
-        /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
-        format: String,
-        /// Ignore the hints with these IDs, use `eugene hints` to see available hints
-        ///
-        /// Can be used multiple times.
-        ///
-        /// Example: `eugene trace -i E3 -i E4`
-        ///
-        /// Or comment your SQL statement like this to ignore for a single statement:
-        ///
-        /// -- eugene: ignore E4
-        ///
-        /// alter table foo add column bar json;
-        ///
-        /// Use `-- eugene: ignore` to ignore all hints for a statement.
-        #[arg(short = 'i', long = "ignore")]
-        ignored_hints: Vec<String>,
-        /// Exit successfully even if problems are detected
-        ///
-        /// Will still fail for invalid SQL or connection problems.
-        #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
-        accept_failures: bool,
-        /// Sort mode for script discovery, auto, name or none
-        ///
-        /// This is used to order scripts when an argument contains many scripts.
-        ///
-        /// `auto` will sort by versions or sequence numbers.
-        ///
-        /// `auto` requires all files to have the same naming scheme.
-        ///
-        /// `name` will sort lexically by name.
-        #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
-        sort_mode: String,
-
         /// Disable creation of temporary postgres server for tracing
         ///
         /// By default, trace will create a postgres server in a temporary directory
@@ -311,13 +273,16 @@ pub fn main() -> Result<()> {
     let args = Eugene::parse();
     match args.command {
         Some(Commands::Lint {
-            paths,
-            placeholders,
-            ignored_hints,
-            format,
-            accept_failures: exit_success,
-            sort_mode,
-            skip_summary,
+            opts:
+                LintOptions {
+                    paths,
+                    placeholders,
+                    ignored_hints,
+                    format,
+                    accept_failures: exit_success,
+                    sort_mode,
+                    skip_summary,
+                },
         }) => {
             let placeholders = parse_placeholders(&placeholders)?;
             let format: TraceFormat = format.try_into()?;
@@ -356,19 +321,22 @@ pub fn main() -> Result<()> {
             }
         }
         Some(Commands::Trace {
+            opts:
+                LintOptions {
+                    paths,
+                    placeholders,
+                    ignored_hints,
+                    format,
+                    accept_failures: exit_success,
+                    sort_mode,
+                    skip_summary,
+                },
             user,
             database,
             host,
             port,
-            placeholders,
             commit,
-            paths,
             extra,
-            skip_summary,
-            format,
-            ignored_hints,
-            accept_failures: exit_success,
-            sort_mode,
             temporary_postgres,
             postgres_options,
             initdb_options,

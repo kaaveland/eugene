@@ -48,9 +48,7 @@ struct LintOptions {
     placeholders: Vec<String>,
     /// Ignore the hints with these IDs, use `eugene hints` to see available hints
     ///
-    /// Can be used multiple times.
-    ///
-    /// Example: `eugene lint -i E3 -i E4`
+    /// Can be used multiple times: `-i E3 -i E4`
     ///
     /// Or comment your SQL statement like this:
     ///
@@ -66,7 +64,7 @@ struct LintOptions {
     format: String,
     /// Exit successfully even if problems are detected.
     ///
-    /// Will still fail for errors in the SQL script.
+    /// Will still fail for syntax errors in the SQL script.
     #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
     accept_failures: bool,
 
@@ -86,6 +84,22 @@ struct LintOptions {
     skip_summary: bool,
 }
 
+#[derive(Parser)]
+struct ProvidedConnectionSettings {
+    /// Username to use for connecting to postgres
+    #[arg(short = 'U', long = "user", default_value = "postgres")]
+    user: String,
+    /// Database to connect to.
+    #[arg(short = 'd', long = "database", default_value = "postgres")]
+    database: String,
+    /// Host to connect to.
+    #[arg(short = 'H', long = "host", default_value = "localhost")]
+    host: String,
+    /// Port to connect to.
+    #[arg(short = 'p', long = "port", default_value = "5432")]
+    port: u16,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint SQL migration script by analyzing syntax tree
@@ -103,25 +117,6 @@ enum Commands {
     Trace {
         #[command(flatten)]
         opts: LintOptions,
-        /// Commit at the end of the transaction. Roll back by default.
-        #[arg(short = 'c', long = "commit", default_value_t = false)]
-        commit: bool,
-        /// Username to use for connecting to postgres
-        #[arg(short = 'U', long = "user", default_value = "postgres")]
-        user: String,
-        /// Database to connect to.
-        #[arg(short = 'd', long = "database", default_value = "postgres")]
-        database: String,
-        /// Host to connect to.
-        #[arg(short = 'H', long = "host", default_value = "localhost")]
-        host: String,
-        /// Port to connect to.
-        #[arg(short = 'p', long = "port", default_value = "5432")]
-        port: u16,
-
-        /// Show locks that are normally not in conflict with application code.
-        #[arg(short = 'e', long = "extra", default_value_t = false)]
-        extra: bool,
         /// Disable creation of temporary postgres server for tracing
         ///
         /// By default, trace will create a postgres server in a temporary directory
@@ -131,7 +126,6 @@ enum Commands {
         /// Eugene deletes the temporary database cluster when done tracing.
         #[arg(long = "disable-temporary", default_value_t = true)]
         temporary_postgres: bool,
-
         /// Portgres options to pass to the temporary postgres server
         ///
         /// Example: `eugene trace -o "-c fsync=off -c log_statement=all"`
@@ -145,6 +139,14 @@ enum Commands {
         /// Supply it more than once to add multiple options.
         #[arg(long = "initdb")]
         initdb_options: Vec<String>,
+        #[command(flatten)]
+        connection_settings: ProvidedConnectionSettings,
+        /// Commit at the end of the transaction. Roll back by default.
+        #[arg(short = 'c', long = "commit", default_value_t = false)]
+        commit: bool,
+        /// Show locks that are normally not in conflict with application code.
+        #[arg(short = 'e', long = "extra", default_value_t = false)]
+        extra: bool,
     },
     /// List postgres lock modes
     Modes {
@@ -175,24 +177,6 @@ enum Commands {
         #[arg(short, long, default_value = "bash", value_parser=clap::builder::PossibleValuesParser::new(["bash", "zsh", "fish", "pwsh", "powershell"]))]
         shell: String,
     },
-}
-
-struct ProvidedConnectionSettings {
-    user: String,
-    database: String,
-    host: String,
-    port: u16,
-}
-
-impl ProvidedConnectionSettings {
-    fn new(user: String, database: String, host: String, port: u16) -> Self {
-        ProvidedConnectionSettings {
-            user,
-            database,
-            host,
-            port,
-        }
-    }
 }
 
 impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
@@ -331,10 +315,7 @@ pub fn main() -> Result<()> {
                     sort_mode,
                     skip_summary,
                 },
-            user,
-            database,
-            host,
-            port,
+            connection_settings,
             commit,
             extra,
             temporary_postgres,
@@ -348,11 +329,10 @@ pub fn main() -> Result<()> {
                 skip_summary,
                 ignored_hints,
             };
-            let provided = ProvidedConnectionSettings::new(user, database, host, port);
             let mut client_source = if temporary_postgres {
                 ClientSource::TempDb(TempServer::new(postgres_options.as_str(), &initdb_options)?)
             } else {
-                ClientSource::Connect(provided.try_into()?)
+                ClientSource::Connect(connection_settings.try_into()?)
             };
 
             let mut failed = false;

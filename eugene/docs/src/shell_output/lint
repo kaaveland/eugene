@@ -17,9 +17,7 @@ Options:
   -i, --ignore <IGNORED_HINTS>
           Ignore the hints with these IDs, use `eugene hints` to see available hints
           
-          Can be used multiple times.
-          
-          Example: `eugene lint -i E3 -i E4`
+          Can be used multiple times: `-i E3 -i E4`
           
           Or comment your SQL statement like this:
           

@@ -3,7 +3,7 @@ use std::process::{Child, Command};
 use std::sync::mpsc::channel;
 use std::thread::{spawn, JoinHandle};
 
-use crate::{ConnectionSettings, WithClient};
+use crate::{ClientSource, WithClient};
 use anyhow::{anyhow, Context, Result};
 use log::{debug, error, info, warn};
 use postgres::Client;
@@ -14,7 +14,7 @@ pub struct TempServer {
     child: Child,
     reader: Option<JoinHandle<()>>,
     logger: Option<JoinHandle<()>>,
-    connection_settings: ConnectionSettings,
+    connection_settings: ClientSource,
 }
 
 impl TempServer {
@@ -105,7 +105,7 @@ impl TempServer {
             child,
             reader: Some(reader),
             logger: Some(logger),
-            connection_settings: ConnectionSettings::new(
+            connection_settings: ClientSource::new(
                 "postgres".to_string(),
                 "postgres".to_string(),
                 "localhost".to_string(),

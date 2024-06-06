@@ -5,16 +5,17 @@ use clap_complete::Shell::{Bash, Elvish, Fish, PowerShell, Zsh};
 use itertools::Itertools;
 use postgres::Client;
 use serde::Serialize;
+use std::collections::HashMap;
 
 use eugene::output::output_format::GenericHint;
 use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
-use eugene::script_discovery::script_filters;
+use eugene::script_discovery::{script_filters, SortMode};
 use eugene::sqltext::resolve_placeholders;
 use eugene::tempserver::TempServer;
 use eugene::{
-    output, parse_placeholders, perform_trace, script_discovery, ConnectionSettings, TraceSettings,
+    output, parse_placeholders, perform_trace, script_discovery, ClientSource, TraceSettings,
     WithClient,
 };
 
@@ -82,6 +83,21 @@ struct LintOptions {
     /// Skip the summary section for markdown output
     #[arg(short = 's', long = "skip-summary", default_value_t = false)]
     skip_summary: bool,
+}
+
+impl LintOptions {
+    fn placeholders(&self) -> Result<HashMap<&str, &str>> {
+        parse_placeholders(&self.placeholders)
+    }
+    fn format(&self) -> Result<TraceFormat> {
+        self.format.as_str().try_into()
+    }
+    fn ignored_hints(&self) -> Vec<&str> {
+        self.ignored_hints.iter().map(|s| s.as_str()).collect_vec()
+    }
+    fn sort_mode(&self) -> Result<SortMode> {
+        self.sort_mode.as_str().try_into()
+    }
 }
 
 #[derive(Parser)]
@@ -179,7 +195,7 @@ enum Commands {
     },
 }
 
-impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
+impl TryFrom<ProvidedConnectionSettings> for ClientSource {
     type Error = anyhow::Error;
 
     fn try_from(value: ProvidedConnectionSettings) -> std::result::Result<Self, Self::Error> {
@@ -191,7 +207,7 @@ impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
                 .context("No password found, provide PGPASS as environment variable or set up pgpassfile: https://www.postgresql.org/docs/current/libpq-pgpass.html")?
                 .to_string()
         };
-        Ok(ConnectionSettings::new(
+        Ok(ClientSource::new(
             value.user,
             value.database,
             value.host,
@@ -206,10 +222,9 @@ struct TraceConfiguration {
     trace_format: TraceFormat,
     extra_lock_info: bool,
     skip_summary: bool,
-    ignored_hints: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum TraceFormat {
     Json,
     Plain,
@@ -221,11 +236,11 @@ pub struct HintContainer {
     hints: Vec<GenericHint>,
 }
 
-impl TryFrom<String> for TraceFormat {
+impl TryFrom<&str> for TraceFormat {
     type Error = anyhow::Error;
 
-    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
-        match value.as_str() {
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
             "json" => Ok(TraceFormat::Json),
             "plain" => Ok(TraceFormat::Plain),
             "md" | "markdown" => Ok(TraceFormat::Markdown),
@@ -238,16 +253,16 @@ impl TryFrom<String> for TraceFormat {
     }
 }
 
-enum ClientSource {
+enum GetClient {
     TempDb(TempServer),
-    Connect(ConnectionSettings),
+    Connect(ClientSource),
 }
 
-impl WithClient for ClientSource {
+impl WithClient for GetClient {
     fn with_client<T>(&mut self, f: impl FnOnce(&mut Client) -> Result<T>) -> Result<T> {
         match self {
-            ClientSource::TempDb(temp) => temp.with_client(f),
-            ClientSource::Connect(settings) => settings.with_client(f),
+            GetClient::TempDb(temp) => temp.with_client(f),
+            GetClient::Connect(settings) => settings.with_client(f),
         }
     }
 }
@@ -256,32 +271,23 @@ pub fn main() -> Result<()> {
     env_logger::init();
     let args = Eugene::parse();
     match args.command {
-        Some(Commands::Lint {
-            opts:
-                LintOptions {
-                    paths,
-                    placeholders,
-                    ignored_hints,
-                    format,
-                    accept_failures: exit_success,
-                    sort_mode,
-                    skip_summary,
-                },
-        }) => {
-            let placeholders = parse_placeholders(&placeholders)?;
-            let format: TraceFormat = format.try_into()?;
+        Some(Commands::Lint { opts }) => {
+            let placeholders = opts.placeholders()?;
+            let format: TraceFormat = opts.format()?;
             let mut failed = false;
-            for read_from in
-                script_discovery::discover_all(paths, script_filters::never, sort_mode.try_into()?)?
-            {
+            for read_from in script_discovery::discover_all(
+                &opts.paths,
+                script_filters::never,
+                opts.sort_mode()?,
+            )? {
                 let sql = read_from.read()?;
                 let name = read_from.name();
                 let sql = resolve_placeholders(&sql, &placeholders)?;
                 let report = eugene::lints::lint(
                     Some(name.to_string()),
                     sql,
-                    &ignored_hints.iter().map(|s| s.as_str()).collect_vec(),
-                    skip_summary,
+                    &opts.ignored_hints(),
+                    opts.skip_summary,
                 )?;
                 failed = failed
                     || report
@@ -298,23 +304,14 @@ pub fn main() -> Result<()> {
                 }
             }
 
-            if failed && !exit_success {
+            if failed && !opts.accept_failures {
                 Err(anyhow!("Lint detected"))
             } else {
                 Ok(())
             }
         }
         Some(Commands::Trace {
-            opts:
-                LintOptions {
-                    paths,
-                    placeholders,
-                    ignored_hints,
-                    format,
-                    accept_failures: exit_success,
-                    sort_mode,
-                    skip_summary,
-                },
+            opts,
             connection_settings,
             commit,
             extra,
@@ -324,29 +321,23 @@ pub fn main() -> Result<()> {
         }) => {
             let commit = commit || temporary_postgres;
             let config = TraceConfiguration {
-                trace_format: format.try_into()?,
+                trace_format: opts.format()?,
                 extra_lock_info: extra,
-                skip_summary,
-                ignored_hints,
+                skip_summary: opts.skip_summary,
             };
             let mut client_source = if temporary_postgres {
-                ClientSource::TempDb(TempServer::new(postgres_options.as_str(), &initdb_options)?)
+                GetClient::TempDb(TempServer::new(postgres_options.as_str(), &initdb_options)?)
             } else {
-                ClientSource::Connect(connection_settings.try_into()?)
+                GetClient::Connect(connection_settings.try_into()?)
             };
 
             let mut failed = false;
-            let placeholders = parse_placeholders(&placeholders)?;
-            let ignore_list = config
-                .ignored_hints
-                .iter()
-                .map(|s| s.as_str())
-                .collect_vec();
+            let placeholders = opts.placeholders()?;
 
             let script_source = script_discovery::discover_all(
-                paths,
+                &opts.paths,
                 script_filters::skip_downgrade_and_repeatable,
-                sort_mode.try_into()?,
+                opts.sort_mode()?,
             )?;
             if !commit && script_source.len() > 1 {
                 return Err(anyhow!(
@@ -354,12 +345,13 @@ pub fn main() -> Result<()> {
                     script_source.len()
                 ));
             }
+            let ignored = opts.ignored_hints();
             for read_from in script_source {
                 let sql = read_from.read()?;
                 let sql = resolve_placeholders(&sql, &placeholders)?;
                 let name = read_from.name();
                 let trace_settings = TraceSettings::new(name.to_string(), &sql, commit);
-                let trace = perform_trace(&trace_settings, &mut client_source, &ignore_list)
+                let trace = perform_trace(&trace_settings, &mut client_source, &ignored)
                     .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 let full_trace = output::full_trace_data(
                     &trace,
@@ -376,17 +368,15 @@ pub fn main() -> Result<()> {
                 }
             }
 
-            if failed || !exit_success {
+            if failed && !opts.accept_failures {
                 Err(anyhow!("Trace uncovered problems"))
             } else {
                 Ok(())
             }
         }
         Some(Commands::Modes { .. }) | None => {
-            let lock_modes: Vec<_> = lock_modes::LOCK_MODES
-                .iter()
-                .map(TerseLockMode::from)
-                .collect();
+            let lock_modes: Vec<TerseLockMode> =
+                lock_modes::LOCK_MODES.iter().map(|m| m.into()).collect();
             let wrapper = LockModesWrapper::new(lock_modes);
             println!("{}", serde_json::to_string_pretty(&wrapper)?);
             Ok(())

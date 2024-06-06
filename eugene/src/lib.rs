@@ -52,7 +52,7 @@ mod render_doc_snapshots;
 pub mod tempserver;
 
 /// Connection settings for connecting to a PostgreSQL database.
-pub struct ConnectionSettings {
+pub struct ClientSource {
     user: String,
     database: String,
     host: String,
@@ -61,7 +61,7 @@ pub struct ConnectionSettings {
     client: Option<Client>,
 }
 
-impl ConnectionSettings {
+impl ClientSource {
     pub fn connection_string(&self) -> String {
         let out = format!(
             "host={} user={} dbname={} port={} password={}",
@@ -70,7 +70,7 @@ impl ConnectionSettings {
         out
     }
     pub fn new(user: String, database: String, host: String, port: u16, password: String) -> Self {
-        ConnectionSettings {
+        ClientSource {
             user,
             database,
             host,
@@ -106,7 +106,7 @@ pub trait WithClient {
     }
 }
 
-impl WithClient for ConnectionSettings {
+impl WithClient for ClientSource {
     fn with_client<T>(
         &mut self,
         f: impl FnOnce(&mut Client) -> anyhow::Result<T>,

@@ -14,9 +14,7 @@ use serde::Serialize;
 use crate::lints::lint;
 use crate::output::{full_trace_data, GenericHint, Settings};
 use crate::script_discovery::{discover_scripts, script_filters, SortMode};
-use crate::{
-    generate_new_test_db, hint_data, output, perform_trace, ConnectionSettings, TraceSettings,
-};
+use crate::{generate_new_test_db, hint_data, output, perform_trace, ClientSource, TraceSettings};
 
 static DEFAULT_SETTINGS: Lazy<Settings> = Lazy::new(|| Settings::new(true, true));
 static HBARS: Lazy<Handlebars> = Lazy::new(|| {
@@ -95,7 +93,7 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Resu
     let example_path = format!("examples/{}/{}", id, subfolder);
     let mut reports = vec![];
     let db = generate_new_test_db();
-    let mut connection_settings = ConnectionSettings::new(
+    let mut connection_settings = ClientSource::new(
         "postgres".to_string(),
         db.clone(),
         "localhost".to_string(),

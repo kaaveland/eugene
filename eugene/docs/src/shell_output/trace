@@ -38,7 +38,7 @@ Options:
   -a, --accept-failures
           Exit successfully even if problems are detected.
           
-          Will still fail for errors in the SQL script.
+          Will still fail for syntax errors in the SQL script.
 
       --sort-mode <SORT_MODE>
           Sort mode for script discovery, auto, name or none

@@ -18,8 +18,8 @@ async fn main() {
 
     let app = Router::new()
         .nest("/eugene/app", webapp::routes())
+        .layer(RequestBodyLimitLayer::new(1024 * 100))
         .layer(ServiceBuilder::new().layer(logger).into_inner())
-        .layer(RequestBodyLimitLayer::new(1024 * 50))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)

@@ -12,7 +12,9 @@ in the text area below. When you click the "Check" button, Eugene
 will analyze the scripts and let you know if it found any issues.
 
 <div class="demo-area">
-<form hx-post="/eugene/app/lint.html" hx-target="#output">
+<form hx-post="/eugene/app/lint.html" 
+      hx-target="#output"
+      hx-on-htmx-response-error="check_for_413(event);">
 <input type="hidden" name="sql" id="sql-input" value="">
 <div id="sql" class="sql-playground">
 -- You can use file markers like this to break migrations
@@ -46,10 +48,22 @@ editor.resize();
 document.getElementById('sql-input').value = editor.getValue();
 editor.session.on('change', function() {
   document.getElementById('sql-input').value = editor.getValue();
+  document.getElementById('hx-errors').innerHTML = '';
 });
+function check_for_413(event) {
+  var statusText = event.detail.xhr.statusText;
+  if (event.detail.xhr.status === 413) {
+    document.getElementById('hx-errors').innerHTML = 
+      '<div class="warning"><p>' + statusText + '</p><p>The SQL script is too large. Please try a smaller script.</p></div>';  
+  } else {
+    document.getElementById('hx-errors').innerHTML = 
+      '<div class="warning"><p>' + statusText + '</p><p>Unable to lint script.</p></div>';
+  }
+}
 </script>
 <button class="float-right button-cta" id="submit">Check</button>
 </form>
+<div id="hx-errors"></div>
 <div id="output"></div>
 </div>
 

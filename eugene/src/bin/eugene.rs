@@ -301,7 +301,7 @@ pub fn main() -> Result<()> {
                     &opts.ignored_hints(),
                     opts.skip_summary,
                 )
-                .map_err(|err| anyhow!("Error linting {}: {err}", script.name.as_str()))?;
+                .map_err(|err| anyhow!("Error checking {}: {err}", script.name.as_str()))?;
                 failed = failed
                     || report
                         .statements
@@ -318,7 +318,7 @@ pub fn main() -> Result<()> {
             }
 
             if failed && !opts.accept_failures {
-                Err(anyhow!("Lint detected"))
+                Err(anyhow!("Some checks failed"))
             } else {
                 Ok(())
             }
@@ -364,7 +364,7 @@ pub fn main() -> Result<()> {
             }
 
             if failed && !trace_opts.opts.accept_failures {
-                Err(anyhow!("Trace uncovered problems"))
+                Err(anyhow!("Some checks failed"))
             } else {
                 Ok(())
             }

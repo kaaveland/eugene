@@ -142,7 +142,7 @@ pub fn lint<S: AsRef<str>>(
                     });
                     ctx.update_from(&summary);
                     no += 1;
-                    line_number += stmt.lines().count();
+                    line_number += stmt.chars().filter(|&c| c == '\n').count();
                 }
             }
         }

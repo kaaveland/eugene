@@ -12,10 +12,9 @@ use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
 use eugene::script_discovery::{script_filters, SortMode};
-use eugene::sqltext::resolve_placeholders;
 use eugene::tempserver::TempServer;
 use eugene::{
-    output, parse_placeholders, perform_trace, script_discovery, ClientSource, TraceSettings,
+    output, parse_placeholders, perform_trace, read_script, script_discovery, ClientSource,
     WithClient,
 };
 
@@ -295,15 +294,14 @@ pub fn main() -> Result<()> {
                 script_filters::never,
                 opts.sort_mode()?,
             )? {
-                let sql = read_from.read()?;
-                let name = read_from.name();
-                let sql = resolve_placeholders(&sql, &placeholders)?;
+                let script = read_script(&read_from, &placeholders)?;
                 let report = eugene::lints::lint(
-                    Some(name.to_string()),
-                    sql,
+                    Some(script.name.clone()),
+                    script.sql,
                     &opts.ignored_hints(),
                     opts.skip_summary,
-                )?;
+                )
+                .map_err(|err| anyhow!("Error linting {}: {err}", script.name.as_str()))?;
                 failed = failed
                     || report
                         .statements
@@ -346,11 +344,9 @@ pub fn main() -> Result<()> {
             }
             let ignored = trace_opts.opts.ignored_hints();
             for read_from in script_source {
-                let sql = read_from.read()?;
-                let sql = resolve_placeholders(&sql, &placeholders)?;
-                let name = read_from.name();
-                let trace_settings = TraceSettings::new(name.to_string(), &sql, commit);
-                let trace = perform_trace(&trace_settings, &mut client_source, &ignored)
+                let script = read_script(&read_from, &placeholders)?;
+                let name = script.name.as_str();
+                let trace = perform_trace(&script, &mut client_source, &ignored, commit)
                     .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 let full_trace = output::full_trace_data(
                     &trace,
@@ -400,30 +396,16 @@ pub fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Completions { shell }) => {
-            let mut com = Eugene::command();
-            match shell.as_str() {
-                "bash" => {
-                    generate(Bash, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "zsh" => {
-                    generate(Zsh, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "fish" => {
-                    generate(Fish, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "powershell" | "pwsh" => {
-                    generate(PowerShell, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "elvish" => {
-                    generate(Elvish, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
+            let sh = match shell.as_str() {
+                "bash" => Ok(Bash),
+                "zsh" => Ok(Zsh),
+                "fish" => Ok(Fish),
+                "pwsh" | "powershell" => Ok(PowerShell),
+                "elvish" => Ok(Elvish),
                 _ => Err(anyhow!("Unsupported shell: {shell}")),
             }?;
+            let mut com = Eugene::command();
+            generate(sh, &mut com, "eugene", &mut std::io::stdout());
             Ok(())
         }
     }

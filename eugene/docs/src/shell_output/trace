@@ -1,5 +1,7 @@
 Trace effects by running statements from SQL migration script
 
+`eugene trace` will set up a temporary postgres server to run against, unless disabled.
+
 Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
 
 `eugene trace` exits with failure if any problems are detected.
@@ -8,42 +10,26 @@ Usage: eugene trace [OPTIONS] [paths]...
 
 Arguments:
   [paths]...
-          Path to SQL migration script, directories, or '-' to read from stdin
+          Path to SQL migration scripts, directories, or '-' to read from stdin
 
 Options:
-  -c, --commit
-          Commit at the end of the transaction. Roll back by default
-
   -v, --var <PLACEHOLDERS>
           Provide name=value for replacing ${name} with value in the SQL script
           
           Can be used multiple times to provide more placeholders.
 
-  -U, --user <USER>
-          Username to use for connecting to postgres
+  -i, --ignore <IGNORED_HINTS>
+          Ignore the hints with these IDs, use `eugene hints` to see available hints
           
-          [default: postgres]
-
-  -d, --database <DATABASE>
-          Database to connect to
+          Can be used multiple times: `-i E3 -i E4`
           
-          [default: postgres]
-
-  -H, --host <HOST>
-          Host to connect to
+          Or comment your SQL statement like this:
           
-          [default: localhost]
-
-  -p, --port <PORT>
-          Port to connect to
+          `-- eugene-ignore: E3, E4`
           
-          [default: 5432]
-
-  -e, --extra
-          Show locks that are normally not in conflict with application code
-
-  -s, --skip-summary
-          Skip the summary section for markdown output
+          alter table foo add column bar json;
+          
+          This will ignore hints E3 and E4 for this statement only.
 
   -f, --format <FORMAT>
           Output format, plain, json or markdown
@@ -51,39 +37,27 @@ Options:
           [default: plain]
           [possible values: json, markdown, md, plain]
 
-  -i, --ignore <IGNORED_HINTS>
-          Ignore the hints with these IDs, use `eugene hints` to see available hints
-          
-          Can be used multiple times.
-          
-          Example: `eugene trace -i E3 -i E4`
-          
-          Or comment your SQL statement like this to ignore for a single statement:
-          
-          -- eugene: ignore E4
-          
-          alter table foo add column bar json;
-          
-          Use `-- eugene: ignore` to ignore all hints for a statement.
-
   -a, --accept-failures
-          Exit successfully even if problems are detected
+          Exit successfully even if problems are detected.
           
-          Will still fail for invalid SQL or connection problems.
+          Will still fail for syntax errors in the SQL script.
 
       --sort-mode <SORT_MODE>
           Sort mode for script discovery, auto, name or none
           
-          This is used to order scripts when an argument contains many scripts.
+          This is used to order scripts when a path is a directory, or many paths are provided.
           
           `auto` will sort by versions or sequence numbers.
           
-          `auto` requires all files to have the same naming scheme.
+          `auto` requires all files to have the same naming scheme, either flyway-style or leading sequence numbers.
           
           `name` will sort lexically by name.
           
           [default: auto]
           [possible values: auto, name, none]
+
+  -s, --skip-summary
+          Skip the summary section for markdown output
 
       --disable-temporary
           Disable creation of temporary postgres server for tracing
@@ -107,6 +81,34 @@ Options:
           Example: `eugene trace --initdb "--encoding=UTF8"`
           
           Supply it more than once to add multiple options.
+
+  -U, --user <USER>
+          Username to use for connecting to postgres
+          
+          [default: postgres]
+
+  -d, --database <DATABASE>
+          Database to connect to
+          
+          [default: postgres]
+
+  -H, --host <HOST>
+          Host to connect to
+          
+          [default: localhost]
+
+  -p, --port <PORT>
+          Port to connect to
+          
+          [default: 5432]
+
+  -c, --commit
+          Commit at the end of the transaction.
+          
+          Commit is always enabled for the temporary server, otherwise rollback is default.
+
+  -e, --extra
+          Show locks that are normally not in conflict with application code
 
   -h, --help
           Print help (see a summary with '-h')

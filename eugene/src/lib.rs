@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use postgres::{Client, NoTls, Transaction};
 
+use crate::script_discovery::ReadFrom;
 use tracing::trace_transaction;
 
 use crate::sqltext::sql_statements;
@@ -51,8 +52,31 @@ mod render_doc_snapshots;
 /// database instances for eugene to trace.
 pub mod tempserver;
 
+pub struct SqlScript {
+    pub name: String,
+    pub sql: String,
+}
+
+/// Read a SQL script from a source and resolve placeholders.
+///
+/// # Arguments
+///
+/// * `read_from` - A source to read the SQL script from.
+/// * `placeholders` - A map of placeholders to resolve if found in the SQL script.
+pub fn read_script(
+    read_from: &ReadFrom,
+    placeholders: &HashMap<&str, &str>,
+) -> anyhow::Result<SqlScript> {
+    let sql = read_from.read()?;
+    let sql = sqltext::resolve_placeholders(&sql, placeholders)?;
+    Ok(SqlScript {
+        name: read_from.name().to_string(),
+        sql,
+    })
+}
+
 /// Connection settings for connecting to a PostgreSQL database.
-pub struct ConnectionSettings {
+pub struct ClientSource {
     user: String,
     database: String,
     host: String,
@@ -61,7 +85,7 @@ pub struct ConnectionSettings {
     client: Option<Client>,
 }
 
-impl ConnectionSettings {
+impl ClientSource {
     pub fn connection_string(&self) -> String {
         let out = format!(
             "host={} user={} dbname={} port={} password={}",
@@ -70,7 +94,7 @@ impl ConnectionSettings {
         out
     }
     pub fn new(user: String, database: String, host: String, port: u16, password: String) -> Self {
-        ConnectionSettings {
+        ClientSource {
             user,
             database,
             host,
@@ -106,7 +130,7 @@ pub trait WithClient {
     }
 }
 
-impl WithClient for ConnectionSettings {
+impl WithClient for ClientSource {
     fn with_client<T>(
         &mut self,
         f: impl FnOnce(&mut Client) -> anyhow::Result<T>,
@@ -120,20 +144,6 @@ impl WithClient for ConnectionSettings {
         }
     }
 }
-/// Settings for tracing locks taken by SQL statements.
-pub struct TraceSettings<'a> {
-    name: String,
-    sql: &'a str,
-    commit: bool,
-}
-
-impl<'a> TraceSettings<'a> {
-    /// Create a new TraceSettings instance.
-    pub fn new(name: String, sql: &'a str, commit: bool) -> TraceSettings<'a> {
-        TraceSettings { name, sql, commit }
-    }
-}
-
 /// Parse placeholders in the form of name=value into a map.
 pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&str, &str>> {
     let mut map = HashMap::new();
@@ -150,13 +160,14 @@ pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&st
 /// Perform a lock trace of a SQL script and optionally commit the transaction, depending on
 /// trace_settings.
 pub fn perform_trace<'a, T: WithClient>(
-    trace: &TraceSettings,
+    script: &SqlScript,
     connection_settings: &mut T,
     ignored_hints: &'a [&'a str],
+    commit: bool,
 ) -> anyhow::Result<TxLockTracer<'a>> {
-    let sql_statements = sql_statements(trace.sql)?;
+    let sql_statements = sql_statements(script.sql.as_str())?;
     let all_concurrently = sql_statements.iter().all(sqltext::is_concurrently);
-    if all_concurrently && trace.commit {
+    if all_concurrently && commit {
         connection_settings.with_client(|client| {
             for s in sql_statements.iter() {
                 client.execute(*s, &[])?;
@@ -165,14 +176,14 @@ pub fn perform_trace<'a, T: WithClient>(
         })?;
 
         Ok(TxLockTracer::tracer_for_concurrently(
-            Some(trace.name.clone()),
+            Some(script.name.clone()),
             sql_statements.iter(),
             ignored_hints,
         ))
     } else {
-        connection_settings.in_transaction(trace.commit, |conn| {
+        connection_settings.in_transaction(commit, |conn| {
             trace_transaction(
-                Some(trace.name.clone()),
+                Some(script.name.clone()),
                 conn,
                 sql_statements.iter(),
                 ignored_hints,

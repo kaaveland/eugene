@@ -5,16 +5,16 @@ use clap_complete::Shell::{Bash, Elvish, Fish, PowerShell, Zsh};
 use itertools::Itertools;
 use postgres::Client;
 use serde::Serialize;
+use std::collections::HashMap;
 
 use eugene::output::output_format::GenericHint;
 use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
 use eugene::pgpass::read_pgpass_file;
-use eugene::script_discovery::script_filters;
-use eugene::sqltext::resolve_placeholders;
+use eugene::script_discovery::{script_filters, SortMode};
 use eugene::tempserver::TempServer;
 use eugene::{
-    output, parse_placeholders, perform_trace, script_discovery, ConnectionSettings, TraceSettings,
+    output, parse_placeholders, perform_trace, read_script, script_discovery, ClientSource,
     WithClient,
 };
 
@@ -36,154 +36,140 @@ struct Eugene {
     command: Option<Commands>,
 }
 
+#[derive(Parser)]
+struct LintOptions {
+    /// Path to SQL migration scripts, directories, or '-' to read from stdin
+    #[arg(name = "paths")]
+    paths: Vec<String>,
+    /// Provide name=value for replacing ${name} with value in the SQL script
+    ///
+    /// Can be used multiple times to provide more placeholders.
+    #[arg(short = 'v', long = "var")]
+    placeholders: Vec<String>,
+    /// Ignore the hints with these IDs, use `eugene hints` to see available hints
+    ///
+    /// Can be used multiple times: `-i E3 -i E4`
+    ///
+    /// Or comment your SQL statement like this:
+    ///
+    /// `-- eugene-ignore: E3, E4`
+    ///
+    /// alter table foo add column bar json;
+    ///
+    /// This will ignore hints E3 and E4 for this statement only.
+    #[arg(short = 'i', long = "ignore")]
+    ignored_hints: Vec<String>,
+    /// Output format, plain, json or markdown
+    #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
+    format: String,
+    /// Exit successfully even if problems are detected.
+    ///
+    /// Will still fail for syntax errors in the SQL script.
+    #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
+    accept_failures: bool,
+
+    /// Sort mode for script discovery, auto, name or none
+    ///
+    /// This is used to order scripts when a path is a directory, or many paths are provided.
+    ///
+    /// `auto` will sort by versions or sequence numbers.
+    ///
+    /// `auto` requires all files to have the same naming scheme, either flyway-style or leading sequence numbers.
+    ///
+    /// `name` will sort lexically by name.
+    #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
+    sort_mode: String,
+    /// Skip the summary section for markdown output
+    #[arg(short = 's', long = "skip-summary", default_value_t = false)]
+    skip_summary: bool,
+}
+
+impl LintOptions {
+    fn placeholders(&self) -> Result<HashMap<&str, &str>> {
+        parse_placeholders(&self.placeholders)
+    }
+    fn format(&self) -> Result<TraceFormat> {
+        self.format.as_str().try_into()
+    }
+    fn ignored_hints(&self) -> Vec<&str> {
+        self.ignored_hints.iter().map(|s| s.as_str()).collect_vec()
+    }
+    fn sort_mode(&self) -> Result<SortMode> {
+        self.sort_mode.as_str().try_into()
+    }
+}
+
+#[derive(Parser)]
+struct ProvidedConnectionSettings {
+    /// Username to use for connecting to postgres
+    #[arg(short = 'U', long = "user", default_value = "postgres")]
+    user: String,
+    /// Database to connect to.
+    #[arg(short = 'd', long = "database", default_value = "postgres")]
+    database: String,
+    /// Host to connect to.
+    #[arg(short = 'H', long = "host", default_value = "localhost")]
+    host: String,
+    /// Port to connect to.
+    #[arg(short = 'p', long = "port", default_value = "5432")]
+    port: u16,
+}
+
+#[derive(Parser)]
+struct Trace {
+    #[command(flatten)]
+    opts: LintOptions,
+    /// Disable creation of temporary postgres server for tracing
+    ///
+    /// By default, trace will create a postgres server in a temporary directory
+    ///
+    /// This relies on having `initdb` and `pg_ctl` in PATH, which eugene images have.
+    ///
+    /// Eugene deletes the temporary database cluster when done tracing.
+    #[arg(long = "disable-temporary", default_value_t = false)]
+    disable_temp_postgres: bool,
+    /// Portgres options to pass to the temporary postgres server
+    ///
+    /// Example: `eugene trace -o "-c fsync=off -c log_statement=all"`
+    #[arg(short = 'o', long = "postgres-options", default_value = "")]
+    postgres_options: String,
+
+    /// Initdb options to pass when creating the temporary postgres server
+    ///
+    /// Example: `eugene trace --initdb "--encoding=UTF8"`
+    ///
+    /// Supply it more than once to add multiple options.
+    #[arg(long = "initdb")]
+    initdb_options: Vec<String>,
+    #[command(flatten)]
+    connection_settings: ProvidedConnectionSettings,
+    /// Commit at the end of the transaction.
+    ///
+    /// Commit is always enabled for the temporary server, otherwise rollback is default.
+    #[arg(short = 'c', long = "commit", default_value_t = false)]
+    commit: bool,
+    /// Show locks that are normally not in conflict with application code.
+    #[arg(short = 'e', long = "extra", default_value_t = false)]
+    extra: bool,
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Lint SQL migration script by analyzing syntax tree
     ///
     /// `eugene lint` exits with failure if any lint is detected.
     Lint {
-        /// Path to SQL migration scripts, directories, or '-' to read from stdin
-        #[arg(name = "paths")]
-        paths: Vec<String>,
-        /// Provide name=value for replacing ${name} with value in the SQL script
-        ///
-        /// Can be used multiple times to provide more placeholders.
-        #[arg(short = 'v', long = "var")]
-        placeholders: Vec<String>,
-        /// Ignore the hints with these IDs, use `eugene hints` to see available hints
-        ///
-        /// Can be used multiple times.
-        ///
-        /// Example: `eugene lint -i E3 -i E4`
-        ///
-        /// Or comment your SQL statement like this:
-        ///
-        /// `-- eugene-ignore: E3, E4`
-        ///
-        /// alter table foo add column bar json;
-        ///
-        /// This will ignore hints E3 and E4 for this statement only.
-        #[arg(short = 'i', long = "ignore")]
-        ignored_hints: Vec<String>,
-        /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
-        format: String,
-        /// Exit successfully even if problems are detected.
-        ///
-        /// Will still fail for errors in the SQL script.
-        #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
-        accept_failures: bool,
-
-        /// Sort mode for script discovery, auto, name or none
-        ///
-        /// This is used to order scripts when an argument contains many scripts.
-        ///
-        /// `auto` will sort by versions or sequence numbers.
-        ///
-        /// `auto` requires all files to have the same naming scheme.
-        ///
-        /// `name` will sort lexically by name.
-        #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
-        sort_mode: String,
-        /// Skip the summary section for markdown output
-        #[arg(short = 's', long = "skip-summary", default_value_t = false)]
-        skip_summary: bool,
+        #[command(flatten)]
+        opts: LintOptions,
     },
     /// Trace effects by running statements from SQL migration script
+    ///
+    /// `eugene trace` will set up a temporary postgres server to run against, unless disabled.
     ///
     /// Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
     ///
     /// `eugene trace` exits with failure if any problems are detected.
-    Trace {
-        /// Path to SQL migration script, directories, or '-' to read from stdin
-        #[arg(name = "paths")]
-        paths: Vec<String>,
-        /// Commit at the end of the transaction. Roll back by default.
-        #[arg(short = 'c', long = "commit", default_value_t = false)]
-        commit: bool,
-        /// Provide name=value for replacing ${name} with value in the SQL script
-        ///
-        /// Can be used multiple times to provide more placeholders.
-        #[arg(short = 'v', long = "var")]
-        placeholders: Vec<String>,
-        /// Username to use for connecting to postgres
-        #[arg(short = 'U', long = "user", default_value = "postgres")]
-        user: String,
-        /// Database to connect to.
-        #[arg(short = 'd', long = "database", default_value = "postgres")]
-        database: String,
-        /// Host to connect to.
-        #[arg(short = 'H', long = "host", default_value = "localhost")]
-        host: String,
-        /// Port to connect to.
-        #[arg(short = 'p', long = "port", default_value = "5432")]
-        port: u16,
-
-        /// Show locks that are normally not in conflict with application code.
-        #[arg(short = 'e', long = "extra", default_value_t = false)]
-        extra: bool,
-        /// Skip the summary section for markdown output
-        #[arg(short = 's', long = "skip-summary", default_value_t = false)]
-        skip_summary: bool,
-        /// Output format, plain, json or markdown
-        #[arg(short = 'f', long = "format", default_value = "plain", value_parser=clap::builder::PossibleValuesParser::new(["json", "markdown", "md", "plain"]))]
-        format: String,
-        /// Ignore the hints with these IDs, use `eugene hints` to see available hints
-        ///
-        /// Can be used multiple times.
-        ///
-        /// Example: `eugene trace -i E3 -i E4`
-        ///
-        /// Or comment your SQL statement like this to ignore for a single statement:
-        ///
-        /// -- eugene: ignore E4
-        ///
-        /// alter table foo add column bar json;
-        ///
-        /// Use `-- eugene: ignore` to ignore all hints for a statement.
-        #[arg(short = 'i', long = "ignore")]
-        ignored_hints: Vec<String>,
-        /// Exit successfully even if problems are detected
-        ///
-        /// Will still fail for invalid SQL or connection problems.
-        #[arg(short = 'a', long = "accept-failures", default_value_t = false)]
-        accept_failures: bool,
-        /// Sort mode for script discovery, auto, name or none
-        ///
-        /// This is used to order scripts when an argument contains many scripts.
-        ///
-        /// `auto` will sort by versions or sequence numbers.
-        ///
-        /// `auto` requires all files to have the same naming scheme.
-        ///
-        /// `name` will sort lexically by name.
-        #[arg(long = "sort-mode", default_value = "auto", value_parser=clap::builder::PossibleValuesParser::new(["auto", "name", "none"]))]
-        sort_mode: String,
-
-        /// Disable creation of temporary postgres server for tracing
-        ///
-        /// By default, trace will create a postgres server in a temporary directory
-        ///
-        /// This relies on having `initdb` and `pg_ctl` in PATH, which eugene images have.
-        ///
-        /// Eugene deletes the temporary database cluster when done tracing.
-        #[arg(long = "disable-temporary", default_value_t = true)]
-        temporary_postgres: bool,
-
-        /// Portgres options to pass to the temporary postgres server
-        ///
-        /// Example: `eugene trace -o "-c fsync=off -c log_statement=all"`
-        #[arg(short = 'o', long = "postgres-options", default_value = "")]
-        postgres_options: String,
-
-        /// Initdb options to pass when creating the temporary postgres server
-        ///
-        /// Example: `eugene trace --initdb "--encoding=UTF8"`
-        ///
-        /// Supply it more than once to add multiple options.
-        #[arg(long = "initdb")]
-        initdb_options: Vec<String>,
-    },
+    Trace(Trace),
     /// List postgres lock modes
     Modes {
         /// Output format, json
@@ -215,28 +201,10 @@ enum Commands {
     },
 }
 
-struct ProvidedConnectionSettings {
-    user: String,
-    database: String,
-    host: String,
-    port: u16,
-}
-
-impl ProvidedConnectionSettings {
-    fn new(user: String, database: String, host: String, port: u16) -> Self {
-        ProvidedConnectionSettings {
-            user,
-            database,
-            host,
-            port,
-        }
-    }
-}
-
-impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
+impl TryFrom<&ProvidedConnectionSettings> for ClientSource {
     type Error = anyhow::Error;
 
-    fn try_from(value: ProvidedConnectionSettings) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &ProvidedConnectionSettings) -> std::result::Result<Self, Self::Error> {
         let password = if let Ok(password) = std::env::var("PGPASS") {
             password
         } else {
@@ -245,25 +213,17 @@ impl TryFrom<ProvidedConnectionSettings> for ConnectionSettings {
                 .context("No password found, provide PGPASS as environment variable or set up pgpassfile: https://www.postgresql.org/docs/current/libpq-pgpass.html")?
                 .to_string()
         };
-        Ok(ConnectionSettings::new(
-            value.user,
-            value.database,
-            value.host,
+        Ok(ClientSource::new(
+            value.user.clone(),
+            value.database.clone(),
+            value.host.clone(),
             value.port,
             password,
         ))
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-struct TraceConfiguration {
-    trace_format: TraceFormat,
-    extra_lock_info: bool,
-    skip_summary: bool,
-    ignored_hints: Vec<String>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum TraceFormat {
     Json,
     Plain,
@@ -275,11 +235,11 @@ pub struct HintContainer {
     hints: Vec<GenericHint>,
 }
 
-impl TryFrom<String> for TraceFormat {
+impl TryFrom<&str> for TraceFormat {
     type Error = anyhow::Error;
 
-    fn try_from(value: String) -> std::result::Result<Self, Self::Error> {
-        match value.as_str() {
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        match value {
             "json" => Ok(TraceFormat::Json),
             "plain" => Ok(TraceFormat::Plain),
             "md" | "markdown" => Ok(TraceFormat::Markdown),
@@ -292,16 +252,31 @@ impl TryFrom<String> for TraceFormat {
     }
 }
 
-enum ClientSource {
+enum GetClient {
     TempDb(TempServer),
-    Connect(ConnectionSettings),
+    Connect(ClientSource),
 }
 
-impl WithClient for ClientSource {
+impl TryFrom<&Trace> for GetClient {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &Trace) -> std::result::Result<Self, Self::Error> {
+        if value.disable_temp_postgres {
+            Ok(GetClient::Connect((&value.connection_settings).try_into()?))
+        } else {
+            Ok(GetClient::TempDb(TempServer::new(
+                &value.postgres_options,
+                &value.initdb_options,
+            )?))
+        }
+    }
+}
+
+impl WithClient for GetClient {
     fn with_client<T>(&mut self, f: impl FnOnce(&mut Client) -> Result<T>) -> Result<T> {
         match self {
-            ClientSource::TempDb(temp) => temp.with_client(f),
-            ClientSource::Connect(settings) => settings.with_client(f),
+            GetClient::TempDb(temp) => temp.with_client(f),
+            GetClient::Connect(settings) => settings.with_client(f),
         }
     }
 }
@@ -310,30 +285,23 @@ pub fn main() -> Result<()> {
     env_logger::init();
     let args = Eugene::parse();
     match args.command {
-        Some(Commands::Lint {
-            paths,
-            placeholders,
-            ignored_hints,
-            format,
-            accept_failures: exit_success,
-            sort_mode,
-            skip_summary,
-        }) => {
-            let placeholders = parse_placeholders(&placeholders)?;
-            let format: TraceFormat = format.try_into()?;
+        Some(Commands::Lint { opts }) => {
+            let placeholders = opts.placeholders()?;
+            let format: TraceFormat = opts.format()?;
             let mut failed = false;
-            for read_from in
-                script_discovery::discover_all(paths, script_filters::never, sort_mode.try_into()?)?
-            {
-                let sql = read_from.read()?;
-                let name = read_from.name();
-                let sql = resolve_placeholders(&sql, &placeholders)?;
+            for read_from in script_discovery::discover_all(
+                &opts.paths,
+                script_filters::never,
+                opts.sort_mode()?,
+            )? {
+                let script = read_script(&read_from, &placeholders)?;
                 let report = eugene::lints::lint(
-                    Some(name.to_string()),
-                    sql,
-                    &ignored_hints.iter().map(|s| s.as_str()).collect_vec(),
-                    skip_summary,
-                )?;
+                    Some(script.name.clone()),
+                    script.sql,
+                    &opts.ignored_hints(),
+                    opts.skip_summary,
+                )
+                .map_err(|err| anyhow!("Error linting {}: {err}", script.name.as_str()))?;
                 failed = failed
                     || report
                         .statements
@@ -349,56 +317,24 @@ pub fn main() -> Result<()> {
                 }
             }
 
-            if failed && !exit_success {
+            if failed && !opts.accept_failures {
                 Err(anyhow!("Lint detected"))
             } else {
                 Ok(())
             }
         }
-        Some(Commands::Trace {
-            user,
-            database,
-            host,
-            port,
-            placeholders,
-            commit,
-            paths,
-            extra,
-            skip_summary,
-            format,
-            ignored_hints,
-            accept_failures: exit_success,
-            sort_mode,
-            temporary_postgres,
-            postgres_options,
-            initdb_options,
-        }) => {
-            let commit = commit || temporary_postgres;
-            let config = TraceConfiguration {
-                trace_format: format.try_into()?,
-                extra_lock_info: extra,
-                skip_summary,
-                ignored_hints,
-            };
-            let provided = ProvidedConnectionSettings::new(user, database, host, port);
-            let mut client_source = if temporary_postgres {
-                ClientSource::TempDb(TempServer::new(postgres_options.as_str(), &initdb_options)?)
-            } else {
-                ClientSource::Connect(provided.try_into()?)
-            };
+        Some(Commands::Trace(trace_opts)) => {
+            let commit = trace_opts.commit || !trace_opts.disable_temp_postgres;
+            let format = trace_opts.opts.format()?;
+            let mut client_source: GetClient = (&trace_opts).try_into()?;
 
             let mut failed = false;
-            let placeholders = parse_placeholders(&placeholders)?;
-            let ignore_list = config
-                .ignored_hints
-                .iter()
-                .map(|s| s.as_str())
-                .collect_vec();
+            let placeholders = trace_opts.opts.placeholders()?;
 
             let script_source = script_discovery::discover_all(
-                paths,
+                &trace_opts.opts.paths,
                 script_filters::skip_downgrade_and_repeatable,
-                sort_mode.try_into()?,
+                trace_opts.opts.sort_mode()?,
             )?;
             if !commit && script_source.len() > 1 {
                 return Err(anyhow!(
@@ -406,19 +342,18 @@ pub fn main() -> Result<()> {
                     script_source.len()
                 ));
             }
+            let ignored = trace_opts.opts.ignored_hints();
             for read_from in script_source {
-                let sql = read_from.read()?;
-                let sql = resolve_placeholders(&sql, &placeholders)?;
-                let name = read_from.name();
-                let trace_settings = TraceSettings::new(name.to_string(), &sql, commit);
-                let trace = perform_trace(&trace_settings, &mut client_source, &ignore_list)
+                let script = read_script(&read_from, &placeholders)?;
+                let name = script.name.as_str();
+                let trace = perform_trace(&script, &mut client_source, &ignored, commit)
                     .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 let full_trace = output::full_trace_data(
                     &trace,
-                    output::Settings::new(!config.extra_lock_info, config.skip_summary),
+                    output::Settings::new(!trace_opts.extra, trace_opts.opts.skip_summary),
                 );
                 failed = failed || !trace.success();
-                let report = match config.trace_format {
+                let report = match format {
                     TraceFormat::Json => full_trace.to_pretty_json(),
                     TraceFormat::Plain => full_trace.to_plain_text(),
                     TraceFormat::Markdown => full_trace.to_markdown(),
@@ -428,17 +363,15 @@ pub fn main() -> Result<()> {
                 }
             }
 
-            if failed || !exit_success {
+            if failed && !trace_opts.opts.accept_failures {
                 Err(anyhow!("Trace uncovered problems"))
             } else {
                 Ok(())
             }
         }
         Some(Commands::Modes { .. }) | None => {
-            let lock_modes: Vec<_> = lock_modes::LOCK_MODES
-                .iter()
-                .map(TerseLockMode::from)
-                .collect();
+            let lock_modes: Vec<TerseLockMode> =
+                lock_modes::LOCK_MODES.iter().map(|m| m.into()).collect();
             let wrapper = LockModesWrapper::new(lock_modes);
             println!("{}", serde_json::to_string_pretty(&wrapper)?);
             Ok(())
@@ -463,30 +396,16 @@ pub fn main() -> Result<()> {
             Ok(())
         }
         Some(Commands::Completions { shell }) => {
-            let mut com = Eugene::command();
-            match shell.as_str() {
-                "bash" => {
-                    generate(Bash, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "zsh" => {
-                    generate(Zsh, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "fish" => {
-                    generate(Fish, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "powershell" | "pwsh" => {
-                    generate(PowerShell, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
-                "elvish" => {
-                    generate(Elvish, &mut com, "eugene", &mut std::io::stdout());
-                    Ok(())
-                }
+            let sh = match shell.as_str() {
+                "bash" => Ok(Bash),
+                "zsh" => Ok(Zsh),
+                "fish" => Ok(Fish),
+                "pwsh" | "powershell" => Ok(PowerShell),
+                "elvish" => Ok(Elvish),
                 _ => Err(anyhow!("Unsupported shell: {shell}")),
             }?;
+            let mut com = Eugene::command();
+            generate(sh, &mut com, "eugene", &mut std::io::stdout());
             Ok(())
         }
     }

@@ -17,9 +17,7 @@ Options:
   -i, --ignore <IGNORED_HINTS>
           Ignore the hints with these IDs, use `eugene hints` to see available hints
           
-          Can be used multiple times.
-          
-          Example: `eugene lint -i E3 -i E4`
+          Can be used multiple times: `-i E3 -i E4`
           
           Or comment your SQL statement like this:
           
@@ -38,16 +36,16 @@ Options:
   -a, --accept-failures
           Exit successfully even if problems are detected.
           
-          Will still fail for errors in the SQL script.
+          Will still fail for syntax errors in the SQL script.
 
       --sort-mode <SORT_MODE>
           Sort mode for script discovery, auto, name or none
           
-          This is used to order scripts when an argument contains many scripts.
+          This is used to order scripts when a path is a directory, or many paths are provided.
           
           `auto` will sort by versions or sequence numbers.
           
-          `auto` requires all files to have the same naming scheme.
+          `auto` requires all files to have the same naming scheme, either flyway-style or leading sequence numbers.
           
           `name` will sort lexically by name.
           

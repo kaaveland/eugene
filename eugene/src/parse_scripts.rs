@@ -1,3 +1,4 @@
+use crate::error::InnerError;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, line_ending, multispace0, satisfy, space0};
@@ -61,7 +62,7 @@ fn script_section(s: &str) -> IResult<&str, (&str, &str)> {
     Ok((s, (name, section)))
 }
 
-pub fn break_into_files(s: &str) -> anyhow::Result<Vec<(Option<&str>, &str)>> {
+pub fn break_into_files(s: &str) -> crate::Result<Vec<(Option<&str>, &str)>> {
     let each = delimited(
         multispace0,
         alt((
@@ -73,7 +74,7 @@ pub fn break_into_files(s: &str) -> anyhow::Result<Vec<(Option<&str>, &str)>> {
 
     many_till(each, eof)(s)
         .map(|(_, (files, _))| files)
-        .map_err(|e| anyhow::anyhow!("{}", e))
+        .map_err(|e| InnerError::ScriptParsingError(format!("{e:?}")).into())
 }
 
 #[cfg(test)]

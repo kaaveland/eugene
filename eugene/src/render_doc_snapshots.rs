@@ -2,7 +2,6 @@ use std::ffi::OsString;
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use handlebars::Handlebars;
 use itertools::Itertools;
@@ -11,6 +10,7 @@ use pretty_assertions::assert_eq;
 use rayon::prelude::*;
 use serde::Serialize;
 
+use crate::error::{ContextualError, InnerError};
 use crate::lints::lint;
 use crate::output::{full_trace_data, GenericHint, Settings};
 use crate::script_discovery::{discover_scripts, script_filters, SortMode};
@@ -31,14 +31,18 @@ static HBARS: Lazy<Handlebars> = Lazy::new(|| {
 });
 
 #[test]
-fn every_lint_has_an_example_migration() -> Result<()> {
+fn every_lint_has_an_example_migration() -> crate::Result<()> {
     let example_folder = fs::read_dir("examples")?;
     let mut children = vec![];
     for entry in example_folder {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            children.push(path.file_name().context("No file name")?.to_os_string());
+            children.push(
+                path.file_name()
+                    .ok_or_else(|| InnerError::NotFound.with_context("No file name"))?
+                    .to_os_string(),
+            );
         }
     }
     for hint in hint_data::ALL.iter() {
@@ -60,7 +64,7 @@ fn every_lint_has_an_example_migration() -> Result<()> {
     Ok(())
 }
 
-fn sorted_dir_files(path: &str) -> Result<Vec<PathBuf>> {
+fn sorted_dir_files(path: &str) -> crate::Result<Vec<PathBuf>> {
     let dir = fs::read_dir(path)?;
     let mut entries = vec![];
     for entry in dir {
@@ -73,13 +77,13 @@ fn sorted_dir_files(path: &str) -> Result<Vec<PathBuf>> {
     Ok(entries)
 }
 
-fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
+fn snapshot_lint(id: &str, subfolder: &str) -> crate::Result<String> {
     let example_path = format!("examples/{}/{}", id, subfolder);
     let mut reports = vec![];
     for script in sorted_dir_files(example_path.as_str())? {
         let path = script
             .to_str()
-            .context("Path is not a valid UTF-8 string")?
+            .expect("Path is not a valid UTF-8 string")
             // This isn't very nice, but the snapshots must generate the path text on Windows
             .replace('\\', "/");
         let sql = fs::read_to_string(&script)?;
@@ -89,7 +93,7 @@ fn snapshot_lint(id: &str, subfolder: &str) -> Result<String> {
     Ok(reports.join("\n"))
 }
 
-fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Result<String> {
+fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> crate::Result<String> {
     let example_path = format!("examples/{}/{}", id, subfolder);
     let mut reports = vec![];
     let db = generate_new_test_db();
@@ -111,8 +115,9 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> Resu
         let mut report = full_trace_data(&trace, *output_settings);
 
         // Try to make the report deterministic
-        report.start_time =
-            DateTime::parse_from_rfc3339("2021-01-01T00:00:00Z")?.with_timezone(&Utc);
+        report.start_time = DateTime::parse_from_rfc3339("2021-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
         report.all_locks_acquired.iter_mut().for_each(|lock| {
             lock.oid = 1;
             lock.lock_duration_millis = 10;
@@ -140,7 +145,7 @@ fn hint_folder<S: AsRef<str>>(id: S) -> String {
     format!("docs/src/hints/{}", id.as_ref())
 }
 
-fn write_lints(id: &str) -> Result<bool> {
+fn write_lints(id: &str) -> crate::Result<bool> {
     let mut changed = false;
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
@@ -170,12 +175,12 @@ fn is_migration_set_up(id: &str, subfolder: &str) -> bool {
     fs::metadata(example_path).is_ok()
 }
 
-fn write_traces(id: &str) -> Result<bool> {
+fn write_traces(id: &str) -> crate::Result<bool> {
     let mut out = false;
     hint_data::ALL
         .iter()
         .find(|hint| hint.id == id)
-        .context("Hint not found")?;
+        .expect("Hint not found");
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
     if is_migration_set_up(id, "bad") {
@@ -200,7 +205,7 @@ fn write_traces(id: &str) -> Result<bool> {
 }
 
 #[test]
-fn snapshot_lints() -> Result<()> {
+fn snapshot_lints() -> crate::Result<()> {
     let mut changed_lints = vec![];
     for hint in hint_data::ALL.iter() {
         let changed = write_lints(hint.id)?;
@@ -217,12 +222,12 @@ fn snapshot_lints() -> Result<()> {
 }
 
 #[test]
-fn snapshot_traces() -> Result<()> {
-    let results: Vec<Result<(String, bool)>> = hint_data::ALL
+fn snapshot_traces() -> crate::Result<()> {
+    let results: Vec<crate::Result<(String, bool)>> = hint_data::ALL
         .into_par_iter()
         .map(|hint| write_traces(hint.id).map(|changed| (hint.id.to_string(), changed)))
         .collect();
-    let results: Result<Vec<_>> = results.into_iter().collect();
+    let results: crate::Result<Vec<_>> = results.into_iter().collect();
     let changed_snapshots: Vec<_> = results?
         .into_iter()
         .filter(|(_, changed)| *changed)
@@ -283,7 +288,7 @@ struct HintPage<'a> {
     supported_by: &'a str,
 }
 
-fn read_script(id: &str, subfolder: &str) -> Result<String> {
+fn read_script(id: &str, subfolder: &str) -> crate::Result<String> {
     let mut script = String::new();
     let example_path = format!("examples/{}/{}", id, subfolder);
     let scripts = sorted_dir_files(example_path.as_str())?;
@@ -292,9 +297,9 @@ fn read_script(id: &str, subfolder: &str) -> Result<String> {
         let name = sql_script
             .iter()
             .last()
-            .context("No file name")?
+            .expect("No file name")
             .to_str()
-            .context("Path is not a valid UTF-8 string")?;
+            .expect("Path is not a valid UTF-8 string");
         script.push_str(&format!("-- {}\n\n", name));
         script.push_str(&sql);
         script.push('\n');
@@ -306,7 +311,7 @@ fn read_script(id: &str, subfolder: &str) -> Result<String> {
 }
 
 #[test]
-fn generate_lint_pages() -> Result<()> {
+fn generate_lint_pages() -> crate::Result<()> {
     for &hint in hint_data::ALL.iter() {
         let hint: GenericHint = hint.into();
         let example_script = read_script(hint.id.as_str(), "bad")?;

@@ -113,7 +113,7 @@ pub fn lint<S: AsRef<str>>(
     sql: S,
     ignored_lints: &[&str],
     skip_summary: bool,
-) -> anyhow::Result<LintReport> {
+) -> crate::Result<LintReport> {
     let statements = pg_query::split_with_parser(sql.as_ref())?;
     let mut ctx = TransactionState::default();
     let mut lints = Vec::new();
@@ -155,7 +155,7 @@ pub fn lint<S: AsRef<str>>(
     })
 }
 
-pub fn anon_lint<S: AsRef<str>>(sql: S) -> anyhow::Result<LintReport> {
+pub fn anon_lint<S: AsRef<str>>(sql: S) -> crate::Result<LintReport> {
     lint(None, sql, &[], false)
 }
 

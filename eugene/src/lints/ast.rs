@@ -1,4 +1,5 @@
-use anyhow::Context;
+use crate::error::ContextualError;
+use crate::lints::ast::AstError::{ColDefMissingTypeName, MissingRelation};
 use log::trace;
 use pg_query::protobuf::node::Node;
 use pg_query::protobuf::{
@@ -6,6 +7,18 @@ use pg_query::protobuf::{
     CreateTableAsStmt, IndexStmt, VariableSetStmt,
 };
 use pg_query::NodeRef;
+
+#[derive(Debug)]
+pub enum AstError {
+    MissingRelation,
+    ColDefMissingTypeName,
+    UnrecognizedAltCmdSubType(i32),
+    UnrecognizedConstraintType(i32),
+    ExpectedConstraintDef,
+    ExpectedColDef,
+    ExpectedCommandNode,
+    ExpectEnumTypeName,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColDefSummary {
@@ -99,7 +112,7 @@ pub enum AlterTableAction {
     Unrecognized,
 }
 
-fn set_statement(child: &VariableSetStmt) -> anyhow::Result<StatementSummary> {
+fn set_statement(child: &VariableSetStmt) -> crate::Result<StatementSummary> {
     if child.name.eq_ignore_ascii_case("lock_timeout") {
         Ok(StatementSummary::LockTimeout)
     } else {
@@ -107,12 +120,12 @@ fn set_statement(child: &VariableSetStmt) -> anyhow::Result<StatementSummary> {
     }
 }
 
-fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
+fn create_table(child: &CreateStmt) -> crate::Result<StatementSummary> {
     trace!("create_table: {:?}", child);
     if let Some(rel) = &child.relation {
         let schema = rel.schemaname.clone();
         let name = rel.relname.clone();
-        let elts: anyhow::Result<Vec<_>> = child
+        let elts: crate::Result<Vec<_>> = child
             .table_elts
             .iter()
             .map(|node| {
@@ -138,9 +151,8 @@ fn create_table(child: &CreateStmt) -> anyhow::Result<StatementSummary> {
             columns: elts?.into_iter().flatten().collect(),
         })
     } else {
-        Err(anyhow::anyhow!(
-            "CREATE TABLE statement does not have a relation"
-        ))
+        Err(AstError::MissingRelation
+            .with_context("CREATE TABLE statement does not have a relation"))
     }
 }
 
@@ -154,25 +166,24 @@ fn stored_generated(coldef: &ColumnDef) -> bool {
     })
 }
 
-fn create_table_as(child: &CreateTableAsStmt) -> anyhow::Result<StatementSummary> {
-    if let Some(dest) = &child.into {
+fn create_table_as(child: &CreateTableAsStmt) -> crate::Result<StatementSummary> {
+    let out = if let Some(dest) = &child.into {
         if let Some(rel) = &dest.rel {
             let schema = rel.schemaname.clone();
             let name = rel.relname.clone();
-            Ok(StatementSummary::CreateTableAs { schema, name })
+            Some(StatementSummary::CreateTableAs { schema, name })
         } else {
-            Err(anyhow::anyhow!(
-                "CREATE TABLE AS statement does not have a relation"
-            ))
+            None
         }
     } else {
-        Err(anyhow::anyhow!(
-            "CREATE TABLE AS statement does not have a destination"
-        ))
-    }
+        None
+    };
+    out.ok_or_else(|| {
+        MissingRelation.with_context("CREATE TABLE AS statement does not have a relation")
+    })
 }
 
-fn create_index(child: &IndexStmt) -> anyhow::Result<StatementSummary> {
+fn create_index(child: &IndexStmt) -> crate::Result<StatementSummary> {
     if let Some(rel) = &child.relation {
         let schema = rel.schemaname.clone();
         let idxname = child.idxname.clone();
@@ -183,32 +194,32 @@ fn create_index(child: &IndexStmt) -> anyhow::Result<StatementSummary> {
             idxname,
         })
     } else {
-        Err(anyhow::anyhow!(
-            "CREATE INDEX statement does not have a relation"
-        ))
+        Err(MissingRelation.with_context("CREATE INDEX statement does not have a relation"))
     }
 }
 
-fn col_type_as_string(coldef: &ColumnDef) -> anyhow::Result<String> {
+fn col_type_as_string(coldef: &ColumnDef) -> crate::Result<String> {
     trace!("col_type_as_string: {:?}", coldef);
     if let Some(tp) = &coldef.type_name {
-        let names: anyhow::Result<Vec<String>> = tp
+        let names: crate::Result<Vec<String>> = tp
             .names
             .iter()
             .map(|n| match n.node.as_ref() {
                 Some(Node::String(tn)) => Ok(tn.sval.to_owned()),
-                _ => Err(anyhow::anyhow!("Column definition has no type name")),
+                _ => Err(ColDefMissingTypeName
+                    .with_context(format!("Column definition has no type name: {n:?}"))),
             })
             .collect();
         Ok(names?.join("."))
     } else {
-        Err(anyhow::anyhow!("Column definition has no type name"))
+        Err(ColDefMissingTypeName.into())
     }
 }
 
-fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableAction> {
+fn parse_alter_table_action(child: &AlterTableCmd) -> crate::Result<AlterTableAction> {
     let subtype = AlterTableType::from_i32(child.subtype)
-        .context(format!("Invalid AlterTableCmd subtype: {}", child.subtype))?;
+        .ok_or(AstError::UnrecognizedAltCmdSubType(child.subtype))?;
+
     trace!("parse_alter_table_action: {:?} {:?}", subtype, child);
     match subtype {
         AlterTableType::AtAlterColumnType => {
@@ -236,7 +247,8 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableA
 
             let constraint_type = def.contype;
             let constraint_type = ConstrType::from_i32(constraint_type)
-                .context(format!("Invalid constraint type: {}", constraint_type))?;
+                .ok_or(AstError::UnrecognizedConstraintType(constraint_type))?;
+
             let use_index = !def.indexname.is_empty();
             let valid = !def.skip_validation;
             Ok(AlterTableAction::AddConstraint {
@@ -250,7 +262,7 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> anyhow::Result<AlterTableA
     }
 }
 
-fn expect_constraint_def(child: &AlterTableCmd) -> anyhow::Result<&pg_query::protobuf::Constraint> {
+fn expect_constraint_def(child: &AlterTableCmd) -> crate::Result<&pg_query::protobuf::Constraint> {
     trace!("expect_constraint_def: {:?}", child);
     if let Some(def) = &child.def {
         let next = def.node.as_ref();
@@ -258,23 +270,19 @@ fn expect_constraint_def(child: &AlterTableCmd) -> anyhow::Result<&pg_query::pro
             if let NodeRef::Constraint(constraint) = n.to_ref() {
                 Ok(constraint)
             } else {
-                Err(anyhow::anyhow!(
+                Err(AstError::ExpectedConstraintDef.with_context(format!(
                     "AlterTableCmd Expected constraint def, found: {n:?}"
-                ))
+                )))
             }
         } else {
-            Err(anyhow::anyhow!(
-                "AlterTableCmd expected constraint def node, found none"
-            ))
+            Err(AstError::ExpectedConstraintDef.into())
         }
     } else {
-        Err(anyhow::anyhow!(
-            "AlterTableCmd expected constraint def, found none"
-        ))
+        Err(AstError::ExpectedConstraintDef.into())
     }
 }
 
-fn expect_coldef(child: &AlterTableCmd) -> anyhow::Result<&ColumnDef> {
+fn expect_coldef(child: &AlterTableCmd) -> crate::Result<&ColumnDef> {
     trace!("expect_coldef: {:?}", child);
     if let Some(def) = &child.def {
         let next = def.node.as_ref();
@@ -282,27 +290,22 @@ fn expect_coldef(child: &AlterTableCmd) -> anyhow::Result<&ColumnDef> {
             if let NodeRef::ColumnDef(colddef) = n.to_ref() {
                 Ok(colddef)
             } else {
-                Err(anyhow::anyhow!(
-                    "AlterTableCmd Expected column def, found: {n:?}"
-                ))
+                Err(AstError::ExpectedColDef
+                    .with_context(format!("AlterTableCmd Expected column def, found: {n:?}")))
             }
         } else {
-            Err(anyhow::anyhow!(
-                "AlterTableCmd expected column def node, found none"
-            ))
+            Err(AstError::ExpectedColDef.into())
         }
     } else {
-        Err(anyhow::anyhow!(
-            "AlterTableCmd expected column def, found none"
-        ))
+        Err(AstError::ExpectedColDef.into())
     }
 }
 
-fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<StatementSummary> {
+fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> crate::Result<StatementSummary> {
     if let Some(rel) = &child.relation {
         let schema = rel.schemaname.clone();
         let name = rel.relname.clone();
-        let actions: anyhow::Result<Vec<_>> = child
+        let actions: crate::Result<Vec<_>> = child
             .cmds
             .iter()
             .map(|cmd| {
@@ -311,12 +314,12 @@ fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<Sta
                     if let NodeRef::AlterTableCmd(child) = node_ref {
                         parse_alter_table_action(child)
                     } else {
-                        Err(anyhow::anyhow!(
+                        Err(AstError::ExpectedCommandNode.with_context(format!(
                             "ALTER TABLE statement has an unrecognized command node: {node_ref:?}"
-                        ))
+                        )))
                     }
                 } else {
-                    Err(anyhow::anyhow!("ALTER TABLE statement has no command node"))
+                    Err(AstError::ExpectedCommandNode.into())
                 }
             })
             .collect();
@@ -326,9 +329,7 @@ fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<Sta
             actions: actions?,
         })
     } else {
-        Err(anyhow::anyhow!(
-            "ALTER TABLE statement does not have a relation"
-        ))
+        Err(MissingRelation.with_context("ALTER TABLE statement does not have a relation"))
     }
 }
 
@@ -340,7 +341,7 @@ fn alter_table(child: &pg_query::protobuf::AlterTableStmt) -> anyhow::Result<Sta
 ///
 /// If the parse tree has an unexpected structure, an error can be returned. This could be for example,
 /// a parse tree that represents an `alter column set type` command, but without a new type declaration.
-pub fn describe(statement: &NodeRef) -> anyhow::Result<StatementSummary> {
+pub fn describe(statement: &NodeRef) -> crate::Result<StatementSummary> {
     trace!("receiving {:?}", statement);
     match statement {
         NodeRef::VariableSetStmt(child) => set_statement(child),
@@ -356,15 +357,16 @@ pub fn describe(statement: &NodeRef) -> anyhow::Result<StatementSummary> {
     }
 }
 
-fn create_enum(stmt: &CreateEnumStmt) -> anyhow::Result<StatementSummary> {
-    let name_parts: anyhow::Result<Vec<_>> = stmt
+fn create_enum(stmt: &CreateEnumStmt) -> crate::Result<StatementSummary> {
+    let name_parts: crate::Result<Vec<_>> = stmt
         .type_name
         .iter()
         .map(|n| {
             if let Some(Node::String(s)) = n.node.as_ref() {
                 Ok(s.sval.clone())
             } else {
-                Err(anyhow::anyhow!("Expected string in CREATE ENUM statement"))
+                Err(AstError::ExpectEnumTypeName
+                    .with_context(format!("Expected Node::String type node got {n:?}")))
             }
         })
         .collect();

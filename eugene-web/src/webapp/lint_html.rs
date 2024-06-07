@@ -2,11 +2,12 @@ use axum::response::Html;
 use axum::Form;
 use serde::{Deserialize, Serialize};
 
-use eugene::output::Hint;
+use crate::webapp;
+use eugene::output::{Hint, LintReport};
+use eugene::parse_scripts;
 
 use crate::webapp::error::WebAppError;
 use crate::webapp::templates;
-use crate::{parse_scripts, validate_syntax, webapp};
 
 #[derive(Deserialize)]
 pub struct LintHtmlRequest {
@@ -48,26 +49,38 @@ pub(crate) async fn lint_html(
         exclamation: EXCLAMATIONS[choice],
     };
     for (name, sql) in scripts {
-        if let Some(err) = validate_syntax(sql) {
-            context.passed = false;
-            if let Some(name) = name {
-                context.syntax_errors.push(format!("{name}: {:?}", err));
-            } else {
-                context.syntax_errors.push(format!("{:?}", err));
-            }
-        } else {
-            let report = eugene::lints::lint(name.map(|s| s.to_string()), sql, &[], true)?;
-            context.passed = context.passed && report.passed_all_checks;
-            for st in report.statements {
-                for hint in st.triggered_rules {
-                    context.triggered_rules.push(TriggeredRule {
-                        file_name: name.unwrap_or("unnamed.sql").to_string(),
-                        line_number: st.line_number,
-                        rule: hint,
-                    });
+        let report: eugene::Result<LintReport> =
+            eugene::lints::lint(name.map(|s| s.to_string()), sql, &[], true);
+        match report {
+            Err(eugene::error::Error {
+                inner: eugene::error::InnerError::SqlText(syntax_error),
+                ..
+            }) => {
+                context.passed = false;
+                if let Some(name) = name {
+                    context
+                        .syntax_errors
+                        .push(format!("{name}: {:?}", syntax_error));
+                } else {
+                    context.syntax_errors.push(format!("{:?}", syntax_error));
                 }
+                Ok(())
             }
-        }
+            Ok(report) => {
+                context.passed = context.passed && report.passed_all_checks;
+                for st in report.statements {
+                    for hint in st.triggered_rules {
+                        context.triggered_rules.push(TriggeredRule {
+                            file_name: name.unwrap_or("unnamed.sql").to_string(),
+                            line_number: st.line_number,
+                            rule: hint,
+                        });
+                    }
+                }
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }?;
     }
     templates::handlebars()
         .render("lint", &context)

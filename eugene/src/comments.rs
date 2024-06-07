@@ -1,6 +1,7 @@
-use anyhow::Context;
 use once_cell::sync::Lazy;
 
+use crate::error::InnerError::BadCommentInstruction;
+use crate::error::{ContextualError, InnerError};
 use regex::Regex;
 
 use crate::hint_data::HintId;
@@ -16,12 +17,12 @@ pub enum LintAction<'a> {
 static EUGENE_COMMENT_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"-- eugene: ([^\n]+)").expect("Failed to compile regex"));
 /// Detect `sql` containing a comment with an instruction for eugene
-pub fn find_comment_action(sql: &str) -> anyhow::Result<LintAction> {
+pub fn find_comment_action(sql: &str) -> crate::Result<LintAction> {
     if let Some(captures) = EUGENE_COMMENT_REGEX.captures(sql.as_ref()) {
-        let cap = captures
-            .get(1)
-            .map(|m| m.as_str())
-            .context("No capture found")?;
+        let cap = captures.get(1).map(|m| m.as_str()).ok_or_else(|| {
+            InnerError::MissingCaptureError
+                .with_context(format!("Expected capture from regex, got {captures:?}"))
+        })?;
         match cap {
             "ignore" => Ok(LintAction::SkipAll),
             ids if ids.starts_with("ignore ") => {
@@ -30,7 +31,7 @@ pub fn find_comment_action(sql: &str) -> anyhow::Result<LintAction> {
                     rem.split(',').map(|id| id.trim()).collect(),
                 ))
             }
-            _ => Err(anyhow::anyhow!("Unknown eugene instruction: {}", cap)),
+            _ => Err(BadCommentInstruction(cap.to_string()).into()),
         }
     } else {
         Ok(LintAction::Continue)

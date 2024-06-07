@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use crate::comments::{filter_rules, find_comment_action};
-use anyhow::{anyhow, Result};
+use crate::error::ContextualError;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
 use postgres::types::Oid;
@@ -134,13 +134,15 @@ impl<'a> TxLockTracer<'a> {
         self.triggered_hints.iter().all(|hints| hints.is_empty())
     }
     /// Trace a single SQL statement, recording the locks taken and the duration of the statement.
-    pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> Result<()> {
+    pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> crate::Result<()> {
         // TODO: This is too big and should be refactored into more manageable pieces
         let start_time = Instant::now();
         let oid_vec = self.initial_objects.iter().copied().collect_vec();
         let lock_timeout = queries::get_lock_timeout(tx)?;
-        tx.execute(sql, &[])
-            .map_err(|err| anyhow!("{err} while executing {}", sql.to_owned()))?;
+        tx.execute(sql, &[]).map_err(|err| {
+            let context = format!("Error while executing SQL statement: {err:?}: {sql}");
+            err.with_context(context)
+        })?;
         let duration = start_time.elapsed();
         let locks_taken =
             queries::find_relevant_locks_in_current_transaction(tx, &self.initial_objects)?;

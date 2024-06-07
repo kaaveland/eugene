@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{anyhow, Context};
+use crate::error::{ContextualResult, InnerError};
 use postgres::types::Oid;
 use postgres::Transaction;
 
 use crate::pg_types::contype::Contype;
-use crate::pg_types::locks::{Lock, LockableTarget};
+use crate::pg_types::locks::{InvalidLockError, Lock, LockableTarget};
 use crate::pg_types::relkinds::RelKind;
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
@@ -46,7 +46,7 @@ pub struct RelfileId {
 }
 
 /// Enumerate all locks owned by the current transaction.
-fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> anyhow::Result<HashSet<Lock>> {
+fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> crate::Result<HashSet<Lock>> {
     let query = "SELECT n.nspname::text AS schema_name,
                 c.relname::text AS object_name,
                 c.relkind AS relkind,
@@ -55,7 +55,9 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> anyhow::Result
          FROM pg_locks l JOIN pg_class c ON c.oid = l.relation
            JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE l.locktype = 'relation' AND l.pid = pg_backend_pid();";
-    let rows = tx.query(query, &[])?;
+    let rows = tx
+        .query(query, &[])
+        .with_context("failed to query pg_locks_in_current_transaction")?;
     let locks = rows
         .into_iter()
         .map(|row| {
@@ -64,10 +66,9 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> anyhow::Result
             let relkind: i8 = row.try_get(2)?;
             let mode: String = row.try_get(3)?;
             let oid: Oid = row.try_get(4)?;
-            Lock::new(schema, object_name, mode, (relkind as u8) as char, oid)
-                .map_err(|err| anyhow!("{err}"))
+            Lock::new(schema, object_name, mode, (relkind as u8) as char, oid).map_err(|e| e.into())
         })
-        .collect::<anyhow::Result<HashSet<Lock>, anyhow::Error>>()?;
+        .collect::<crate::Result<HashSet<Lock>>>()?;
     Ok(locks)
 }
 
@@ -75,7 +76,7 @@ fn query_pg_locks_in_current_transaction(tx: &mut Transaction) -> anyhow::Result
 pub fn find_relevant_locks_in_current_transaction(
     tx: &mut Transaction,
     relevant_objects: &HashSet<Oid>,
-) -> anyhow::Result<HashSet<Lock>> {
+) -> crate::Result<HashSet<Lock>> {
     let current_locks = query_pg_locks_in_current_transaction(tx)?;
     Ok(current_locks
         .into_iter()
@@ -100,7 +101,7 @@ pub fn find_new_locks(old_locks: &HashSet<Lock>, new_locks: &HashSet<Lock>) -> H
 pub fn fetch_all_columns(
     tx: &mut Transaction,
     oids: &[Oid],
-) -> anyhow::Result<HashMap<ColumnIdentifier, ColumnMetadata>> {
+) -> crate::Result<HashMap<ColumnIdentifier, ColumnMetadata>> {
     let sql = "SELECT
            a.attrelid as table_oid,
            a.attnum as attnum,
@@ -116,7 +117,9 @@ pub fn fetch_all_columns(
            JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
          WHERE n.nspname NOT IN ('pg_catalog', 'information_schema') AND c.oid = ANY($1)
          ";
-    let rows = tx.query(sql, &[&oids]).map_err(|err| anyhow!("{err}"))?;
+    let rows = tx
+        .query(sql, &[&oids])
+        .with_context("failed to fetch all columns")?;
     rows.into_iter()
         .map(|row| {
             let table_oid: Oid = row.try_get(0)?;
@@ -153,7 +156,7 @@ pub fn fetch_all_columns(
 pub fn fetch_constraints(
     tx: &mut Transaction,
     oids: &[Oid],
-) -> anyhow::Result<HashMap<Oid, Constraint>> {
+) -> crate::Result<HashMap<Oid, Constraint>> {
     let sql = "SELECT
            n.nspname as schema_name,
            c.relname as table_name,
@@ -170,7 +173,9 @@ pub fn fetch_constraints(
          WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
           AND con.conrelid = ANY($1) OR con.confrelid = ANY($1)
          ";
-    let rows = tx.query(sql, &[&oids]).map_err(|err| anyhow!("{err}"))?;
+    let rows = tx
+        .query(sql, &[&oids])
+        .with_context("failed to fetch all constraints")?;
 
     rows.into_iter()
         .map(|row| {
@@ -203,7 +208,7 @@ pub fn fetch_constraints(
 pub fn fetch_lockable_objects(
     tx: &mut Transaction,
     skip_list: &[Oid],
-) -> anyhow::Result<HashSet<LockableTarget>, anyhow::Error> {
+) -> crate::Result<HashSet<LockableTarget>> {
     let sql = "SELECT
            n.nspname as schema_name,
            c.relname as table_name,
@@ -216,7 +221,8 @@ pub fn fetch_lockable_objects(
          ";
     let rows = tx
         .query(sql, &[&skip_list])
-        .map_err(|err| anyhow!("{err}"))?;
+        .with_context("failed to fetch lockable objects")?;
+
     rows.into_iter()
         .map(|row| {
             let schema: String = row.try_get(0)?;
@@ -224,9 +230,8 @@ pub fn fetch_lockable_objects(
             let rk_byte: i8 = row.try_get(2)?;
             let rel_kind: char = (rk_byte as u8) as char;
             let oid: Oid = row.try_get(3)?;
-            LockableTarget::new(schema.as_str(), object_name.as_str(), rel_kind, oid).ok_or(
-                anyhow!("{schema}.{object_name} has invalid relkind: {rel_kind}"),
-            )
+            LockableTarget::new(schema.as_str(), object_name.as_str(), rel_kind, oid)
+                .ok_or_else(|| InvalidLockError::InvalidRelKind(rel_kind).into())
         })
         .collect()
 }
@@ -235,7 +240,7 @@ pub fn fetch_lockable_objects(
 pub fn fetch_all_rel_file_ids(
     tx: &mut Transaction,
     tracked_objects: &[Oid],
-) -> anyhow::Result<HashMap<Oid, RelfileId>> {
+) -> crate::Result<HashMap<Oid, RelfileId>> {
     // select schema, name, relfilenode, oid from pg_class where oid = any($1)
     let query = "SELECT c.oid, c.relfilenode, n.nspname, c.relname, c.relkind
          FROM pg_catalog.pg_class c
@@ -250,7 +255,8 @@ pub fn fetch_all_rel_file_ids(
             let table_name: String = row.try_get(3)?;
             let relkind = row.try_get::<_, i8>(4)?;
             let relkind = (relkind as u8) as char;
-            let relkind = RelKind::from_db_code(relkind).context("Invalid relkind")?;
+            let relkind =
+                RelKind::from_db_code(relkind).ok_or(InvalidLockError::InvalidRelKind(relkind))?;
             Ok((
                 oid,
                 RelfileId {
@@ -266,9 +272,13 @@ pub fn fetch_all_rel_file_ids(
 }
 
 /// Retrieve the current `lock_timeout` for the active transaction
-pub fn get_lock_timeout(tx: &mut Transaction) -> anyhow::Result<u64> {
+pub fn get_lock_timeout(tx: &mut Transaction) -> crate::Result<u64> {
     let query = "select current_setting('lock_timeout')";
-    let timeout: String = tx.query_one(query, &[])?.try_get(0)?;
+    let timeout: String = tx
+        .query_one(query, &[])
+        .with_context("get lock timeout failed")?
+        .try_get(0)
+        .with_context("read lock timeout string")?;
     let digits = timeout
         .chars()
         .take_while(|c| c.is_ascii_digit())
@@ -284,6 +294,6 @@ pub fn get_lock_timeout(tx: &mut Transaction) -> anyhow::Result<u64> {
         "min" => Ok(n * 60 * 1000),
         "h" => Ok(n * 60 * 60 * 1000),
         "d" => Ok(n * 24 * 60 * 60 * 1000),
-        _ => Err(anyhow!("Invalid unit: {unit}")),
+        _ => Err(InnerError::InvalidUnit(unit).into()),
     }
 }

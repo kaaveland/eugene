@@ -85,7 +85,7 @@ struct LintOptions {
 }
 
 impl LintOptions {
-    fn placeholders(&self) -> Result<HashMap<&str, &str>> {
+    fn placeholders(&self) -> eugene::Result<HashMap<&str, &str>> {
         parse_placeholders(&self.placeholders)
     }
     fn format(&self) -> Result<TraceFormat> {
@@ -94,7 +94,7 @@ impl LintOptions {
     fn ignored_hints(&self) -> Vec<&str> {
         self.ignored_hints.iter().map(|s| s.as_str()).collect_vec()
     }
-    fn sort_mode(&self) -> Result<SortMode> {
+    fn sort_mode(&self) -> eugene::Result<SortMode> {
         self.sort_mode.as_str().try_into()
     }
 }
@@ -204,13 +204,12 @@ enum Commands {
 impl TryFrom<&ProvidedConnectionSettings> for ClientSource {
     type Error = anyhow::Error;
 
-    fn try_from(value: &ProvidedConnectionSettings) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &ProvidedConnectionSettings) -> Result<Self, Self::Error> {
         let password = if let Ok(password) = std::env::var("PGPASS") {
             password
         } else {
             read_pgpass_file()?
-                .find_password(&value.host, value.port, &value.database, &value.user)
-                .context("No password found, provide PGPASS as environment variable or set up pgpassfile: https://www.postgresql.org/docs/current/libpq-pgpass.html")?
+                .find_password(&value.host, value.port, &value.database, &value.user)?
                 .to_string()
         };
         Ok(ClientSource::new(
@@ -273,7 +272,10 @@ impl TryFrom<&Trace> for GetClient {
 }
 
 impl WithClient for GetClient {
-    fn with_client<T>(&mut self, f: impl FnOnce(&mut Client) -> Result<T>) -> Result<T> {
+    fn with_client<T>(
+        &mut self,
+        f: impl FnOnce(&mut Client) -> eugene::Result<T>,
+    ) -> eugene::Result<T> {
         match self {
             GetClient::TempDb(temp) => temp.with_client(f),
             GetClient::Connect(settings) => settings.with_client(f),

@@ -2,7 +2,7 @@ use crate::error::{ContextualError, InnerError};
 use std::env;
 
 #[cfg(windows)]
-fn default_pgpass_path() -> Result<String> {
+fn default_pgpass_path() -> crate::Result<String> {
     if let Ok(path) = env::var("APPDATA") {
         Ok(format!("{}/postgresql/pgpass.conf", path))
     } else {

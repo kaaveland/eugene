@@ -3,8 +3,9 @@ use std::process::{Child, Command};
 use std::sync::mpsc::channel;
 use std::thread::{spawn, JoinHandle};
 
+use crate::error::InnerError::UnableToInitDb;
+use crate::error::{ContextualError, InnerError};
 use crate::{ClientSource, WithClient};
-use anyhow::{anyhow, Context, Result};
 use log::{debug, error, info, warn};
 use postgres::Client;
 use tempfile::TempDir;
@@ -18,7 +19,7 @@ pub struct TempServer {
 }
 
 impl TempServer {
-    pub fn new(postgres_options: &str, initdb_options: &[String]) -> Result<Self> {
+    pub fn new(postgres_options: &str, initdb_options: &[String]) -> crate::Result<Self> {
         let port = find_free_port_on_localhost()?;
         check_required_postgres_commands()?;
         let dbpath = TempDir::new()?;
@@ -46,7 +47,7 @@ impl TempServer {
         let initdb = initdb.output()?;
 
         if !initdb.status.success() {
-            return Err(anyhow!("initdb failed: {initdb:?}",));
+            return Err(UnableToInitDb.with_context(format!("initdb failed: {initdb:?}",)));
         }
 
         let mut pg = Command::new("pg_ctl");
@@ -67,7 +68,10 @@ impl TempServer {
 
         let mut child = pg.spawn()?;
         let (sender, receiver) = channel();
-        let stdout = child.stdout.take().context("Unable to take stdout")?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| InnerError::MissingStdout.with_context("Unable to take stdout"))?;
 
         let reader = spawn(move || {
             let r = BufReader::new(stdout);
@@ -116,29 +120,31 @@ impl TempServer {
     }
 }
 
-fn check_required_postgres_commands() -> Result<()> {
+fn check_required_postgres_commands() -> crate::Result<()> {
     let required = ["initdb", "postgres"];
     for command in required.iter() {
         Command::new(command)
             .arg("--help")
             .output()
             .map_err(|err| {
-                anyhow!(
-                    "This functionality requires {command}, but it isn't available on PATH: {err}"
-                )
+                InnerError::MissingRequiredCommand(command.to_string())
+                    .with_context(format!("Unable to run {command}: {err:?}"))
             })?;
     }
     Ok(())
 }
 
-fn find_free_port_on_localhost() -> Result<u16> {
+fn find_free_port_on_localhost() -> crate::Result<u16> {
     let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
     let port = listener.local_addr()?.port();
     Ok(port)
 }
 
 impl WithClient for TempServer {
-    fn with_client<T>(&mut self, f: impl FnOnce(&mut Client) -> Result<T>) -> Result<T> {
+    fn with_client<T>(
+        &mut self,
+        f: impl FnOnce(&mut Client) -> crate::Result<T>,
+    ) -> crate::Result<T> {
         self.connection_settings.with_client(f)
     }
 }

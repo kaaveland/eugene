@@ -212,16 +212,16 @@ impl<'a> Serialize for JsonTrace<'a> {
 
 impl FullTraceData {
     /// Render a pretty-printed JSON representation of the trace.
-    pub fn to_pretty_json(&self) -> anyhow::Result<String> {
+    pub fn to_pretty_json(&self) -> crate::Result<String> {
         let out = JsonTrace { data: self };
         Ok(serde_json::to_string_pretty(&out)?)
     }
     /// Render a terse terminal-friendly representation of the trace.
-    pub fn to_plain_text(&self) -> anyhow::Result<String> {
+    pub fn to_plain_text(&self) -> crate::Result<String> {
         templates::trace_text(self)
     }
     /// Render a markdown report suitable for human consumption from the trace.
-    pub fn to_markdown(&self) -> anyhow::Result<String> {
+    pub fn to_markdown(&self) -> crate::Result<String> {
         templates::to_markdown(self)
     }
 }

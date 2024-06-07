@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use crate::error::InnerError;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 pub enum Contype {
@@ -17,7 +17,7 @@ impl std::fmt::Display for Contype {
 }
 
 impl Contype {
-    pub fn from_char(c: char) -> anyhow::Result<Self> {
+    pub fn from_char(c: char) -> crate::Result<Self> {
         match c {
             'c' => Ok(Contype::Check),
             'f' => Ok(Contype::ForeignKey),
@@ -25,7 +25,7 @@ impl Contype {
             'u' => Ok(Contype::Unique),
             'x' => Ok(Contype::Exclusion),
             't' => Ok(Contype::ConstraintTrigger),
-            _ => Err(anyhow!("Invalid constraint type: {}", c)),
+            _ => Err(InnerError::InvalidContype(c).into()),
         }
     }
     pub fn to_display(&self) -> &'static str {

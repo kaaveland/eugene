@@ -20,19 +20,15 @@ pub(crate) static HBARS: Lazy<Handlebars> = Lazy::new(|| {
 });
 
 /// Render a markdown report from a `FullTraceData`
-pub fn to_markdown(trace: &FullTraceData) -> anyhow::Result<String> {
-    HBARS
-        .render("trace_report_md", trace)
-        .map_err(|e| anyhow::anyhow!("Failed to render markdown: {}", e))
+pub fn to_markdown(trace: &FullTraceData) -> crate::Result<String> {
+    Ok(HBARS.render("trace_report_md", trace)?)
 }
 
-pub fn lint_report_to_markdown(report: &LintReport) -> anyhow::Result<String> {
-    HBARS
-        .render("lint_report_md", report)
-        .map_err(|e| anyhow::anyhow!("Failed to render markdown: {}", e))
+pub fn lint_report_to_markdown(report: &LintReport) -> crate::Result<String> {
+    Ok(HBARS.render("lint_report_md", report)?)
 }
 
-pub fn trace_text(trace: &FullTraceData) -> anyhow::Result<String> {
+pub fn trace_text(trace: &FullTraceData) -> crate::Result<String> {
     if trace.passed_all_checks {
         Ok(String::new())
     } else {
@@ -54,7 +50,7 @@ pub fn trace_text(trace: &FullTraceData) -> anyhow::Result<String> {
     }
 }
 
-pub fn lint_text(report: &LintReport) -> anyhow::Result<String> {
+pub fn lint_text(report: &LintReport) -> crate::Result<String> {
     let mut out = String::new();
     let fname = report.name.as_deref().unwrap_or("unnamed");
     for statement in &report.statements {

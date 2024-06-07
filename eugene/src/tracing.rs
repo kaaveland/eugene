@@ -11,7 +11,7 @@ pub fn trace_transaction<'a, S: AsRef<str>>(
     tx: &mut Transaction,
     sql_statements: impl Iterator<Item = S>,
     ignored_hints: &'a [&'a str],
-) -> anyhow::Result<TxLockTracer<'a>> {
+) -> crate::Result<TxLockTracer<'a>> {
     let initial_objects: HashSet<_> = queries::fetch_lockable_objects(tx, &[])?
         .into_iter()
         .map(|obj| obj.oid)

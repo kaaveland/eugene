@@ -9,9 +9,9 @@
 //! analyze migration scripts for potential issues before running them.
 use std::collections::HashMap;
 
-use anyhow::anyhow;
 use postgres::{Client, NoTls, Transaction};
 
+use crate::error::{ContextualError, InnerError};
 use crate::script_discovery::ReadFrom;
 use tracing::trace_transaction;
 
@@ -48,25 +48,27 @@ pub(crate) mod comments;
 #[cfg(test)]
 mod render_doc_snapshots;
 
+/// Utilities for converting a single SQL file with multiple scripts into a list of scripts.
+pub mod parse_scripts;
 /// This module is for creating and destroying postgres
 /// database instances for eugene to trace.
 pub mod tempserver;
+
+pub mod error;
 
 pub struct SqlScript {
     pub name: String,
     pub sql: String,
 }
 
+pub type Result<T> = std::result::Result<T, error::Error>;
 /// Read a SQL script from a source and resolve placeholders.
 ///
 /// # Arguments
 ///
 /// * `read_from` - A source to read the SQL script from.
 /// * `placeholders` - A map of placeholders to resolve if found in the SQL script.
-pub fn read_script(
-    read_from: &ReadFrom,
-    placeholders: &HashMap<&str, &str>,
-) -> anyhow::Result<SqlScript> {
+pub fn read_script(read_from: &ReadFrom, placeholders: &HashMap<&str, &str>) -> Result<SqlScript> {
     let sql = read_from.read()?;
     let sql = sqltext::resolve_placeholders(&sql, placeholders)?;
     Ok(SqlScript {
@@ -106,16 +108,13 @@ impl ClientSource {
 }
 
 pub trait WithClient {
-    fn with_client<T>(
-        &mut self,
-        f: impl FnOnce(&mut Client) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T>;
+    fn with_client<T>(&mut self, f: impl FnOnce(&mut Client) -> Result<T>) -> Result<T>;
 
     fn in_transaction<T>(
         &mut self,
         commit: bool,
-        f: impl FnOnce(&mut Transaction) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+        f: impl FnOnce(&mut Transaction) -> Result<T>,
+    ) -> Result<T> {
         self.with_client(|client| {
             let mut tx = client.transaction()?;
             let result = f(&mut tx)?;
@@ -131,10 +130,7 @@ pub trait WithClient {
 }
 
 impl WithClient for ClientSource {
-    fn with_client<T>(
-        &mut self,
-        f: impl FnOnce(&mut Client) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+    fn with_client<T>(&mut self, f: impl FnOnce(&mut Client) -> Result<T>) -> Result<T> {
         if let Some(ref mut client) = self.client {
             f(client)
         } else {
@@ -145,12 +141,15 @@ impl WithClient for ClientSource {
     }
 }
 /// Parse placeholders in the form of name=value into a map.
-pub fn parse_placeholders(placeholders: &[String]) -> anyhow::Result<HashMap<&str, &str>> {
+pub fn parse_placeholders(placeholders: &[String]) -> Result<HashMap<&str, &str>> {
     let mut map = HashMap::new();
     for placeholder in placeholders {
         let parts: Vec<&str> = placeholder.splitn(2, '=').collect();
         if parts.len() != 2 {
-            return Err(anyhow!("Invalid placeholder: {}", placeholder));
+            return Err(InnerError::PlaceholderSyntaxError.with_context(format!(
+                "Placeholder '{}' must be in the form name=value",
+                placeholder
+            )));
         }
         map.insert(parts[0], parts[1]);
     }
@@ -164,7 +163,7 @@ pub fn perform_trace<'a, T: WithClient>(
     connection_settings: &mut T,
     ignored_hints: &'a [&'a str],
     commit: bool,
-) -> anyhow::Result<TxLockTracer<'a>> {
+) -> Result<TxLockTracer<'a>> {
     let sql_statements = sql_statements(script.sql.as_str())?;
     let all_concurrently = sql_statements.iter().all(sqltext::is_concurrently);
     if all_concurrently && commit {

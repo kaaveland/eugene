@@ -1,30 +1,25 @@
+use crate::error::{ContextualError, InnerError};
 use std::env;
-
-use anyhow::{anyhow, Result};
 
 #[cfg(windows)]
 fn default_pgpass_path() -> Result<String> {
     if let Ok(path) = env::var("APPDATA") {
         Ok(format!("{}/postgresql/pgpass.conf", path))
     } else {
-        Err(anyhow!(
-            "Could not determine default location of pgpass file"
-        ))
+        Err(InnerError::PgPassFileNotFound.into())
     }
 }
 
 #[cfg(not(windows))]
-fn default_pgpass_path() -> Result<String> {
+fn default_pgpass_path() -> crate::Result<String> {
     if let Ok(path) = env::var("HOME") {
         Ok(format!("{}/.pgpass", path))
     } else {
-        Err(anyhow!(
-            "Could not determine default location of pgpass file"
-        ))
+        Err(InnerError::PgPassFileNotFound.into())
     }
 }
 
-fn pgpass_path() -> Result<String> {
+fn pgpass_path() -> crate::Result<String> {
     if let Ok(path) = env::var("PGPASSFILE") {
         Ok(path)
     } else {
@@ -32,7 +27,7 @@ fn pgpass_path() -> Result<String> {
     }
 }
 
-fn read_pgpass() -> Result<String> {
+fn read_pgpass() -> crate::Result<String> {
     let path = pgpass_path()?;
     // TODO: Warn and discard if file is not chmodded to 600 on unix
     let contents = std::fs::read_to_string(path)?;
@@ -86,10 +81,12 @@ impl PgPassEntry {
     }
 }
 
-fn parse_pgpass_entry(line: &str) -> Result<PgPassEntry> {
+fn parse_pgpass_entry(line: &str) -> crate::Result<PgPassEntry> {
     let parts: Vec<&str> = line.split(':').collect();
     if parts.len() != 5 {
-        return Err(anyhow!("Invalid pgpass entry: {}", line));
+        return Err(
+            InnerError::PgPassSyntaxError.with_context(format!("Invalid pgpass entry: {}", line))
+        );
     }
     let host = match parts[0] {
         "*" => PgPassRule::Anything,
@@ -116,7 +113,7 @@ fn parse_pgpass_entry(line: &str) -> Result<PgPassEntry> {
     })
 }
 
-fn parse_pgpass_entries(contents: &str) -> Result<PgPassFile> {
+fn parse_pgpass_entries(contents: &str) -> crate::Result<PgPassFile> {
     let mut entries = Vec::new();
     for line in contents.lines() {
         if !line.starts_with('#') {
@@ -135,7 +132,7 @@ pub struct PgPassFile {
 /// Reads the pgpass file, see https://www.postgresql.org/docs/current/libpq-pgpass.html
 ///
 /// Will respect the `PGPASSFILE` environment variable if set, otherwise will use the default location
-pub fn read_pgpass_file() -> Result<PgPassFile> {
+pub fn read_pgpass_file() -> crate::Result<PgPassFile> {
     let contents = read_pgpass()?;
     parse_pgpass_entries(&contents)
 }
@@ -145,10 +142,19 @@ impl PgPassFile {
     ///
     /// Will always return the password for the first matching pgpass line, if there are overlapping
     /// rules, only the first password will be returned
-    pub fn find_password(&self, host: &str, port: u16, database: &str, user: &str) -> Option<&str> {
+    pub fn find_password(
+        &self,
+        host: &str,
+        port: u16,
+        database: &str,
+        user: &str,
+    ) -> crate::Result<&str> {
         self.entries
             .iter()
             .find_map(|entry| entry.apply_to(host, port, database, user))
+            .ok_or_else(|| {
+                InnerError::PgPassEntryNotFound.with_context("No matching pgpass entry found")
+            })
     }
 }
 
@@ -195,14 +201,18 @@ mod tests {
         let pgpass = parse_pgpass_entries(contents).unwrap();
         assert!(pgpass
             .find_password("example.com", 5432, "mydb", "myuser")
-            .is_none());
+            .is_err());
         assert_eq!(
-            pgpass.find_password("/var/run/postgresql", 5432, "mydb", "myuser"),
-            Some("unixsocketpass")
+            pgpass
+                .find_password("/var/run/postgresql", 5432, "mydb", "myuser")
+                .unwrap(),
+            "unixsocketpass"
         );
         assert_eq!(
-            pgpass.find_password("localhost", 5432, "mydb", "myuser"),
-            Some("mypass")
+            pgpass
+                .find_password("localhost", 5432, "mydb", "myuser")
+                .unwrap(),
+            "mypass"
         );
     }
 }

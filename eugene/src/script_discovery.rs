@@ -2,7 +2,11 @@ use std::collections::HashSet;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use anyhow::anyhow;
+use crate::error::InnerError::{
+    DifferentScriptNameTypes, InvalidSortMode, NotFound, NotSortableScriptNames, NotValidUtf8,
+    PathParseError, UnknownPathType,
+};
+use crate::error::{ContextualError, ContextualResult};
 use log::trace;
 use nom::branch::alt;
 use nom::bytes::complete::tag;
@@ -189,17 +193,6 @@ impl SqlScript<'_> {
             SqlScript::Stdin => ScriptNameType::None,
         }
     }
-
-    pub fn read(&self) -> anyhow::Result<String> {
-        match self {
-            SqlScript::Stdin => {
-                let mut buf = String::new();
-                std::io::stdin().read_to_string(&mut buf)?;
-                Ok(buf)
-            }
-            _ => Ok(std::fs::read_to_string(self.whole_name())?),
-        }
-    }
 }
 
 fn parse_sql_script(name: &str) -> IResult<&str, SqlScript> {
@@ -211,20 +204,20 @@ fn parse_sql_script(name: &str) -> IResult<&str, SqlScript> {
 }
 
 /// Discover the most likely naming scheme of a script and parse it into a [SqlScript]
-pub fn parse(path: &Path) -> anyhow::Result<SqlScript> {
+pub fn parse(path: &Path) -> crate::Result<SqlScript> {
     let name = path
         .file_name()
-        .ok_or_else(|| anyhow!("No file name found"))?
+        .ok_or_else(|| NotFound.with_context(format!("{path:?}")))?
         .to_str()
-        .ok_or_else(|| anyhow!("File name is not valid UTF-8"))?;
+        .ok_or_else(|| NotValidUtf8.with_context(format!("{path:?}")))?;
     parse_sql_script(name)
         .map(|(_, script)| script)
-        .map_err(|e| anyhow!("Failed to parse script name: {:?}", e))
+        .map_err(|e| PathParseError.with_context(format!("{path:?} {e:?}")))
 }
 
-fn all_files_with_sql_suffix(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+fn all_files_with_sql_suffix(dir: &Path) -> crate::Result<Vec<PathBuf>> {
     let mut entries = vec![];
-    for entry in dir.read_dir()? {
+    for entry in dir.read_dir().with_context(format!("{dir:?}"))? {
         let entry = entry?;
         let metadata = entry.metadata()?;
         if metadata.is_file() {
@@ -260,9 +253,8 @@ pub mod script_filters {
 fn sort_paths_by_script_type(
     paths: &[PathBuf],
     filter: ScriptFilter,
-) -> anyhow::Result<Vec<PathBuf>> {
-    let scripts: anyhow::Result<Vec<_>> =
-        paths.iter().map(|p| Ok((p.clone(), parse(p)?))).collect();
+) -> crate::Result<Vec<PathBuf>> {
+    let scripts: crate::Result<Vec<_>> = paths.iter().map(|p| Ok((p.clone(), parse(p)?))).collect();
     let mut scripts = scripts?;
     // Make some checks first, ensure that we can sort the paths,
     // they must all parse to something sortable of the same kind
@@ -272,15 +264,14 @@ fn sort_paths_by_script_type(
         .map(|(_, s)| s.script_name_type())
         .collect::<HashSet<_>>();
     if script_types.len() > 1 {
-        return Err(anyhow!(
+        return Err(DifferentScriptNameTypes.with_context(format!(
             "Can not sort scripts of different types: {:?}",
             script_types
-        ));
+        )));
     }
     if script_types.contains(&ScriptNameType::None) {
-        return Err(anyhow!(
-            "Can not sort scripts without a sequence number or version"
-        ));
+        return Err(NotSortableScriptNames
+            .with_context("Can not sort scripts without a sequence number or version"));
     }
     scripts.retain(|(_, s)| {
         let keep = filter(s);
@@ -306,7 +297,7 @@ pub fn sorted_migration_scripts_from_folder(
     dir: &Path,
     filter: ScriptFilter,
     sort: SortMode,
-) -> anyhow::Result<Vec<PathBuf>> {
+) -> crate::Result<Vec<PathBuf>> {
     let paths = all_files_with_sql_suffix(dir)?;
     match sort {
         SortMode::Auto => sort_paths_by_script_type(&paths, filter),
@@ -328,15 +319,17 @@ pub enum ReadFrom {
 }
 
 impl ReadFrom {
-    pub fn read(&self) -> anyhow::Result<String> {
+    pub fn read(&self) -> crate::Result<String> {
         match self {
             ReadFrom::Stdin => {
                 let mut buf = String::new();
-                std::io::stdin().read_to_string(&mut buf)?;
+                std::io::stdin()
+                    .read_to_string(&mut buf)
+                    .with_context("Failed to read stdin")?;
                 Ok(buf)
             }
             ReadFrom::File(path) | ReadFrom::FileFromDirEntry(path) => {
-                Ok(std::fs::read_to_string(path)?)
+                Ok(std::fs::read_to_string(path).with_context(format!("Failed to read {path}"))?)
             }
         }
     }
@@ -357,7 +350,7 @@ pub fn discover_scripts(
     path: &str,
     filter: ScriptFilter,
     sort: SortMode,
-) -> anyhow::Result<Vec<ReadFrom>> {
+) -> crate::Result<Vec<ReadFrom>> {
     if path == "-" {
         return Ok(vec![ReadFrom::Stdin]);
     }
@@ -371,7 +364,7 @@ pub fn discover_scripts(
             .map(|p| ReadFrom::FileFromDirEntry(p.to_string_lossy().to_string()))
             .collect())
     } else {
-        Err(anyhow!("Path is not a file or directory"))
+        Err(UnknownPathType.with_context("Path is not a file or directory"))
     }
 }
 
@@ -385,7 +378,7 @@ pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
     paths: T,
     filter: ScriptFilter,
     sort: SortMode,
-) -> anyhow::Result<Vec<ReadFrom>> {
+) -> crate::Result<Vec<ReadFrom>> {
     let mut all = vec![];
     for path in paths {
         all.extend(discover_scripts(path.as_ref(), filter, SortMode::Unsorted)?);
@@ -454,20 +447,20 @@ pub enum SortMode {
 }
 
 impl TryFrom<&str> for SortMode {
-    type Error = anyhow::Error;
+    type Error = crate::error::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
             "auto" => Ok(SortMode::Auto),
             "none" => Ok(SortMode::Unsorted),
             "name" => Ok(SortMode::Lexicographic),
-            _ => Err(anyhow!("Invalid sort mode: {}", value)),
+            _ => Err(InvalidSortMode.with_context(format!("Invalid sort mode: {}", value))),
         }
     }
 }
 
 impl TryFrom<String> for SortMode {
-    type Error = anyhow::Error;
+    type Error = crate::error::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         SortMode::try_from(value.as_str())

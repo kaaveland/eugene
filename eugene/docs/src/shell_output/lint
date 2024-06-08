@@ -55,5 +55,10 @@ Options:
   -s, --skip-summary
           Skip the summary section for markdown output
 
+  -g, --git-diff <GIT_DIFF>
+          Filter out discovered scripts that are have not been changed since this git ref
+          
+          Pass a git ref, like a commit hash, tag, or branch name.
+
   -h, --help
           Print help (see a summary with '-h')

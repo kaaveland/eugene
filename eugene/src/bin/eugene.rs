@@ -7,6 +7,7 @@ use postgres::Client;
 use serde::Serialize;
 use std::collections::HashMap;
 
+use eugene::git::{GitFilter, GitMode};
 use eugene::output::output_format::GenericHint;
 use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
 use eugene::pg_types::lock_modes;
@@ -82,6 +83,11 @@ struct LintOptions {
     /// Skip the summary section for markdown output
     #[arg(short = 's', long = "skip-summary", default_value_t = false)]
     skip_summary: bool,
+    /// Filter out discovered scripts that are have not been changed since this git ref
+    ///
+    /// Pass a git ref, like a commit hash, tag, or branch name.
+    #[arg(short = 'g', long = "git-diff")]
+    git_diff: Option<String>,
 }
 
 impl LintOptions {
@@ -96,6 +102,14 @@ impl LintOptions {
     }
     fn sort_mode(&self) -> eugene::Result<SortMode> {
         self.sort_mode.as_str().try_into()
+    }
+    fn git_filter(&self) -> eugene::Result<GitFilter> {
+        let mode: GitMode = self.git_diff.clone().into();
+        let mut filter = GitFilter::empty(mode.clone());
+        for path in self.paths.iter() {
+            filter.extend(GitFilter::new(path, mode.clone())?)
+        }
+        Ok(filter)
     }
 }
 
@@ -291,11 +305,15 @@ pub fn main() -> Result<()> {
             let placeholders = opts.placeholders()?;
             let format: TraceFormat = opts.format()?;
             let mut failed = false;
+            let filter = opts.git_filter()?;
             for read_from in script_discovery::discover_all(
                 &opts.paths,
                 script_filters::never,
                 opts.sort_mode()?,
-            )? {
+            )?
+            .into_iter()
+            .filter(|r| filter.allows(r.name()))
+            {
                 let script = read_script(&read_from, &placeholders)?;
                 let report = eugene::lints::lint(
                     Some(script.name.clone()),
@@ -345,23 +363,26 @@ pub fn main() -> Result<()> {
                 ));
             }
             let ignored = trace_opts.opts.ignored_hints();
+            let filter = trace_opts.opts.git_filter()?;
             for read_from in script_source {
                 let script = read_script(&read_from, &placeholders)?;
                 let name = script.name.as_str();
                 let trace = perform_trace(&script, &mut client_source, &ignored, commit)
                     .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
-                let full_trace = output::full_trace_data(
-                    &trace,
-                    output::Settings::new(!trace_opts.extra, trace_opts.opts.skip_summary),
-                );
-                failed = failed || !trace.success();
-                let report = match format {
-                    TraceFormat::Json => full_trace.to_pretty_json(),
-                    TraceFormat::Plain => full_trace.to_plain_text(),
-                    TraceFormat::Markdown => full_trace.to_markdown(),
-                }?;
-                if !report.trim().is_empty() {
-                    println!("{}", report);
+                if filter.allows(name) {
+                    let full_trace = output::full_trace_data(
+                        &trace,
+                        output::Settings::new(!trace_opts.extra, trace_opts.opts.skip_summary),
+                    );
+                    failed = failed || !trace.success();
+                    let report = match format {
+                        TraceFormat::Json => full_trace.to_pretty_json(),
+                        TraceFormat::Plain => full_trace.to_plain_text(),
+                        TraceFormat::Markdown => full_trace.to_markdown(),
+                    }?;
+                    if !report.trim().is_empty() {
+                        println!("{}", report);
+                    }
                 }
             }
 

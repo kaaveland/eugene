@@ -56,6 +56,9 @@ pub mod tempserver;
 
 pub mod error;
 
+/// Utilities for invoking git
+pub mod git;
+
 pub struct SqlScript {
     pub name: String,
     pub sql: String,

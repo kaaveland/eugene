@@ -7,7 +7,7 @@ use crate::error::InnerError::{
     PathParseError, UnknownPathType,
 };
 use crate::error::{ContextualError, ContextualResult};
-use log::trace;
+use log::{debug, trace};
 use nom::branch::alt;
 use nom::bytes::complete::tag;
 use nom::character::complete::{anychar, char, digit1};
@@ -381,7 +381,9 @@ pub fn discover_all<S: AsRef<str>, T: IntoIterator<Item = S>>(
 ) -> crate::Result<Vec<ReadFrom>> {
     let mut all = vec![];
     for path in paths {
-        all.extend(discover_scripts(path.as_ref(), filter, SortMode::Unsorted)?);
+        let path = path.as_ref();
+        debug!("Discovering scripts from: {:?}", path);
+        all.extend(discover_scripts(path, filter, SortMode::Unsorted)?);
     }
 
     let any_is_dir = all

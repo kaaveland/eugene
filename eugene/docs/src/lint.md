@@ -18,6 +18,9 @@ have reasonably precise rules. Some SQL statements will implicitly create indexe
 will prevent writes to the table, and `eugene lint` will catch those that it knows about,
 but there may be some ways for this to happen that it doesn't know about.
 
+If you want to run `eugene lint` in CI, or as a pre-commit hook, you can use `--git-diff=main`
+or `-gmain` to lint files that are new/unstaged, or have changes in them since `main`.
+
 ## Usage
 
 ```shell

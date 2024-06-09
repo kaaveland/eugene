@@ -64,6 +64,19 @@ where
     }
 }
 
+impl ContextualError for Error {
+    fn with_context<S: Into<String>>(mut self, ctx: S) -> Error {
+        self.context.push(ctx.into());
+        self
+    }
+}
+
+impl<T> ContextualResult<T, Error> for Result<T, Error> {
+    fn with_context<S: Into<String>>(self, ctx: S) -> Result<T, Error> {
+        self.map_err(|e| e.with_context(ctx))
+    }
+}
+
 #[derive(Debug)]
 pub enum InnerError {
     #[allow(dead_code)]
@@ -97,6 +110,12 @@ pub enum InnerError {
     SendError,
     SerdeError(serde_json::Error),
     PgPassEntryNotFound,
+    InvalidGitMode,
+    NoGitExecutableError,
+    NoGitRepositoryError,
+    GitExecutionError,
+    GitError,
+    InvalidPath,
 }
 
 impl From<serde_json::Error> for InnerError {

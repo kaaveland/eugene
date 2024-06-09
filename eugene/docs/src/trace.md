@@ -18,6 +18,10 @@ created in a transaction, even if they were implicitly created. If you need to t
 `eugene trace` that you know a statement to be safe, you can tell it to ignore a lint by
 adding a comment to your SQL script, see [ignores](/eugene/docs/ignores).
 
+If you want to run `eugene trace` in CI, or as a pre-commit hook, you can use `--git-diff=main`
+or `-gmain` to trace files that are new/unstaged, or have changes in them since `main`. 
+`eugene trace` will still run all the scripts, but will only check the ones that have changed.
+
 ## Usage
 
 ```shell

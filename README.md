@@ -27,6 +27,15 @@ best place to get usage documentation, such as installation instructions and exa
 
 Some of those instructions are repeated here for convenience:
 
+In addition to rust, you need:
+
+- `gcc` and `g++` *or* `clang` and `clang++`
+   + on macos, you get these with `xcode-select --install`
+   + on ubuntu, install with `sudo apt install clang`
+- `cmake`
+   + on macos, you can get this with `brew install cmake`
+   + on ubuntu, you can get this with `sudo apt install cmake`
+
 ```bash
 cargo install eugene
 ```

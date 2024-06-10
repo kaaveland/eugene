@@ -73,11 +73,25 @@ which can pick up more issues, some of which `eugene lint` can't detect.
 
 ## Installing eugene
 
-You can install `eugene` using cargo:
+You can install `eugene` using cargo, but this requires you to have rust 
+and some other build tools installed. To install rust, you can use 
+[rustup](https://rustup.rs/).
+
+In addition to rust, you need:
+
+- `gcc` and `g++` *or* `clang` and `clang++`
+  + on macos, you get these with `xcode-select --install`
+  + on ubuntu, install with `sudo apt install clang`
+- `cmake`
+  + on macos, you can get this with `brew install cmake`
+  + on ubuntu, you can get this with `sudo apt install cmake`
+    
+After you have rust and the other build tools installed, you can install `eugene` with:
 
 ```sh
 cargo install eugene
 ```
+
 
 It is also available as a Docker image:
 

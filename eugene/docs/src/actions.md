@@ -42,7 +42,7 @@ jobs:
     - name: Put postgres binaries on PATH for eugene
       run: echo "/usr/lib/postgresql/14/bin" >> $GITHUB_PATH
     - name: Trace
-      run: ./eugene trace --git-diff origin/main flywaystyle-sql
+      run: ./eugene trace --git-diff origin/main migration-scripts
 
   lint:
     runs-on: ubuntu-latest
@@ -55,7 +55,7 @@ jobs:
           curl -L  https://github.com/kaaveland/eugene/releases/download/$EUGENE_VERSION/eugene-x86_64-unknown-linux-musl -o eugene
           chmod +x eugene
       - name: Lint files
-        run: ./eugene lint --git-diff origin/main flywaystyle-sql
+        run: ./eugene lint --git-diff origin/main migration-scripts
 
   post_trace:
     runs-on: ubuntu-latest
@@ -70,7 +70,7 @@ jobs:
       - name: Put postgres binaries on PATH for eugene
         run: echo "/usr/lib/postgresql/14/bin" >> $GITHUB_PATH
       - name: Trace files
-        run: ./eugene trace --git-diff origin/main flywaystyle-sql -f md --accept-failures > trace.md
+        run: ./eugene trace --git-diff origin/main migration-scripts -f md --accept-failures > trace.md
       - name: Post Comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -90,15 +90,11 @@ jobs:
           curl -L  https://github.com/kaaveland/eugene/releases/download/$EUGENE_VERSION/eugene-x86_64-unknown-linux-musl -o eugene
           chmod +x eugene
       - name: Lint files
-        run: ./eugene lint --git-diff origin/main flywaystyle-sql -f md --accept-failures > lint.md
+        run: ./eugene lint --git-diff origin/main migration-scripts -f md --accept-failures > lint.md
       - name: Post Comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COMMENT=$(cat lint.md)
           gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
-          
-        
-        
-
 ```

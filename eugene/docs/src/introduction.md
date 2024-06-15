@@ -1,10 +1,16 @@
 # Introduction to eugene
 
-Eugene is a tool designed to help you write safe schema migrations for PostgreSQL. Sometimes,
-the most straightforward way to make a change to your database schema is also quite risky,
-due to locking issues and lock queues. Eugene has two modes that can help you spot these
-dangerous patterns and can suggest a safer way to achieve the same effect in many cases.
+Eugene helps you write zero downtime schema migration scripts for PostgreSQL databases.
+Sometimes, the most straightforward way to make a change to your database schema is 
+also quite risky, due to locking issues and lock queues. Eugene has two modes that can 
+help you spot dangerous patterns and can suggest a safer way to achieve the same effect
+in many cases, and it is easy to get started with both:
 
+- `eugene lint` will perform syntax tree analysis of your SQL script using the PostgreSQL parser.
+- `eugene trace` run your scripts in a temporary PostgreSQL server, and inspect locks.
+- Both understand git and can easily check only what's new on your branch, commit or tag.
+- Both handle folders with version named scripts, and run scripts in the right order.
+- Easy to run in CI, to post markdown reports to your PRs.
 <h2><label for="sql">Demo</label></h2>
 
 Feel free to try out Eugene by playing around with the SQL script

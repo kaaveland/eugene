@@ -31,15 +31,15 @@ to the project, so that it can post comments on merge requests.
 
 lint:
   extends: .eugene
-  script: eugene lint --git-diff origin/main flywaystyle-sql
+  script: eugene lint --git-diff origin/main migration-scripts
 
 trace:
   extends: .eugene
-  script: eugene trace --git-diff origin/main flywaystyle-sql
+  script: eugene trace --git-diff origin/main migration-scripts
 
 trace_report:
     extends: .eugene
-    script: eugene trace --git-diff origin/main flywaystyle-sql -f md --accept-failures > trace.md
+    script: eugene trace --git-diff origin/main migration-scripts -f md --accept-failures > trace.md
     artifacts:
       paths:
         - trace.md
@@ -57,7 +57,7 @@ comment_trace:
 
 lint_report:
   extends: .eugene
-  script: eugene lint --git-diff origin/main flywaystyle-sql -f md --accept-failures > lint.md
+  script: eugene lint --git-diff origin/main migration-scripts -f md --accept-failures > lint.md
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   artifacts:

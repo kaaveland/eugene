@@ -1,6 +1,6 @@
 Trace effects by running statements from SQL migration script
 
-`eugene trace` will set up a temporary postgres server to run against, unless disabled.
+`eugene trace` will set up a temporary postgres server for tracing, unless disabled.
 
 Reads $PGPASS for password to postgres, if ~/.pgpass is not found.
 

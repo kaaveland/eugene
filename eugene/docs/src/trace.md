@@ -1,7 +1,10 @@
 # eugene trace
 
-The `eugene trace` command will actually execute your SQL script in a transaction. By default,
-it will roll back the transaction once it is done inspecting the metadata of the database.
+The `eugene trace` command will actually execute your SQL script in a transaction. If you have
+PostgreSQL installed, `eugene trace` can set up a temporary database server for you, and run
+through all the SQL scripts you give it to trace them. If you prefer to use your own database
+server, you can give provide `eugene trace` with connection information and it will roll back
+scripts by default, in this case.
 
 PostgreSQL has a number of interesting features that can help `eugene trace` look for dangerous
 patterns while executing SQL statements in a transaction. `eugene trace` will look at the data

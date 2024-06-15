@@ -241,7 +241,10 @@ impl GitFilter {
 
 #[cfg(test)]
 mod tests {
+    use crate::utils::FsyncDir;
+    use anyhow::Context;
     use pretty_assertions::assert_eq;
+    use std::fs;
     use tempfile::{Builder, TempDir};
 
     use super::*;
@@ -280,6 +283,7 @@ mod tests {
             .arg("main")
             .current_dir(path)
             .output()
+            .context(format!("Failed to configure git in {path:?}"))
             .unwrap();
         Command::new("git")
             .arg("config")
@@ -287,6 +291,7 @@ mod tests {
             .arg("ci@example.com")
             .current_dir(path)
             .output()
+            .context(format!("Failed to configure git in {path:?}"))
             .unwrap();
         Command::new("git")
             .arg("config")
@@ -294,6 +299,7 @@ mod tests {
             .arg("ci@example.com")
             .current_dir(path)
             .output()
+            .context(format!("Failed to configure git in {path:?}"))
             .unwrap();
     }
 
@@ -301,7 +307,7 @@ mod tests {
     fn test_nearest_dir() {
         let tmp = TempDir::new().unwrap();
         let fp = tmp.path().join("foo");
-        std::fs::write(&fp, "").unwrap();
+        fs::write(&fp, "").unwrap();
         assert_eq!(nearest_directory(fp).unwrap(), tmp.path());
         assert_eq!(nearest_directory(tmp.path()).unwrap(), tmp.path());
         let subdir = tmp.path().join("subdir");
@@ -324,11 +330,13 @@ mod tests {
             .prefix("eugene-test-unstaged")
             .tempdir()
             .unwrap();
+        tmp.fsync().unwrap();
         let p = tmp.path();
         Command::new("git")
             .arg("init")
             .current_dir(p)
             .output()
+            .context(format!("Failed to git init in {p:?}"))
             .unwrap();
         assert!(unstaged_children(p.to_str().unwrap()).unwrap().is_empty());
         assert!(unstaged_children(p.join("foo").to_str().unwrap()).is_err());
@@ -346,7 +354,9 @@ mod tests {
             .prefix("eugene-test-gitref-exists")
             .tempdir()
             .unwrap();
+        tmp.fsync().unwrap();
         let p = tmp.path();
+
         configure_git(p);
         assert!(git_ref_exists("main", p).is_err());
         let fp = p.join("foo");
@@ -373,6 +383,7 @@ mod tests {
     #[test]
     fn test_diff() {
         let tmp = Builder::new().prefix("eugene-test-diff").tempdir().unwrap();
+        tmp.fsync().unwrap();
         let p = tmp.path();
         configure_git(p);
         let fp = p.join("foo");

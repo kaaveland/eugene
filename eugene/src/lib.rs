@@ -59,6 +59,21 @@ pub mod error;
 /// Utilities for invoking git
 pub mod git;
 
+pub mod utils {
+    use std::path::Path;
+
+    pub trait FsyncDir {
+        fn fsync(&self) -> Result<(), std::io::Error>;
+    }
+
+    impl<P: AsRef<Path>> FsyncDir for P {
+        fn fsync(&self) -> Result<(), std::io::Error> {
+            let dir = std::fs::File::open(self)?;
+            dir.sync_all()
+        }
+    }
+}
+
 pub struct SqlScript {
     pub name: String,
     pub sql: String,

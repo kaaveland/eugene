@@ -61,7 +61,23 @@ function check_for_413(event) {
   }
 }
 </script>
+<div>
+<button class="float-right button-cta" id="random-example">Another Example</button> 
 <button class="float-right button-cta" id="submit">Check</button>
+<script>
+function fetch_new_example(event) {
+    event.preventDefault();
+    fetch('/eugene/app/random.sql')
+        .then(response => response.text())
+        .then(data => {
+              editor.setValue(data); 
+              editor.clearSelection();
+              document.getElementById('sql-input').value = data;
+    });
+}
+document.getElementById("random-example").addEventListener("click", fetch_new_example);
+</script>
+</div>
 </form>
 <div id="hx-errors"></div>
 <div id="output"></div>

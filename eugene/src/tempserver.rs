@@ -8,7 +8,7 @@ use crate::error::{ContextualError, InnerError};
 use crate::{ClientSource, WithClient};
 use log::{debug, error, info, warn};
 use postgres::Client;
-use tempfile::TempDir;
+use tempfile::{Builder, TempDir};
 
 pub struct TempServer {
     dbpath: Option<TempDir>,
@@ -22,7 +22,7 @@ impl TempServer {
     pub fn new(postgres_options: &str, initdb_options: &[String]) -> crate::Result<Self> {
         let port = find_free_port_on_localhost()?;
         check_required_postgres_commands()?;
-        let dbpath = TempDir::new()?;
+        let dbpath = Builder::new().prefix("eugene-temp-postgres").tempdir()?;
         let mut superuser_password = String::new();
         while superuser_password.len() < 20 {
             let rand_byte: u8 = rand::random();

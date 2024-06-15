@@ -106,10 +106,7 @@ fn snapshot_trace(
     for (name, script) in break_into_files(script)? {
         let path = format!("examples/{}/{kind}/{}", id, name.unwrap());
         let sql = script.into();
-        let sql_script = SqlScript {
-            name: path.into(),
-            sql,
-        };
+        let sql_script = SqlScript { name: path, sql };
 
         let trace = perform_trace(&sql_script, &mut connection_settings, &[], true)?;
         let mut report = full_trace_data(&trace, *output_settings);
@@ -292,7 +289,7 @@ struct HintPage<'a> {
 
 fn read_script(id: &str, kind: &str) -> crate::Result<String> {
     let example_path = format!("examples/{}/{}.sql", id, kind);
-    let mut script = fs::read_to_string(&example_path)?;
+    let mut script = fs::read_to_string(example_path)?;
     if script.ends_with('\n') {
         script.pop();
     }

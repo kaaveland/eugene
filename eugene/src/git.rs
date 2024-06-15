@@ -241,9 +241,8 @@ impl GitFilter {
 
 #[cfg(test)]
 mod tests {
-
     use pretty_assertions::assert_eq;
-    use tempfile::TempDir;
+    use tempfile::{Builder, TempDir};
 
     use super::*;
 
@@ -321,17 +320,19 @@ mod tests {
 
     #[test]
     fn test_unstaged() {
-        let tmp = TempDir::new().unwrap();
+        let tmp = Builder::new()
+            .prefix("eugene-test-unstaged")
+            .tempdir()
+            .unwrap();
+        let p = tmp.path();
         Command::new("git")
             .arg("init")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
-        assert!(unstaged_children(tmp.path().to_str().unwrap())
-            .unwrap()
-            .is_empty());
-        assert!(unstaged_children(tmp.path().join("foo").to_str().unwrap()).is_err());
-        let fp = tmp.path().join("foo");
+        assert!(unstaged_children(p.to_str().unwrap()).unwrap().is_empty());
+        assert!(unstaged_children(p.join("foo").to_str().unwrap()).is_err());
+        let fp = p.join("foo");
         std::fs::write(&fp, "hei").unwrap();
         assert_eq!(
             unstaged_children(fp.to_str().unwrap()).unwrap(),
@@ -341,15 +342,19 @@ mod tests {
 
     #[test]
     fn test_gitref_exists() {
-        let tmp = TempDir::new().unwrap();
-        configure_git(tmp.path());
-        assert!(git_ref_exists("main", tmp.path()).is_err());
-        let fp = tmp.path().join("foo");
+        let tmp = Builder::new()
+            .prefix("eugene-test-gitref-exists")
+            .tempdir()
+            .unwrap();
+        let p = tmp.path();
+        configure_git(p);
+        assert!(git_ref_exists("main", p).is_err());
+        let fp = p.join("foo");
         std::fs::write(fp, "hei").unwrap();
         let o = Command::new("git")
             .arg("add")
             .arg("foo")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         eprintln!("{o:?}");
@@ -357,31 +362,32 @@ mod tests {
             .arg("commit")
             .arg("-m")
             .arg("initial")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         eprintln!("{o:?}");
-        assert!(git_ref_exists("main", tmp.path()).is_ok());
-        assert!(git_ref_exists("nonono", tmp.path()).is_err());
+        assert!(git_ref_exists("main", p).is_ok());
+        assert!(git_ref_exists("nonono", p).is_err());
     }
 
     #[test]
     fn test_diff() {
-        let tmp = TempDir::new().unwrap();
-        configure_git(tmp.path());
-        let fp = tmp.path().join("foo");
+        let tmp = Builder::new().prefix("eugene-test-diff").tempdir().unwrap();
+        let p = tmp.path();
+        configure_git(p);
+        let fp = p.join("foo");
         std::fs::write(&fp, "hei").unwrap();
         Command::new("git")
             .arg("add")
             .arg("foo")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         Command::new("git")
             .arg("commit")
             .arg("-m")
             .arg("initial")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         assert!(diff_files_since_ref(&fp, "main").unwrap().is_empty(),);
@@ -389,22 +395,22 @@ mod tests {
             .arg("checkout")
             .arg("-b")
             .arg("newbranch")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
-        let fp2 = tmp.path().join("bar");
+        let fp2 = p.join("bar");
         std::fs::write(&fp2, "hei").unwrap();
         Command::new("git")
             .arg("add")
             .arg("bar")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         Command::new("git")
             .arg("commit")
             .arg("-m")
             .arg("new file")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         // The new file is contained in the diff with main
@@ -413,7 +419,7 @@ mod tests {
             vec![fp2.to_str().unwrap()]
         );
         assert_eq!(
-            diff_files_since_ref(tmp.path(), "main").unwrap(),
+            diff_files_since_ref(p, "main").unwrap(),
             vec![fp2.to_str().unwrap()]
         );
 

@@ -242,9 +242,10 @@ impl GitFilter {
 #[cfg(test)]
 mod tests {
     use crate::utils::FsyncDir;
-    use anyhow::Context;
     use pretty_assertions::assert_eq;
     use std::fs;
+    use std::thread::sleep;
+    use std::time::Duration;
     use tempfile::{Builder, TempDir};
 
     use super::*;
@@ -277,30 +278,41 @@ mod tests {
     }
 
     fn configure_git(path: &Path) {
-        Command::new("git")
-            .arg("init")
-            .arg("-b")
-            .arg("main")
-            .current_dir(path)
-            .output()
-            .context(format!("Failed to configure git in {path:?}"))
-            .unwrap();
-        Command::new("git")
-            .arg("config")
-            .arg("user.email")
-            .arg("ci@example.com")
-            .current_dir(path)
-            .output()
-            .context(format!("Failed to configure git in {path:?}"))
-            .unwrap();
-        Command::new("git")
-            .arg("config")
-            .arg("user.name")
-            .arg("ci@example.com")
-            .current_dir(path)
-            .output()
-            .context(format!("Failed to configure git in {path:?}"))
-            .unwrap();
+        fn inner(path: &Path) -> std::io::Result<()> {
+            Command::new("git")
+                .arg("init")
+                .arg("-b")
+                .arg("main")
+                .current_dir(path)
+                .output()?;
+            Command::new("git")
+                .arg("config")
+                .arg("user.email")
+                .arg("ci@example.com")
+                .current_dir(path)
+                .output()?;
+            Command::new("git")
+                .arg("config")
+                .arg("user.name")
+                .arg("ci@example.com")
+                .current_dir(path)
+                .output()?;
+            path.fsync()?;
+            Ok(())
+        }
+        let mut attempt = 0;
+        loop {
+            match inner(path) {
+                Ok(_) => break,
+                Err(e) => {
+                    attempt += 1;
+                    sleep(Duration::from_millis(100));
+                    if attempt > 5 {
+                        panic!("Failed to configure git in {path:?} after 3 attempts: {e}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -332,16 +344,11 @@ mod tests {
             .unwrap();
         tmp.fsync().unwrap();
         let p = tmp.path();
-        Command::new("git")
-            .arg("init")
-            .current_dir(p)
-            .output()
-            .context(format!("Failed to git init in {p:?}"))
-            .unwrap();
+        configure_git(p);
         assert!(unstaged_children(p.to_str().unwrap()).unwrap().is_empty());
         assert!(unstaged_children(p.join("foo").to_str().unwrap()).is_err());
         let fp = p.join("foo");
-        std::fs::write(&fp, "hei").unwrap();
+        fs::write(&fp, "hei").unwrap();
         assert_eq!(
             unstaged_children(fp.to_str().unwrap()).unwrap(),
             vec![fp.to_str().unwrap()]
@@ -387,7 +394,7 @@ mod tests {
         let p = tmp.path();
         configure_git(p);
         let fp = p.join("foo");
-        std::fs::write(&fp, "hei").unwrap();
+        fs::write(&fp, "hei").unwrap();
         Command::new("git")
             .arg("add")
             .arg("foo")

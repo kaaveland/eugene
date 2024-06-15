@@ -68,8 +68,15 @@ pub mod utils {
 
     impl<P: AsRef<Path>> FsyncDir for P {
         fn fsync(&self) -> Result<(), std::io::Error> {
-            let dir = std::fs::File::open(self)?;
-            dir.sync_all()
+            #[cfg(not(windows))]
+            {
+                let dir = std::fs::File::open(self)?;
+                dir.sync_all()
+            }
+            #[cfg(windows)]
+            {
+                Ok(())
+            }
         }
     }
 }

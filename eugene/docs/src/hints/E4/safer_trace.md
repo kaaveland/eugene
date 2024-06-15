@@ -7,6 +7,7 @@
 #### SQL
 
 ```sql
+-- 1.sql
 create table authors (
     id integer generated always as identity
         primary key,
@@ -33,6 +34,7 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
+-- 2.sql
 set local lock_timeout = '2s'
 ```
 
@@ -76,6 +78,7 @@ No locks held at the start of this statement.
 #### SQL
 
 ```sql
+-- 3.sql
 select count(*) from authors
 ```
 

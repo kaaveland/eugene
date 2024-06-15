@@ -14,7 +14,6 @@
 
 ```sql
 -- 1.sql
-
 create type document_type
     as enum ('invoice', 'receipt', 'other');
 create table document (
@@ -22,14 +21,12 @@ create table document (
         primary key,
     type document_type
 );
-
 ```
 
 ## Safer migration
 
 ```sql
 -- 1.sql
-
 create table document_type(
     type_name text primary key
 );
@@ -41,7 +38,6 @@ create table document (
     type text
         references document_type(type_name)
 );
-
 ```
 
 ## Eugene report examples

@@ -9,6 +9,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 1.sql
 create table prices (
     price int not null
 )
@@ -26,6 +27,7 @@ The migration script did not pass all the checks ❌
 ### Statement number 1
 #### SQL
 ```sql
+-- 2.sql
 set local lock_timeout = '2s'
 ```
 No checks matched for this statement. ✅

@@ -7,6 +7,7 @@
 #### SQL
 
 ```sql
+-- 1.sql
 create type document_type
     as enum ('invoice', 'receipt', 'other')
 ```

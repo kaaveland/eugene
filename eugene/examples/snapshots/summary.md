@@ -33,6 +33,7 @@ No locks acquired on database objects that already exist.
 #### SQL
 
 ```sql
+-- 1.sql
 create table prices (
     id integer generated always as identity
         primary key,
@@ -149,6 +150,7 @@ statement.
 #### SQL
 
 ```sql
+-- 2.sql
 set local lock_timeout = '2s'
 ```
 

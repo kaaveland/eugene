@@ -9,6 +9,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 1.sql
 create table document_type(
     type_name text primary key
 )

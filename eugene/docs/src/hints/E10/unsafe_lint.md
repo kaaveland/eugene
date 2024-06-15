@@ -9,6 +9,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 1.sql
 create table prices (
     id integer generated always as identity
         primary key,
@@ -38,6 +39,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 2.sql
 set local lock_timeout = '2s'
 ```
 No checks matched for this statement. ✅

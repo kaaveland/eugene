@@ -9,6 +9,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 1.sql
 create table authors(
     name text
 )
@@ -26,6 +27,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 2.sql
 create unique index concurrently
     authors_name_key on authors(name)
 ```
@@ -42,6 +44,7 @@ The migration script did not pass all the checks ❌
 ### Statement number 1
 #### SQL
 ```sql
+-- 3.sql
 set local lock_timeout = '2s'
 ```
 No checks matched for this statement. ✅

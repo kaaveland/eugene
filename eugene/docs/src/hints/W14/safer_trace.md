@@ -7,6 +7,7 @@
 #### SQL
 
 ```sql
+-- 1.sql
 create table authors(
     name text
 )
@@ -31,6 +32,7 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
+-- 2.sql
 create unique index concurrently
     authors_name_key on authors(name)
 ```
@@ -54,6 +56,7 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
+-- 3.sql
 set local lock_timeout = '2s'
 ```
 
@@ -100,6 +103,7 @@ No locks held at the start of this statement.
 #### SQL
 
 ```sql
+-- 4.sql
 alter table authors
     add constraint authors_name_pkey
         primary key using index authors_name_key

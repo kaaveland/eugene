@@ -1,6 +1,5 @@
 use std::ffi::OsString;
 use std::fs;
-use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use handlebars::Handlebars;
@@ -11,9 +10,10 @@ use rayon::prelude::*;
 use serde::Serialize;
 
 use crate::error::{ContextualError, InnerError};
+use crate::hint_data::{data_by_id, HintId};
 use crate::lints::lint;
 use crate::output::{full_trace_data, GenericHint, Settings};
-use crate::script_discovery::{discover_scripts, script_filters, SortMode};
+use crate::parse_scripts::break_into_files;
 use crate::{generate_new_test_db, hint_data, output, perform_trace, ClientSource, SqlScript};
 
 static DEFAULT_SETTINGS: Lazy<Settings> = Lazy::new(|| Settings::new(true, true));
@@ -52,49 +52,47 @@ fn every_lint_has_an_example_migration() -> crate::Result<()> {
             "No example migration for {}",
             hint.id
         );
-        let bad_example_path = format!("examples/{}/bad", hint.id);
-        let entry = fs::read_dir(bad_example_path)?;
-        assert!(
-            entry.count() > 0,
-            "No example of bad migration for {}",
+        let bad_example_path = format!("examples/{}/bad.sql", hint.id);
+        let script = fs::read_to_string(bad_example_path)?;
+        assert!(!script.is_empty(), "Missing example for {}", hint.id);
+        // In case we put the wrong path into the static hint data
+        assert_eq!(
+            script, hint.bad_example,
+            "Mismatched example for {}",
             hint.id
         );
+        // Same thing
+        if let Some(good) = hint.good_example {
+            assert_eq!(
+                good,
+                fs::read_to_string(format!("examples/{}/good.sql", hint.id))?
+            );
+        }
     }
 
     Ok(())
 }
 
-fn sorted_dir_files(path: &str) -> crate::Result<Vec<PathBuf>> {
-    let dir = fs::read_dir(path)?;
-    let mut entries = vec![];
-    for entry in dir {
-        let path = entry?.path();
-        if path.is_file() {
-            entries.push(path);
-        }
-    }
-    entries.sort();
-    Ok(entries)
-}
-
-fn snapshot_lint(id: &str, subfolder: &str) -> crate::Result<String> {
-    let example_path = format!("examples/{}/{}", id, subfolder);
+fn snapshot_lint(id: &str, kind: &str, script: &str) -> crate::Result<String> {
     let mut reports = vec![];
-    for script in sorted_dir_files(example_path.as_str())? {
-        let path = script
-            .to_str()
-            .expect("Path is not a valid UTF-8 string")
-            // This isn't very nice, but the snapshots must generate the path text on Windows
-            .replace('\\', "/");
-        let sql = fs::read_to_string(&script)?;
-        let report = lint(Some(path), sql, &[], false)?;
+    for (name, sql) in break_into_files(script)? {
+        let report = lint(
+            name.map(|n| format!("examples/{id}/{kind}/{n}")),
+            sql,
+            &[],
+            false,
+        )?;
         reports.push(output::templates::lint_report_to_markdown(&report)?);
     }
     Ok(reports.join("\n"))
 }
 
-fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> crate::Result<String> {
-    let example_path = format!("examples/{}/{}", id, subfolder);
+fn snapshot_trace(
+    id: &str,
+    kind: &str,
+    output_settings: &Settings,
+    script: &str,
+) -> crate::Result<String> {
     let mut reports = vec![];
     let db = generate_new_test_db();
     let mut connection_settings = ClientSource::new(
@@ -104,11 +102,10 @@ fn snapshot_trace(id: &str, subfolder: &str, output_settings: &Settings) -> crat
         5432,
         "postgres".to_string(),
     );
-    let sources = discover_scripts(&example_path, script_filters::never, SortMode::Auto)?;
 
-    for script in sources {
-        let path = script.name().replace('\\', "/");
-        let sql = script.read()?;
+    for (name, script) in break_into_files(script)? {
+        let path = format!("examples/{}/{kind}/{}", id, name.unwrap());
+        let sql = script.into();
         let sql_script = SqlScript { name: path, sql };
 
         let trace = perform_trace(&sql_script, &mut connection_settings, &[], true)?;
@@ -147,19 +144,19 @@ fn hint_folder<S: AsRef<str>>(id: S) -> String {
 
 fn write_lints(id: &str) -> crate::Result<bool> {
     let mut changed = false;
+    let data = data_by_id(id).expect("Hint not found");
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
-    if is_migration_set_up(id, "bad") {
-        let bad = snapshot_lint(id, "bad")?;
-        let bad_path = format!("{hint_folder}/unsafe_lint.md");
-        let prior = fs::read_to_string(&bad_path).unwrap_or_default();
-        if prior != bad {
-            changed = true;
-        }
-        fs::write(bad_path, bad)?;
+    let bad = snapshot_lint(id, "bad", data.bad_example)?;
+    let bad_path = format!("{hint_folder}/unsafe_lint.md");
+    let prior = fs::read_to_string(&bad_path).unwrap_or_default();
+    if prior != bad {
+        changed = true;
     }
-    if is_migration_set_up(id, "good") {
-        let good = snapshot_lint(id, "good")?;
+    fs::write(bad_path, bad)?;
+
+    if let Some(script) = data.good_example {
+        let good = snapshot_lint(id, "good", script)?;
         let good_path = format!("{hint_folder}/safer_lint.md");
         let prior = fs::read_to_string(&good_path).unwrap_or_default();
         if prior != good {
@@ -167,33 +164,31 @@ fn write_lints(id: &str) -> crate::Result<bool> {
         }
         fs::write(good_path, good)?;
     }
+
     Ok(changed)
 }
 
-fn is_migration_set_up(id: &str, subfolder: &str) -> bool {
-    let example_path = format!("examples/{}/{}/1.sql", id, subfolder);
+fn is_migration_set_up(id: &str, kind: &str) -> bool {
+    let example_path = format!("examples/{}/{}.sql", id, kind);
     fs::metadata(example_path).is_ok()
 }
 
 fn write_traces(id: &str) -> crate::Result<bool> {
     let mut out = false;
-    hint_data::ALL
-        .iter()
-        .find(|hint| hint.id == id)
-        .expect("Hint not found");
+    let data = data_by_id(id).expect("Hint not found");
     let hint_folder = hint_folder(id);
     fs::create_dir_all(hint_folder.as_str())?;
-    if is_migration_set_up(id, "bad") {
-        let bad = snapshot_trace(id, "bad", &DEFAULT_SETTINGS)?;
-        let bad_path = format!("{hint_folder}/unsafe_trace.md");
-        let prior = fs::read_to_string(&bad_path).unwrap_or_default();
-        if prior != bad {
-            out = true;
-        }
-        fs::write(bad_path, bad)?;
+
+    let bad = snapshot_trace(id, "bad", &DEFAULT_SETTINGS, data.bad_example)?;
+    let bad_path = format!("{hint_folder}/unsafe_trace.md");
+    let prior = fs::read_to_string(&bad_path).unwrap_or_default();
+    if prior != bad {
+        out = true;
     }
-    if is_migration_set_up(id, "good") {
-        let good = snapshot_trace(id, "good", &DEFAULT_SETTINGS)?;
+    fs::write(bad_path, bad)?;
+
+    if let Some(script) = data.good_example {
+        let good = snapshot_trace(id, "good", &DEFAULT_SETTINGS, script)?;
         let good_path = format!("{hint_folder}/safer_trace.md");
         let prior = fs::read_to_string(&good_path).unwrap_or_default();
         if prior != good {
@@ -201,6 +196,7 @@ fn write_traces(id: &str) -> crate::Result<bool> {
         }
         fs::write(good_path, good)?;
     }
+
     Ok(out)
 }
 
@@ -244,7 +240,8 @@ fn snapshot_traces() -> crate::Result<()> {
 #[test]
 fn test_trace_with_extra_locks() {
     let output_settings = Settings::new(false, true);
-    let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
+    let data = data_by_id("E10").unwrap();
+    let r = snapshot_trace(data.id(), "bad", &output_settings, data.bad_example).unwrap();
     let path = "examples/snapshots/extra_locks.md";
     let prior = fs::read_to_string(path).unwrap_or_default();
     fs::write(path, &r).unwrap();
@@ -257,7 +254,8 @@ fn test_trace_with_extra_locks() {
 #[test]
 fn test_trace_with_summary() {
     let output_settings = Settings::new(true, false);
-    let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
+    let data = data_by_id("E10").unwrap();
+    let r = snapshot_trace(data.id(), "bad", &output_settings, data.bad_example).unwrap();
     let path = "examples/snapshots/summary.md";
     let prior = fs::read_to_string(path).unwrap_or_default();
     fs::write(path, &r).unwrap();
@@ -270,7 +268,8 @@ fn test_trace_with_summary() {
 #[test]
 fn test_trace_with_summary_and_extra_locks() {
     let output_settings = Settings::new(true, true);
-    let r = snapshot_trace("E10", "bad", &output_settings).unwrap();
+    let data = data_by_id("E10").unwrap();
+    let r = snapshot_trace(data.id(), "bad", &output_settings, data.bad_example).unwrap();
     let path = "examples/snapshots/summary_extra_locks.md";
     let prior = fs::read_to_string(path).unwrap_or_default();
     fs::write(path, &r).unwrap();
@@ -288,22 +287,9 @@ struct HintPage<'a> {
     supported_by: &'a str,
 }
 
-fn read_script(id: &str, subfolder: &str) -> crate::Result<String> {
-    let mut script = String::new();
-    let example_path = format!("examples/{}/{}", id, subfolder);
-    let scripts = sorted_dir_files(example_path.as_str())?;
-    for sql_script in scripts {
-        let sql = fs::read_to_string(&sql_script)?;
-        let name = sql_script
-            .iter()
-            .last()
-            .expect("No file name")
-            .to_str()
-            .expect("Path is not a valid UTF-8 string");
-        script.push_str(&format!("-- {}\n\n", name));
-        script.push_str(&sql);
-        script.push('\n');
-    }
+fn read_script(id: &str, kind: &str) -> crate::Result<String> {
+    let example_path = format!("examples/{}/{}.sql", id, kind);
+    let mut script = fs::read_to_string(example_path)?;
     if script.ends_with('\n') {
         script.pop();
     }

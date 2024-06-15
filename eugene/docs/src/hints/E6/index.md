@@ -14,7 +14,6 @@
 
 ```sql
 -- 1.sql
-
 create table authors (
     id integer generated always as identity
         primary key,
@@ -22,18 +21,15 @@ create table authors (
 );
 
 -- 2.sql
-
 set local lock_timeout = '2s';
 create index
     authors_name_idx on authors (name);
-
 ```
 
 ## Safer migration
 
 ```sql
 -- 1.sql
-
 create table authors (
     id integer generated always as identity
         primary key,
@@ -41,10 +37,8 @@ create table authors (
 );
 
 -- 2.sql
-
 create index concurrently
     authors_name_idx on authors (name);
-
 ```
 
 ## Eugene report examples

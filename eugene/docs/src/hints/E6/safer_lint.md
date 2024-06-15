@@ -9,6 +9,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 1.sql
 create table authors (
     id integer generated always as identity
         primary key,
@@ -28,6 +29,7 @@ The migration script passed all the checks ✅
 ### Statement number 1
 #### SQL
 ```sql
+-- 2.sql
 create index concurrently
     authors_name_idx on authors (name)
 ```

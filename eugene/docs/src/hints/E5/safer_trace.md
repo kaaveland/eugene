@@ -7,6 +7,7 @@
 #### SQL
 
 ```sql
+-- 1.sql
 create table prices (
     id integer generated always as identity
         primary key,
@@ -33,6 +34,7 @@ No new locks taken by this statement.
 #### SQL
 
 ```sql
+-- 2.sql
 set local lock_timeout = '2s'
 ```
 
@@ -76,6 +78,7 @@ No locks held at the start of this statement.
 #### SQL
 
 ```sql
+-- 3.sql
 update prices set new_price = price :: bigint
 ```
 
@@ -138,6 +141,7 @@ No locks held at the start of this statement.
 #### SQL
 
 ```sql
+-- 4.sql
 set local lock_timeout = '2s'
 ```
 

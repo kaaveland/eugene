@@ -14,7 +14,6 @@
 
 ```sql
 -- 1.sql
-
 create table authors (
     id integer generated always as identity
         primary key,
@@ -22,19 +21,16 @@ create table authors (
 );
 
 -- 2.sql
-
 set local lock_timeout = '2s';
 alter table authors
     add column email text not null;
 select count(*) from authors;
-
 ```
 
 ## Safer migration
 
 ```sql
 -- 1.sql
-
 create table authors (
     id integer generated always as identity
         primary key,
@@ -42,15 +38,12 @@ create table authors (
 );
 
 -- 2.sql
-
 set local lock_timeout = '2s';
 alter table authors
     add column email text not null;
 
 -- 3.sql
-
 select count(*) from authors;
-
 ```
 
 ## Eugene report examples

@@ -14,7 +14,6 @@
 
 ```sql
 -- 1.sql
-
 create table authors(
     id integer generated always as identity
         primary key,
@@ -22,18 +21,15 @@ create table authors(
 );
 
 -- 2.sql
-
 set local lock_timeout = '2s';
 alter table authors
     add constraint unique_name unique(name);
-
 ```
 
 ## Safer migration
 
 ```sql
 -- 1.sql
-
 create table authors(
     id integer generated always as identity
         primary key,
@@ -41,18 +37,14 @@ create table authors(
 );
 
 -- 2.sql
-
 create unique index concurrently
     authors_name_unique on authors(name);
 
-
 -- 3.sql
-
 set local lock_timeout = '2s';
 alter table authors
     add constraint unique_name
         unique using index authors_name_unique;
-
 ```
 
 ## Eugene report examples

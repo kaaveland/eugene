@@ -9,6 +9,7 @@ The migration script did not pass all the checks ❌
 ### Statement number 1
 #### SQL
 ```sql
+-- 1.sql
 create type document_type
     as enum ('invoice', 'receipt', 'other')
 ```

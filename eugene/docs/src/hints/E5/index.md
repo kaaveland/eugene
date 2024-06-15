@@ -14,7 +14,6 @@
 
 ```sql
 -- 1.sql
-
 create table prices (
     id integer generated always as identity
         primary key,
@@ -22,18 +21,15 @@ create table prices (
 );
 
 -- 2.sql
-
 set local lock_timeout = '2s';
 alter table prices
     alter price set data type bigint;
-
 ```
 
 ## Safer migration
 
 ```sql
 -- 1.sql
-
 create table prices (
     id integer generated always as identity
         primary key,
@@ -41,13 +37,11 @@ create table prices (
 );
 
 -- 2.sql
-
 set local lock_timeout = '2s';
 alter table prices
     add column new_price bigint;
 
 -- 3.sql
-
 update prices set new_price = price :: bigint;
 set local lock_timeout = '2s';
 alter table prices
@@ -55,7 +49,6 @@ alter table prices
         check (new_price is not null) not valid;
 
 -- 4.sql
-
 set local lock_timeout = '2s';
 alter table prices
     validate constraint check_new_price_not_null,
@@ -64,7 +57,6 @@ alter table prices
 -- this has to run in the same transaction as dropping the old price column
 alter table prices
     rename column new_price to price;
-
 ```
 
 ## Eugene report examples

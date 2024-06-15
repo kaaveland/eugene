@@ -241,9 +241,12 @@ impl GitFilter {
 
 #[cfg(test)]
 mod tests {
-
+    use crate::utils::FsyncDir;
     use pretty_assertions::assert_eq;
-    use tempfile::TempDir;
+    use std::fs;
+    use std::thread::sleep;
+    use std::time::Duration;
+    use tempfile::{Builder, TempDir};
 
     use super::*;
 
@@ -275,34 +278,48 @@ mod tests {
     }
 
     fn configure_git(path: &Path) {
-        Command::new("git")
-            .arg("init")
-            .arg("-b")
-            .arg("main")
-            .current_dir(path)
-            .output()
-            .unwrap();
-        Command::new("git")
-            .arg("config")
-            .arg("user.email")
-            .arg("ci@example.com")
-            .current_dir(path)
-            .output()
-            .unwrap();
-        Command::new("git")
-            .arg("config")
-            .arg("user.name")
-            .arg("ci@example.com")
-            .current_dir(path)
-            .output()
-            .unwrap();
+        fn inner(path: &Path) -> std::io::Result<()> {
+            Command::new("git")
+                .arg("init")
+                .arg("-b")
+                .arg("main")
+                .current_dir(path)
+                .output()?;
+            Command::new("git")
+                .arg("config")
+                .arg("user.email")
+                .arg("ci@example.com")
+                .current_dir(path)
+                .output()?;
+            Command::new("git")
+                .arg("config")
+                .arg("user.name")
+                .arg("ci@example.com")
+                .current_dir(path)
+                .output()?;
+            path.fsync()?;
+            Ok(())
+        }
+        let mut attempt = 0;
+        loop {
+            match inner(path) {
+                Ok(_) => break,
+                Err(e) => {
+                    attempt += 1;
+                    sleep(Duration::from_millis(100));
+                    if attempt > 5 {
+                        panic!("Failed to configure git in {path:?} after 3 attempts: {e}");
+                    }
+                }
+            }
+        }
     }
 
     #[test]
     fn test_nearest_dir() {
         let tmp = TempDir::new().unwrap();
         let fp = tmp.path().join("foo");
-        std::fs::write(&fp, "").unwrap();
+        fs::write(&fp, "").unwrap();
         assert_eq!(nearest_directory(fp).unwrap(), tmp.path());
         assert_eq!(nearest_directory(tmp.path()).unwrap(), tmp.path());
         let subdir = tmp.path().join("subdir");
@@ -321,18 +338,17 @@ mod tests {
 
     #[test]
     fn test_unstaged() {
-        let tmp = TempDir::new().unwrap();
-        Command::new("git")
-            .arg("init")
-            .current_dir(tmp.path())
-            .output()
+        let tmp = Builder::new()
+            .prefix("eugene-test-unstaged")
+            .tempdir()
             .unwrap();
-        assert!(unstaged_children(tmp.path().to_str().unwrap())
-            .unwrap()
-            .is_empty());
-        assert!(unstaged_children(tmp.path().join("foo").to_str().unwrap()).is_err());
-        let fp = tmp.path().join("foo");
-        std::fs::write(&fp, "hei").unwrap();
+        tmp.fsync().unwrap();
+        let p = tmp.path();
+        configure_git(p);
+        assert!(unstaged_children(p.to_str().unwrap()).unwrap().is_empty());
+        assert!(unstaged_children(p.join("foo").to_str().unwrap()).is_err());
+        let fp = p.join("foo");
+        fs::write(&fp, "hei").unwrap();
         assert_eq!(
             unstaged_children(fp.to_str().unwrap()).unwrap(),
             vec![fp.to_str().unwrap()]
@@ -341,15 +357,21 @@ mod tests {
 
     #[test]
     fn test_gitref_exists() {
-        let tmp = TempDir::new().unwrap();
-        configure_git(tmp.path());
-        assert!(git_ref_exists("main", tmp.path()).is_err());
-        let fp = tmp.path().join("foo");
+        let tmp = Builder::new()
+            .prefix("eugene-test-gitref-exists")
+            .tempdir()
+            .unwrap();
+        tmp.fsync().unwrap();
+        let p = tmp.path();
+
+        configure_git(p);
+        assert!(git_ref_exists("main", p).is_err());
+        let fp = p.join("foo");
         std::fs::write(fp, "hei").unwrap();
         let o = Command::new("git")
             .arg("add")
             .arg("foo")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         eprintln!("{o:?}");
@@ -357,31 +379,33 @@ mod tests {
             .arg("commit")
             .arg("-m")
             .arg("initial")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         eprintln!("{o:?}");
-        assert!(git_ref_exists("main", tmp.path()).is_ok());
-        assert!(git_ref_exists("nonono", tmp.path()).is_err());
+        assert!(git_ref_exists("main", p).is_ok());
+        assert!(git_ref_exists("nonono", p).is_err());
     }
 
     #[test]
     fn test_diff() {
-        let tmp = TempDir::new().unwrap();
-        configure_git(tmp.path());
-        let fp = tmp.path().join("foo");
-        std::fs::write(&fp, "hei").unwrap();
+        let tmp = Builder::new().prefix("eugene-test-diff").tempdir().unwrap();
+        tmp.fsync().unwrap();
+        let p = tmp.path();
+        configure_git(p);
+        let fp = p.join("foo");
+        fs::write(&fp, "hei").unwrap();
         Command::new("git")
             .arg("add")
             .arg("foo")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         Command::new("git")
             .arg("commit")
             .arg("-m")
             .arg("initial")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         assert!(diff_files_since_ref(&fp, "main").unwrap().is_empty(),);
@@ -389,22 +413,22 @@ mod tests {
             .arg("checkout")
             .arg("-b")
             .arg("newbranch")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
-        let fp2 = tmp.path().join("bar");
+        let fp2 = p.join("bar");
         std::fs::write(&fp2, "hei").unwrap();
         Command::new("git")
             .arg("add")
             .arg("bar")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         Command::new("git")
             .arg("commit")
             .arg("-m")
             .arg("new file")
-            .current_dir(tmp.path())
+            .current_dir(p)
             .output()
             .unwrap();
         // The new file is contained in the diff with main
@@ -413,7 +437,7 @@ mod tests {
             vec![fp2.to_str().unwrap()]
         );
         assert_eq!(
-            diff_files_since_ref(tmp.path(), "main").unwrap(),
+            diff_files_since_ref(p, "main").unwrap(),
             vec![fp2.to_str().unwrap()]
         );
 

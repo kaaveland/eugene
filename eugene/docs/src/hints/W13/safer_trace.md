@@ -7,6 +7,7 @@
 #### SQL
 
 ```sql
+-- 1.sql
 create table document_type(
     type_name text primary key
 )

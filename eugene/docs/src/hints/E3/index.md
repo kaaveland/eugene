@@ -14,28 +14,24 @@
 
 ```sql
 -- 1.sql
-
 create table authors (
     id integer generated always as identity
         primary key,
     name text not null,
     meta json
 );
-
 ```
 
 ## Safer migration
 
 ```sql
 -- 1.sql
-
 create table authors (
     id integer generated always as identity
         primary key,
     name text not null,
     meta jsonb
 );
-
 ```
 
 ## Eugene report examples

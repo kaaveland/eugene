@@ -22,7 +22,7 @@ on:
     branches:
       - main
 env:
-  EUGENE_VERSION: "0.6.0"
+  EUGENE_VERSION: "0.6.1"
 
 permissions:
   contents: read

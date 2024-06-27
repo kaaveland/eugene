@@ -1,0 +1,278 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>W12 trace safer - Eugene Documentation</title>
+
+
+        <!-- Custom HTML head -->
+        <!-- Silly hack to fix non-loading assets at /eugene -->
+        <script type="application/javascript">
+            if (window.location.pathname === '/eugene') {
+                window.location.pathname = '/eugene/';
+            }
+        </script>
+        <!-- plausible.io is a privacy-friendly analytics, we want to count visitors to pages -->
+        <script defer data-domain="kaveland.no" src="https://plausible.io/js/script.js"></script>
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../../theme/custom.css">
+
+    </head>
+    <body class="sidebar-visible no-js">
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('light')
+            html.classList.add(theme);
+            var body = document.querySelector('body');
+            body.classList.remove('no-js')
+            body.classList.add('js');
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var body = document.querySelector('body');
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            body.classList.remove('sidebar-visible');
+            body.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../../lint.html"><strong aria-hidden="true">2.</strong> eugene lint</a></li><li class="chapter-item expanded "><a href="../../trace.html"><strong aria-hidden="true">3.</strong> eugene trace</a></li><li class="chapter-item expanded "><a href="../../ignores.html"><strong aria-hidden="true">4.</strong> Ignoring hints</a></li><li class="chapter-item expanded "><a href="../../web.html"><strong aria-hidden="true">5.</strong> eugene web</a></li><li class="chapter-item expanded "><a href="../../actions.html"><strong aria-hidden="true">6.</strong> Running in GitHub Actions</a></li><li class="chapter-item expanded "><a href="../../gitlab.html"><strong aria-hidden="true">7.</strong> Running in GitLab CI</a></li><li class="chapter-item expanded "><a href="../../hints.html"><strong aria-hidden="true">8.</strong> Hint reference</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../../hints/E1/index.html"><strong aria-hidden="true">8.1.</strong> E1 Validating table with a new constraint</a></li><li class="chapter-item "><a href="../../hints/E2/index.html"><strong aria-hidden="true">8.2.</strong> E2 Validating table with a new NOT NULL column</a></li><li class="chapter-item "><a href="../../hints/E3/index.html"><strong aria-hidden="true">8.3.</strong> E3 Add a new JSON column</a></li><li class="chapter-item "><a href="../../hints/E4/index.html"><strong aria-hidden="true">8.4.</strong> E4 Running more statements after taking AccessExclusiveLock</a></li><li class="chapter-item "><a href="../../hints/E5/index.html"><strong aria-hidden="true">8.5.</strong> E5 Type change requiring table rewrite</a></li><li class="chapter-item "><a href="../../hints/E6/index.html"><strong aria-hidden="true">8.6.</strong> E6 Creating a new index on an existing table</a></li><li class="chapter-item "><a href="../../hints/E7/index.html"><strong aria-hidden="true">8.7.</strong> E7 Creating a new unique constraint</a></li><li class="chapter-item "><a href="../../hints/E8/index.html"><strong aria-hidden="true">8.8.</strong> E8 Creating a new exclusion constraint</a></li><li class="chapter-item "><a href="../../hints/E9/index.html"><strong aria-hidden="true">8.9.</strong> E9 Taking dangerous lock without timeout</a></li><li class="chapter-item "><a href="../../hints/E10/index.html"><strong aria-hidden="true">8.10.</strong> E10 Rewrote table or index while holding dangerous lock</a></li><li class="chapter-item "><a href="../../hints/E11/index.html"><strong aria-hidden="true">8.11.</strong> E11 Adding a SERIAL or GENERATED ... STORED column</a></li><li class="chapter-item "><a href="../../hints/W12/index.html"><strong aria-hidden="true">8.12.</strong> W12 Multiple ALTER TABLE statements where one will do</a></li><li class="chapter-item "><a href="../../hints/W13/index.html"><strong aria-hidden="true">8.13.</strong> W13 Creating an enum</a></li><li class="chapter-item "><a href="../../hints/W14/index.html"><strong aria-hidden="true">8.14.</strong> W14 Adding a primary key using an index</a></li></ol></li><li class="chapter-item expanded "><li class="spacer"></li><li class="chapter-item expanded "><a href="../../hints/examples.html"><strong aria-hidden="true">9.</strong> Example Reports</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="../../hints/E1/unsafe_lint.html"><strong aria-hidden="true">9.1.</strong> E1 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E1/safer_lint.html"><strong aria-hidden="true">9.2.</strong> E1 lint safer</a></li><li class="chapter-item "><a href="../../hints/E1/unsafe_trace.html"><strong aria-hidden="true">9.3.</strong> E1 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E1/safer_trace.html"><strong aria-hidden="true">9.4.</strong> E1 trace safer</a></li><li class="chapter-item "><a href="../../hints/E2/unsafe_lint.html"><strong aria-hidden="true">9.5.</strong> E2 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E2/safer_lint.html"><strong aria-hidden="true">9.6.</strong> E2 lint safer</a></li><li class="chapter-item "><a href="../../hints/E2/unsafe_trace.html"><strong aria-hidden="true">9.7.</strong> E2 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E2/safer_trace.html"><strong aria-hidden="true">9.8.</strong> E2 trace safer</a></li><li class="chapter-item "><a href="../../hints/E3/unsafe_lint.html"><strong aria-hidden="true">9.9.</strong> E3 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E3/safer_lint.html"><strong aria-hidden="true">9.10.</strong> E3 lint safer</a></li><li class="chapter-item "><a href="../../hints/E3/unsafe_trace.html"><strong aria-hidden="true">9.11.</strong> E3 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E3/safer_trace.html"><strong aria-hidden="true">9.12.</strong> E3 trace safer</a></li><li class="chapter-item "><a href="../../hints/E4/unsafe_lint.html"><strong aria-hidden="true">9.13.</strong> E4 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E4/safer_lint.html"><strong aria-hidden="true">9.14.</strong> E4 lint safer</a></li><li class="chapter-item "><a href="../../hints/E4/unsafe_trace.html"><strong aria-hidden="true">9.15.</strong> E4 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E4/safer_trace.html"><strong aria-hidden="true">9.16.</strong> E4 trace safer</a></li><li class="chapter-item "><a href="../../hints/E5/unsafe_lint.html"><strong aria-hidden="true">9.17.</strong> E5 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E5/safer_lint.html"><strong aria-hidden="true">9.18.</strong> E5 lint safer</a></li><li class="chapter-item "><a href="../../hints/E5/unsafe_trace.html"><strong aria-hidden="true">9.19.</strong> E5 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E5/safer_trace.html"><strong aria-hidden="true">9.20.</strong> E5 trace safer</a></li><li class="chapter-item "><a href="../../hints/E6/unsafe_lint.html"><strong aria-hidden="true">9.21.</strong> E6 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E6/safer_lint.html"><strong aria-hidden="true">9.22.</strong> E6 lint safer</a></li><li class="chapter-item "><a href="../../hints/E6/unsafe_trace.html"><strong aria-hidden="true">9.23.</strong> E6 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E6/safer_trace.html"><strong aria-hidden="true">9.24.</strong> E6 trace safer</a></li><li class="chapter-item "><a href="../../hints/E7/unsafe_lint.html"><strong aria-hidden="true">9.25.</strong> E7 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E7/safer_lint.html"><strong aria-hidden="true">9.26.</strong> E7 lint safer</a></li><li class="chapter-item "><a href="../../hints/E7/unsafe_trace.html"><strong aria-hidden="true">9.27.</strong> E7 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E7/safer_trace.html"><strong aria-hidden="true">9.28.</strong> E7 trace safer</a></li><li class="chapter-item "><a href="../../hints/E8/unsafe_lint.html"><strong aria-hidden="true">9.29.</strong> E8 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E8/unsafe_trace.html"><strong aria-hidden="true">9.30.</strong> E8 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E9/unsafe_lint.html"><strong aria-hidden="true">9.31.</strong> E9 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E9/safer_lint.html"><strong aria-hidden="true">9.32.</strong> E9 lint safer</a></li><li class="chapter-item "><a href="../../hints/E9/unsafe_trace.html"><strong aria-hidden="true">9.33.</strong> E9 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E9/safer_trace.html"><strong aria-hidden="true">9.34.</strong> E9 trace safer</a></li><li class="chapter-item "><a href="../../hints/E10/unsafe_lint.html"><strong aria-hidden="true">9.35.</strong> E10 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E10/safer_lint.html"><strong aria-hidden="true">9.36.</strong> E10 lint safer</a></li><li class="chapter-item "><a href="../../hints/E10/unsafe_trace.html"><strong aria-hidden="true">9.37.</strong> E10 trace problematic</a></li><li class="chapter-item "><a href="../../hints/E10/safer_trace.html"><strong aria-hidden="true">9.38.</strong> E10 trace safer</a></li><li class="chapter-item "><a href="../../hints/E11/unsafe_lint.html"><strong aria-hidden="true">9.39.</strong> E11 lint problematic</a></li><li class="chapter-item "><a href="../../hints/E11/unsafe_trace.html"><strong aria-hidden="true">9.40.</strong> E11 trace problematic</a></li><li class="chapter-item "><a href="../../hints/W12/unsafe_lint.html"><strong aria-hidden="true">9.41.</strong> W12 lint problematic</a></li><li class="chapter-item "><a href="../../hints/W12/safer_lint.html"><strong aria-hidden="true">9.42.</strong> W12 lint safer</a></li><li class="chapter-item "><a href="../../hints/W12/unsafe_trace.html"><strong aria-hidden="true">9.43.</strong> W12 trace problematic</a></li><li class="chapter-item expanded "><a href="../../hints/W12/safer_trace.html" class="active"><strong aria-hidden="true">9.44.</strong> W12 trace safer</a></li><li class="chapter-item "><a href="../../hints/W13/unsafe_lint.html"><strong aria-hidden="true">9.45.</strong> W13 lint problematic</a></li><li class="chapter-item "><a href="../../hints/W13/safer_lint.html"><strong aria-hidden="true">9.46.</strong> W13 lint safer</a></li><li class="chapter-item "><a href="../../hints/W13/unsafe_trace.html"><strong aria-hidden="true">9.47.</strong> W13 trace problematic</a></li><li class="chapter-item "><a href="../../hints/W13/safer_trace.html"><strong aria-hidden="true">9.48.</strong> W13 trace safer</a></li><li class="chapter-item "><a href="../../hints/W14/unsafe_lint.html"><strong aria-hidden="true">9.49.</strong> W14 lint problematic</a></li><li class="chapter-item "><a href="../../hints/W14/safer_lint.html"><strong aria-hidden="true">9.50.</strong> W14 lint safer</a></li><li class="chapter-item "><a href="../../hints/W14/unsafe_trace.html"><strong aria-hidden="true">9.51.</strong> W14 trace problematic</a></li><li class="chapter-item "><a href="../../hints/W14/safer_trace.html"><strong aria-hidden="true">9.52.</strong> W14 trace safer</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <!-- Track and set sidebar scroll position -->
+        <script>
+            var sidebarScrollbox = document.querySelector('#sidebar .sidebar-scrollbox');
+            sidebarScrollbox.addEventListener('click', function(e) {
+                if (e.target.tagName === 'A') {
+                    sessionStorage.setItem('sidebar-scroll', sidebarScrollbox.scrollTop);
+                }
+            }, { passive: true });
+            var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+            sessionStorage.removeItem('sidebar-scroll');
+            if (sidebarScrollTop) {
+                // preserve sidebar scroll position when navigating via links within sidebar
+                sidebarScrollbox.scrollTop = sidebarScrollTop;
+            } else {
+                // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+                var activeSection = document.querySelector('#sidebar .active');
+                if (activeSection) {
+                    activeSection.scrollIntoView({ block: 'center' });
+                }
+            }
+        </script>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Eugene Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/kaaveland/eugene" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h2 id="eugene--trace-report-of-examplesw12good1sql"><a class="header" href="#eugene--trace-report-of-examplesw12good1sql">Eugene 🔒 trace report of <code>examples/W12/good/1.sql</code></a></h2>
+<h3 id="statement-number-1-for-10ms"><a class="header" href="#statement-number-1-for-10ms">Statement number 1 for 10ms</a></h3>
+<h4 id="sql"><a class="header" href="#sql">SQL</a></h4>
+<pre><code class="language-sql">-- 1.sql
+create table authors(
+    id integer generated always as identity
+        primary key,
+    name text,
+    email text
+)
+</code></pre>
+<h4 id="locks-at-start"><a class="header" href="#locks-at-start">Locks at start</a></h4>
+<p>No locks held at the start of this statement.</p>
+<h4 id="new-locks-taken"><a class="header" href="#new-locks-taken">New locks taken</a></h4>
+<p>No new locks taken by this statement.</p>
+<h2 id="eugene--trace-report-of-examplesw12good2sql"><a class="header" href="#eugene--trace-report-of-examplesw12good2sql">Eugene 🔒 trace report of <code>examples/W12/good/2.sql</code></a></h2>
+<h3 id="statement-number-1-for-10ms-1"><a class="header" href="#statement-number-1-for-10ms-1">Statement number 1 for 10ms</a></h3>
+<h4 id="sql-1"><a class="header" href="#sql-1">SQL</a></h4>
+<pre><code class="language-sql">-- 2.sql
+set lock_timeout = '2s'
+</code></pre>
+<h4 id="locks-at-start-1"><a class="header" href="#locks-at-start-1">Locks at start</a></h4>
+<p>No locks held at the start of this statement.</p>
+<h4 id="new-locks-taken-1"><a class="header" href="#new-locks-taken-1">New locks taken</a></h4>
+<p>No new locks taken by this statement.</p>
+<h3 id="statement-number-2-for-10ms"><a class="header" href="#statement-number-2-for-10ms">Statement number 2 for 10ms</a></h3>
+<h4 id="sql-2"><a class="header" href="#sql-2">SQL</a></h4>
+<pre><code class="language-sql">-- eugene: ignore E2
+alter table authors
+  alter column name set not null,
+  alter column email set not null
+</code></pre>
+<h4 id="locks-at-start-2"><a class="header" href="#locks-at-start-2">Locks at start</a></h4>
+<p>No locks held at the start of this statement.</p>
+<h4 id="new-locks-taken-2"><a class="header" href="#new-locks-taken-2">New locks taken</a></h4>
+<div class="table-wrapper"><table><thead><tr><th>Schema</th><th>Object</th><th>Mode</th><th>Relkind</th><th>OID</th><th>Safe</th><th>Duration held (ms)</th></tr></thead><tbody>
+<tr><td><code>public</code></td><td><code>authors</code></td><td><code>AccessExclusiveLock</code></td><td>Table</td><td>1</td><td>❌</td><td>10</td></tr>
+</tbody></table>
+</div>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../hints/W12/unsafe_trace.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../hints/W13/unsafe_lint.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../hints/W12/unsafe_trace.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../hints/W13/unsafe_lint.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

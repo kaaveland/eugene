@@ -41,6 +41,8 @@ pub struct SqlStatementTrace {
 
     /// Rewritten database objects
     pub(crate) rewritten_objects: Vec<RelfileId>,
+    /// Line number in file
+    pub(crate) line_no: usize,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -134,13 +136,17 @@ impl<'a> TxLockTracer<'a> {
         self.triggered_hints.iter().all(|hints| hints.is_empty())
     }
     /// Trace a single SQL statement, recording the locks taken and the duration of the statement.
-    pub fn trace_sql_statement(&mut self, tx: &mut Transaction, sql: &str) -> crate::Result<()> {
+    pub fn trace_sql_statement(
+        &mut self,
+        tx: &mut Transaction,
+        sql: (usize, &str),
+    ) -> crate::Result<()> {
         // TODO: This is too big and should be refactored into more manageable pieces
         let start_time = Instant::now();
         let oid_vec = self.initial_objects.iter().copied().collect_vec();
         let lock_timeout = queries::get_lock_timeout(tx)?;
-        tx.execute(sql, &[]).map_err(|err| {
-            let context = format!("Error while executing SQL statement: {err:?}: {sql}");
+        tx.execute(sql.1, &[]).map_err(|err| {
+            let context = format!("Error while executing SQL statement: {err:?}: {}", sql.1);
             err.with_context(context)
         })?;
         let duration = start_time.elapsed();
@@ -205,7 +211,7 @@ impl<'a> TxLockTracer<'a> {
             .extend(new_objects.iter().map(|obj| obj.oid));
 
         let statement = SqlStatementTrace {
-            sql: sql.to_string(),
+            sql: sql.1.to_string(),
             locks_taken: new_locks.into_iter().collect(),
             start_time,
             duration,
@@ -216,12 +222,13 @@ impl<'a> TxLockTracer<'a> {
             created_objects: new_objects,
             lock_timeout_millis: lock_timeout,
             rewritten_objects: changed_ids,
+            line_no: sql.0,
         };
         let ctx = StatementCtx {
             sql_statement_trace: &statement,
             transaction: self,
         };
-        let hint_action = find_comment_action(sql)?;
+        let hint_action = find_comment_action(sql.1)?;
         let hints: Vec<_> = filter_rules(
             &hint_action,
             hints::all_hints()
@@ -279,14 +286,14 @@ impl<'a> TxLockTracer<'a> {
     /// This can not really do any tracing, as `CONCURRENTLY` statements must run outside transactions.
     pub fn tracer_for_concurrently<S: AsRef<str>>(
         name: Option<String>,
-        statements: impl Iterator<Item = S>,
+        statements: impl Iterator<Item = (usize, S)>,
         ignored_hints: &'a [&'a str],
     ) -> Self {
         let mut out = Self {
             name,
             initial_objects: HashSet::new(),
             statements: statements
-                .map(|s| SqlStatementTrace {
+                .map(|(line, s)| SqlStatementTrace {
                     sql: s.as_ref().to_string(),
                     locks_taken: vec![],
                     start_time: Instant::now(),
@@ -298,6 +305,7 @@ impl<'a> TxLockTracer<'a> {
                     created_objects: vec![],
                     lock_timeout_millis: 0,
                     rewritten_objects: vec![],
+                    line_no: line,
                 })
                 .collect(),
             all_locks: HashSet::new(),

@@ -38,7 +38,6 @@ impl Settings {
 struct OutputContext {
     output_settings: Settings,
     statement_number: usize,
-    line_number: usize,
     held_locks_context: Vec<TracedLock>,
     duration_millis_so_far: u64,
     duration_millis_total: u64,
@@ -95,7 +94,7 @@ impl OutputContext {
 
         let result = FullSqlStatementLockTrace {
             statement_number_in_transaction: self.statement_number,
-            line_number: self.line_number,
+            line_number: statement.line_no,
             sql: statement.sql.clone(),
             duration_millis: statement.duration.as_millis() as u64,
             start_time_millis: self.duration_millis_so_far,
@@ -130,7 +129,6 @@ impl OutputContext {
             triggered_rules: hints.to_vec(),
         };
         self.statement_number += 1;
-        self.line_number += result.sql.lines().count();
         self.held_locks_context
             .extend(result.new_locks_taken.clone());
         self.duration_millis_so_far += result.duration_millis;
@@ -144,7 +142,6 @@ impl OutputContext {
         OutputContext {
             output_settings,
             statement_number: 1,
-            line_number: 1,
             held_locks_context: vec![],
             duration_millis_so_far: 0,
             duration_millis_total,

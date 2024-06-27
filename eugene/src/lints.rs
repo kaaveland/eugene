@@ -3,6 +3,7 @@ use itertools::Itertools;
 use crate::comments::filter_rules;
 pub use crate::lints::ast::StatementSummary;
 use crate::output::output_format::{LintReport, LintedStatement};
+use crate::sqltext;
 
 /// The `ast` module provides a way to describe a parsed SQL statement in a structured way,
 /// using simpler trees than the ones provided by `pg_query`.
@@ -114,13 +115,12 @@ pub fn lint<S: AsRef<str>>(
     ignored_lints: &[&str],
     skip_summary: bool,
 ) -> crate::Result<LintReport> {
-    let statements = pg_query::split_with_parser(sql.as_ref())?;
+    let statements = sqltext::sql_statements_with_line_no(sql.as_ref())?;
     let mut ctx = TransactionState::default();
     let mut lints = Vec::new();
     let mut no: usize = 1;
-    let mut line_number: usize = 1;
     let mut passed_all = true;
-    for stmt in statements {
+    for (line, stmt) in statements {
         let action = crate::comments::find_comment_action(sql.as_ref())?;
         let tree = pg_query::parse(stmt)?;
         for raw in tree.protobuf.stmts.iter() {
@@ -136,13 +136,12 @@ pub fn lint<S: AsRef<str>>(
 
                     lints.push(LintedStatement {
                         statement_number: no,
-                        line_number,
+                        line_number: line,
                         sql: stmt.trim().to_string(),
                         triggered_rules: matched_lints,
                     });
                     ctx.update_from(&summary);
                     no += 1;
-                    line_number += stmt.chars().filter(|&c| c == '\n').count();
                 }
             }
         }

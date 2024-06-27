@@ -7,16 +7,14 @@
 //!
 //! THe library also provides syntax tree analysis for SQL scripts, so it can be used to
 //! analyze migration scripts for potential issues before running them.
-use std::collections::HashMap;
-
 use postgres::{Client, NoTls, Transaction};
+use std::collections::HashMap;
 
 use crate::error::{ContextualError, InnerError};
 use crate::script_discovery::ReadFrom;
-use tracing::trace_transaction;
-
-use crate::sqltext::sql_statements;
+use crate::sqltext::sql_statements_with_line_no;
 use crate::tracing::TxLockTracer;
+use tracing::trace_transaction;
 
 /// Static data for hints and lints, used to identify them in output or input.
 pub mod hint_data;
@@ -189,11 +187,14 @@ pub fn perform_trace<'a, T: WithClient>(
     ignored_hints: &'a [&'a str],
     commit: bool,
 ) -> Result<TxLockTracer<'a>> {
-    let sql_statements = sql_statements(script.sql.as_str())?;
-    let all_concurrently = sql_statements.iter().all(sqltext::is_concurrently);
+    let sql_statements = sql_statements_with_line_no(script.sql.as_str())?;
+    let all_concurrently = sql_statements
+        .iter()
+        .map(|(_, s)| s)
+        .all(sqltext::is_concurrently);
     if all_concurrently && commit {
         connection_settings.with_client(|client| {
-            for s in sql_statements.iter() {
+            for (_, s) in sql_statements.iter() {
                 client.execute(*s, &[])?;
             }
             Ok(())
@@ -201,7 +202,7 @@ pub fn perform_trace<'a, T: WithClient>(
 
         Ok(TxLockTracer::tracer_for_concurrently(
             Some(script.name.clone()),
-            sql_statements.iter(),
+            sql_statements.iter().copied(),
             ignored_hints,
         ))
     } else {
@@ -209,7 +210,7 @@ pub fn perform_trace<'a, T: WithClient>(
             trace_transaction(
                 Some(script.name.clone()),
                 conn,
-                sql_statements.iter(),
+                sql_statements.iter().copied(),
                 ignored_hints,
             )
         })
@@ -271,4 +272,35 @@ pub fn generate_new_test_db() -> String {
         )
         .unwrap();
     db_name
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn lint_line_numbers_should_make_sense_ex2() {
+        let script = "ALTER TABLE foo ADD a text;
+
+
+-- A comment
+CREATE UNIQUE INDEX my_index ON foo (a);";
+
+        let report = super::lints::anon_lint(script).unwrap();
+        assert_eq!(report.statements[0].line_number, 1);
+        assert_eq!(report.statements[1].line_number, 5);
+    }
+
+    #[test]
+    fn lint_line_numbers_should_make_sense_ex1() {
+        let script = "ALTER TABLE
+    foo
+ADD
+    a text;
+
+CREATE UNIQUE INDEX
+    my_index ON foo (a);";
+        let report = super::lints::anon_lint(script).unwrap();
+        assert_eq!(report.statements[0].line_number, 1);
+        assert_eq!(report.statements[1].line_number, 6);
+    }
 }

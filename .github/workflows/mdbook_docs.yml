@@ -28,9 +28,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz \
-            | tar -xvz
-          chmod +x mdbook
+          mise install
           git branch -D doc-pages || true
           mv eugene/docs .
           ./mdbook build docs

@@ -40,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Cache Cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
@@ -50,7 +50,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
       - name: Cache Cargo build
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
@@ -76,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Cache Cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
@@ -86,7 +86,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
       - name: Cache Cargo build
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
@@ -123,7 +123,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Cache Cargo registry
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry/index
@@ -133,14 +133,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-registry-
       - name: Cache Cargo build
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-build-
       - name: Cache postgres install
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: C:\Program Files\PostgreSQL\16
           key: ${{ runner.os }}-postgres-install

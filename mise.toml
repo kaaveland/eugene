@@ -1,0 +1,16 @@
+[tools]
+"cargo:mdbook" = "0.4.45"
+
+[tasks.doc-build]
+description = "Build eugene docs"
+run = "mdbook build eugene/docs"
+
+[tasks.doc-clean]
+description = "Clean the eugene docs"
+run = "rm -rf eugene/docs/book"
+
+[tasks.doc-deploy]
+description = "Deploy the eugene docs"
+depends = ["doc-clean", "doc-build"]
+run = "rsync --delete -avz eugene/docs/book/ blog@ardbeg:eugene"
+

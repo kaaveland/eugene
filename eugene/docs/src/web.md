@@ -70,7 +70,4 @@ contains the results, suitable to use for rendering templates or something.
 
 ### Usage
 
-If you find yourself using the API a lot, please consider installing `eugene` locally instead, or
-consider using my referral link to sponsor the hosting.
-
-[![DigitalOcean Referral Badge](https://web-platforms.sfo2.cdn.digitaloceanspaces.com/WWW/Badge%203.svg)](https://www.digitalocean.com/?refcode=348c8025a8f8&utm_campaign=Referral_Invite&utm_medium=Referral_Program&utm_source=badge)
+If you find yourself using the API a lot, please consider installing `eugene` locally instead.

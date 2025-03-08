@@ -63,7 +63,7 @@ jobs:
       - name: Init testdb
         run: psql --host localhost --port 5432 -U postgres < db-initscripts/init-testdb.sql
       - name: Check if we have postgres binaries
-        run: find /usr/lib/postgresql -type -d -name bin
+        run: find /usr/lib/postgresql -type d -name bin
       - name: Put postgres binaries on PATH for tests
         run: echo "/usr/lib/postgresql/14/bin" >> $GITHUB_PATH
       - name: Run tests

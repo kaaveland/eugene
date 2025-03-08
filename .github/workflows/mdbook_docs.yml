@@ -31,7 +31,7 @@ jobs:
           mise install
           git branch -D doc-pages || true
           mv eugene/docs .
-          ./mdbook build docs
+          mise x -- mdbook build docs
           git checkout -b doc-pages
           git add -f docs/book
           git config user.name "mdbook docs bot"

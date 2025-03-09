@@ -19,7 +19,7 @@ a table rewrite that `eugene lint` can not detect, but it may not be able to tel
 why that table rewrite happened. `eugene trace` will discover all indexes and constraints
 created in a transaction, even if they were implicitly created. If you need to tell 
 `eugene trace` that you know a statement to be safe, you can tell it to ignore a lint by
-adding a comment to your SQL script, see [ignores](/eugene/docs/ignores).
+adding a comment to your SQL script, see [ignores](ignores.md).
 
 If you want to run `eugene trace` in CI, or as a pre-commit hook, you can use `--git-diff=main`
 or `-gmain` to trace files that are new/unstaged, or have changes in them since `main`. 

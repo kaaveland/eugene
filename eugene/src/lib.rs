@@ -7,13 +7,13 @@
 //!
 //! THe library also provides syntax tree analysis for SQL scripts, so it can be used to
 //! analyze migration scripts for potential issues before running them.
-use postgres::{Client, NoTls, Transaction};
-use std::collections::HashMap;
-
 use crate::error::{ContextualError, InnerError};
 use crate::script_discovery::ReadFrom;
 use crate::sqltext::sql_statements_with_line_no;
 use crate::tracing::TxLockTracer;
+use postgres::{Client, NoTls, Transaction};
+use regex::Regex;
+use std::collections::HashMap;
 use tracing::trace_transaction;
 
 /// Static data for hints and lints, used to identify them in output or input.
@@ -186,6 +186,7 @@ pub fn perform_trace<'a, T: WithClient>(
     connection_settings: &mut T,
     ignored_hints: &'a [&'a str],
     commit: bool,
+    skip: &[Regex],
 ) -> Result<TxLockTracer<'a>> {
     let sql_statements = sql_statements_with_line_no(script.sql.as_str())?;
     let all_concurrently = sql_statements
@@ -195,7 +196,10 @@ pub fn perform_trace<'a, T: WithClient>(
     if all_concurrently && commit {
         connection_settings.with_client(|client| {
             for (_, s) in sql_statements.iter() {
-                client.execute(*s, &[])?;
+                let skip_this = skip.iter().any(|r| r.is_match(s));
+                if !skip_this {
+                    client.execute(*s, &[])?;
+                }
             }
             Ok(())
         })?;
@@ -212,6 +216,7 @@ pub fn perform_trace<'a, T: WithClient>(
                 conn,
                 sql_statements.iter().copied(),
                 ignored_hints,
+                skip,
             )
         })
     }

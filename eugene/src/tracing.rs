@@ -1,4 +1,5 @@
 use postgres::Transaction;
+use regex::Regex;
 use std::collections::HashSet;
 pub use tracer::{SqlStatementTrace, TxLockTracer};
 pub mod queries;
@@ -11,6 +12,7 @@ pub fn trace_transaction<'a, S: AsRef<str>>(
     tx: &mut Transaction,
     sql_statements: impl Iterator<Item = (usize, S)>,
     ignored_hints: &'a [&'a str],
+    skip: &[Regex],
 ) -> crate::Result<TxLockTracer<'a>> {
     let initial_objects: HashSet<_> = queries::fetch_lockable_objects(tx, &[])?
         .into_iter()
@@ -32,7 +34,8 @@ pub fn trace_transaction<'a, S: AsRef<str>>(
         ignored_hints,
     );
     for (line, sql) in sql_statements {
-        trace.trace_sql_statement(tx, (line, sql.as_ref().trim()))?;
+        let skip_this = skip.iter().any(|r| r.is_match(sql.as_ref()));
+        trace.trace_sql_statement(tx, (line, sql.as_ref().trim()), skip_this)?;
     }
     Ok(trace)
 }
@@ -46,6 +49,7 @@ mod tests {
     use crate::pg_types::contype::Contype;
     use crate::pg_types::lock_modes::LockMode;
     use pretty_assertions::assert_eq;
+    use regex::Regex;
 
     fn get_client() -> Client {
         let test_db = generate_new_test_db();
@@ -66,6 +70,7 @@ mod tests {
             vec!["alter table books alter column title set not null"]
                 .into_iter()
                 .enumerate(),
+            &[],
             &[],
         )
         .unwrap();
@@ -88,6 +93,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let constraint = &trace.statements[0].added_constraints[0];
@@ -109,6 +115,7 @@ mod tests {
                 "alter table books add column author_id integer;",
                 "alter table books add constraint fk_author foreign key (author_id) references authors(id)",
             ].into_iter().enumerate(),
+            &[],
             &[]
         ).unwrap();
         let constraint = &trace.statements[2].added_constraints[0];
@@ -137,6 +144,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let constraint = &trace.statements[0].added_constraints[0];
@@ -158,6 +166,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -175,6 +184,7 @@ mod tests {
             vec!["alter table books alter column title type varchar(255)"]
                 .into_iter()
                 .enumerate(),
+            &[],
             &[],
         )
         .unwrap();
@@ -199,6 +209,7 @@ mod tests {
             &mut tx,
             vec!["select * from books"].into_iter().enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let lock = &trace.statements[0].locks_taken[0];
@@ -222,6 +233,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let lock = trace
@@ -244,6 +256,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let lock = trace
@@ -264,6 +277,7 @@ mod tests {
             vec!["create index on books (title)"]
                 .into_iter()
                 .enumerate(),
+            &[],
             &[],
         )
         .unwrap();
@@ -294,6 +308,7 @@ mod tests {
             .into_iter()
             .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         assert!(trace.triggered_hints[0].is_empty());
@@ -314,6 +329,7 @@ mod tests {
             vec!["alter table books add constraint unique_title unique using index books_title_uq"]
                 .into_iter()
                 .enumerate(),
+            &[],
             &[],
         )
         .unwrap();
@@ -337,6 +353,7 @@ mod tests {
             .into_iter()
             .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         assert_eq!(trace.statements[1].lock_timeout_millis, 1000);
@@ -355,6 +372,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].added_columns[0].1;
@@ -362,6 +380,28 @@ mod tests {
         assert!(trace.triggered_hints[0]
             .iter()
             .any(|hint| hint.id == hint_data::ADD_JSON_COLUMN.id));
+    }
+
+    #[test]
+    fn test_that_we_skip_executing_matched_statements() {
+        let mut client = get_client();
+        let regex = Regex::new("not valid sql").unwrap();
+        let mut tx = client.transaction().unwrap();
+        let trace = super::trace_transaction(
+            None,
+            &mut tx,
+            vec![
+                "this is not valid sql",
+                "alter table books add column isbn text unique;",
+            ]
+            .into_iter()
+            .enumerate(),
+            &[],
+            &[regex],
+        )
+        .unwrap();
+        assert_eq!(trace.statements.len(), 2);
+        assert!(trace.triggered_hints[1].len() >= 3);
     }
 
     #[test]
@@ -382,6 +422,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -401,6 +442,7 @@ mod tests {
             vec!["alter table books alter column price type bigint"]
                 .into_iter()
                 .enumerate(),
+            &[],
             &[],
         )
         .unwrap();
@@ -424,6 +466,7 @@ mod tests {
                 .into_iter()
                 .enumerate(),
             &[],
+            &[],
         )
         .unwrap();
         assert!(trace.statements[0].rewritten_objects.is_empty());
@@ -439,6 +482,7 @@ mod tests {
             vec!["-- eugene: ignore\nalter table books add column meta json;"]
                 .into_iter()
                 .enumerate(),
+            &[],
             &[],
         )
         .unwrap();
@@ -458,6 +502,7 @@ mod tests {
             )]
             .into_iter()
             .enumerate(),
+            &[],
             &[],
         )
         .unwrap();

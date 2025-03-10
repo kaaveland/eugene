@@ -69,5 +69,4 @@ contains the results, suitable to use for rendering templates or something.
 ```
 
 ### Usage
-
 If you find yourself using the API a lot, please consider installing `eugene` locally instead.

@@ -50,7 +50,7 @@ pub(crate) async fn lint_html(
     };
     for (name, sql) in scripts {
         let report: eugene::Result<LintReport> =
-            eugene::lints::lint(name.map(|s| s.to_string()), sql, &[], true);
+            eugene::lints::lint(name.map(|s| s.to_string()), sql, &[], true, &[]);
         match report {
             Err(eugene::error::Error {
                 inner: eugene::error::InnerError::SqlText(syntax_error),

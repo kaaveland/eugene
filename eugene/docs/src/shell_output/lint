@@ -60,5 +60,14 @@ Options:
           
           Pass a git ref, like a commit hash, tag, or branch name.
 
+      --skip <SKIP>
+          Skip SQL statements matching this regex
+          
+          For example:
+          
+          eugene trace --skip '.*flyway.*' --skip '.*moreToSkip.*'
+          
+          See https://docs.rs/regex/latest/regex/#syntax
+
   -h, --help
           Print help (see a summary with '-h')

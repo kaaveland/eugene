@@ -64,6 +64,15 @@ Options:
           
           Pass a git ref, like a commit hash, tag, or branch name.
 
+      --skip <SKIP>
+          Skip SQL statements matching this regex
+          
+          For example:
+          
+          eugene trace --skip '.*flyway.*' --skip '.*moreToSkip.*'
+          
+          See https://docs.rs/regex/latest/regex/#syntax
+
       --disable-temporary
           Disable creation of temporary postgres server for tracing
           

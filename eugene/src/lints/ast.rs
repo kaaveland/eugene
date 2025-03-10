@@ -586,7 +586,7 @@ mod tests {
                 name: "foo".to_string(),
                 actions: vec![super::AlterTableAction::SetType {
                     column: "bar".to_string(),
-                    type_name: "json".to_string()
+                    type_name: "pg_catalog.json".to_string()
                 }]
             }
         );
@@ -601,7 +601,7 @@ mod tests {
                 name: "foo".to_string(),
                 actions: vec![super::AlterTableAction::AddColumn {
                     column: "bar".to_string(),
-                    type_name: "json".to_string(),
+                    type_name: "pg_catalog.json".to_string(),
                     stored_generated: false
                 }]
             }
@@ -617,7 +617,7 @@ mod tests {
                 name: "foo".to_string(),
                 columns: vec![super::ColDefSummary {
                     name: "bar".to_string(),
-                    type_name: "json".to_string(),
+                    type_name: "pg_catalog.json".to_string(),
                     stored_generated: false
                 }]
             }

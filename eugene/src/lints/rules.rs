@@ -283,7 +283,7 @@ fn sets_column_type_to_json(stmt: LintContext) -> Option<String> {
                     AlterTableAction::SetType { type_name, column }
                     | AlterTableAction::AddColumn {
                         type_name, column, ..
-                    } if type_name == "json" => Some(column),
+                    } if type_name == "json" || type_name == "pg_catalog.json" => Some(column),
                     _ => None,
                 })
                 .next();
@@ -295,7 +295,7 @@ fn sets_column_type_to_json(stmt: LintContext) -> Option<String> {
             let added_json = columns
                 .iter()
                 .filter_map(|column| {
-                    if column.type_name == "json" {
+                    if column.type_name == "json" || column.type_name == "pg_catalog.json" {
                         Some(&column.name)
                     } else {
                         None

@@ -65,7 +65,7 @@ Options:
           Pass a git ref, like a commit hash, tag, or branch name.
 
       --skip <SKIP>
-          Skip SQL statements matching this regex
+          Skip SQL statements matching this regex (do not execute or lint them)
           
           For example:
           

@@ -569,7 +569,7 @@ dependencies = [
  "log",
  "nom",
  "once_cell",
- "pg_query 6.0.0",
+ "pg_query",
  "postgres",
  "pretty_assertions",
  "rand",
@@ -593,7 +593,7 @@ dependencies = [
  "log",
  "nom",
  "once_cell",
- "pg_query 5.1.0",
+ "pg_query",
  "pretty_assertions",
  "rand",
  "regex",
@@ -1286,24 +1286,6 @@ checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
  "indexmap",
-]
-
-[[package]]
-name = "pg_query"
-version = "5.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8e2440ce36d2f81d00357f2b66c0bb871f166dc369f6371eeef47996f844e71"
-dependencies = [
- "bindgen",
- "cc",
- "fs_extra",
- "glob",
- "itertools 0.10.5",
- "prost",
- "prost-build",
- "serde",
- "serde_json",
- "thiserror",
 ]
 
 [[package]]

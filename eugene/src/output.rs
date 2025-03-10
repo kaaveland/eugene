@@ -191,7 +191,7 @@ struct JsonTrace<'a> {
     data: &'a FullTraceData,
 }
 
-impl<'a> Serialize for JsonTrace<'a> {
+impl Serialize for JsonTrace<'_> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::ser::Serializer,

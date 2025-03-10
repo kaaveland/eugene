@@ -94,7 +94,7 @@ pub struct StatementCtx<'a> {
     pub(crate) transaction: &'a TxLockTracer<'a>,
 }
 
-impl<'a> StatementCtx<'a> {
+impl StatementCtx<'_> {
     pub fn new_constraints(&self) -> impl Iterator<Item = &Constraint> {
         self.sql_statement_trace.added_constraints.iter()
     }

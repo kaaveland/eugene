@@ -1,9 +1,9 @@
-use itertools::Itertools;
-
 use crate::comments::filter_rules;
 pub use crate::lints::ast::StatementSummary;
 use crate::output::output_format::{LintReport, LintedStatement};
 use crate::sqltext;
+use itertools::Itertools;
+use regex::Regex;
 
 /// The `ast` module provides a way to describe a parsed SQL statement in a structured way,
 /// using simpler trees than the ones provided by `pg_query`.
@@ -114,6 +114,7 @@ pub fn lint<S: AsRef<str>>(
     sql: S,
     ignored_lints: &[&str],
     skip_summary: bool,
+    skip: &[Regex],
 ) -> crate::Result<LintReport> {
     let statements = sqltext::sql_statements_with_line_no(sql.as_ref())?;
     let mut ctx = TransactionState::default();
@@ -121,6 +122,7 @@ pub fn lint<S: AsRef<str>>(
     let mut no: usize = 1;
     let mut passed_all = true;
     for (line, stmt) in statements {
+        let skip_stmt = skip.iter().any(|r| r.is_match(stmt));
         let action = crate::comments::find_comment_action(sql.as_ref())?;
         let tree = pg_query::parse(stmt)?;
         for raw in tree.protobuf.stmts.iter() {
@@ -128,10 +130,14 @@ pub fn lint<S: AsRef<str>>(
                 if let Some(node_ref) = &node.node {
                     let summary = ast::describe(&node_ref.to_ref())?;
                     let lint_line = LintContext::new(&ctx, &summary);
-                    let matched_lints: Vec<_> = filter_rules(&action, rules::all_rules())
-                        .filter(|rule| !ignored_lints.contains(&rule.id()))
-                        .filter_map(|rule| rule.check(lint_line))
-                        .collect();
+                    let matched_lints: Vec<_> = if skip_stmt {
+                        vec![]
+                    } else {
+                        filter_rules(&action, rules::all_rules())
+                            .filter(|rule| !ignored_lints.contains(&rule.id()))
+                            .filter_map(|rule| rule.check(lint_line))
+                            .collect()
+                    };
                     passed_all = passed_all && matched_lints.is_empty();
 
                     lints.push(LintedStatement {
@@ -155,7 +161,7 @@ pub fn lint<S: AsRef<str>>(
 }
 
 pub fn anon_lint<S: AsRef<str>>(sql: S) -> crate::Result<LintReport> {
-    lint(None, sql, &[], false)
+    lint(None, sql, &[], false, &[])
 }
 
 #[cfg(test)]
@@ -317,6 +323,20 @@ mod tests {
              alter table books add constraint unique_title unique (title);",
         )
         .unwrap();
+        assert!(!matched_lint_rule(
+            &report,
+            rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()
+        ));
+    }
+
+    #[test]
+    fn test_skipping_with_regex_skips_lint() {
+        let regex = Regex::new(".*unique.*").unwrap();
+
+        let sql = "alter table books add constraint unique_title unique (title);";
+
+        let report = lint(None, sql, &[], false, &[regex]).unwrap();
+
         assert!(!matched_lint_rule(
             &report,
             rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()

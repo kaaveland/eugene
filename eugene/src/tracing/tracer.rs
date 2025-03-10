@@ -94,7 +94,7 @@ pub struct StatementCtx<'a> {
     pub(crate) transaction: &'a TxLockTracer<'a>,
 }
 
-impl<'a> StatementCtx<'a> {
+impl StatementCtx<'_> {
     pub fn new_constraints(&self) -> impl Iterator<Item = &Constraint> {
         self.sql_statement_trace.added_constraints.iter()
     }
@@ -140,15 +140,18 @@ impl<'a> TxLockTracer<'a> {
         &mut self,
         tx: &mut Transaction,
         sql: (usize, &str),
+        skip_this: bool,
     ) -> crate::Result<()> {
         // TODO: This is too big and should be refactored into more manageable pieces
         let start_time = Instant::now();
         let oid_vec = self.initial_objects.iter().copied().collect_vec();
         let lock_timeout = queries::get_lock_timeout(tx)?;
-        tx.execute(sql.1, &[]).map_err(|err| {
-            let context = format!("Error while executing SQL statement: {err:?}: {}", sql.1);
-            err.with_context(context)
-        })?;
+        if !skip_this {
+            tx.execute(sql.1, &[]).map_err(|err| {
+                let context = format!("Error while executing SQL statement: {err:?}: {}", sql.1);
+                err.with_context(context)
+            })?;
+        }
         let duration = start_time.elapsed();
         let locks_taken =
             queries::find_relevant_locks_in_current_transaction(tx, &self.initial_objects)?;

@@ -81,6 +81,7 @@ fn snapshot_lint(id: &str, kind: &str, script: &str) -> crate::Result<String> {
             sql,
             &[],
             false,
+            &[],
         )?;
         reports.push(output::templates::lint_report_to_markdown(&report)?);
     }
@@ -108,7 +109,7 @@ fn snapshot_trace(
         let sql = script.into();
         let sql_script = SqlScript { name: path, sql };
 
-        let trace = perform_trace(&sql_script, &mut connection_settings, &[], true)?;
+        let trace = perform_trace(&sql_script, &mut connection_settings, &[], true, &[])?;
         let mut report = full_trace_data(&trace, *output_settings);
 
         // Try to make the report deterministic

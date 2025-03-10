@@ -2,11 +2,6 @@ use anyhow::{anyhow, Context, Result};
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::generate;
 use clap_complete::Shell::{Bash, Elvish, Fish, PowerShell, Zsh};
-use itertools::Itertools;
-use postgres::Client;
-use serde::Serialize;
-use std::collections::HashMap;
-
 use eugene::git::{GitFilter, GitMode};
 use eugene::output::output_format::GenericHint;
 use eugene::output::{DetailedLockMode, LockModesWrapper, TerseLockMode};
@@ -18,6 +13,11 @@ use eugene::{
     output, parse_placeholders, perform_trace, read_script, script_discovery, ClientSource,
     WithClient,
 };
+use itertools::Itertools;
+use postgres::Client;
+use regex::Regex;
+use serde::Serialize;
+use std::collections::HashMap;
 
 #[derive(Parser)]
 #[command(name = "eugene")]
@@ -38,7 +38,7 @@ struct Eugene {
 }
 
 #[derive(Parser)]
-struct LintOptions {
+struct TraceAndLintOptions {
     /// Path to SQL migration scripts, directories, or '-' to read from stdin
     #[arg(name = "paths")]
     paths: Vec<String>,
@@ -88,9 +88,19 @@ struct LintOptions {
     /// Pass a git ref, like a commit hash, tag, or branch name.
     #[arg(short = 'g', long = "git-diff")]
     git_diff: Option<String>,
+
+    /// Skip SQL statements matching this regex (do not execute or lint them)
+    ///
+    /// For example:
+    ///
+    /// eugene trace --skip '.*flyway.*' --skip '.*moreToSkip.*'
+    ///
+    /// See https://docs.rs/regex/latest/regex/#syntax
+    #[arg(long = "skip", default_value = None)]
+    skip: Vec<String>,
 }
 
-impl LintOptions {
+impl TraceAndLintOptions {
     fn placeholders(&self) -> eugene::Result<HashMap<&str, &str>> {
         parse_placeholders(&self.placeholders)
     }
@@ -132,7 +142,7 @@ struct ProvidedConnectionSettings {
 #[derive(Parser)]
 struct Trace {
     #[command(flatten)]
-    opts: LintOptions,
+    opts: TraceAndLintOptions,
     /// Disable creation of temporary postgres server for tracing
     ///
     /// By default, trace will create a postgres server in a temporary directory
@@ -174,7 +184,7 @@ enum Commands {
     /// `eugene lint` exits with failure if any lint is detected.
     Lint {
         #[command(flatten)]
-        opts: LintOptions,
+        opts: TraceAndLintOptions,
     },
     /// Trace effects by running statements from SQL migration script
     ///
@@ -305,6 +315,11 @@ pub fn main() -> Result<()> {
             let placeholders = opts.placeholders()?;
             let format: TraceFormat = opts.format()?;
             let mut failed = false;
+            let skip = opts
+                .skip
+                .iter()
+                .map(|s| Ok(Regex::new(s.as_str())?))
+                .collect::<Result<Vec<_>>>()?;
             let filter = opts.git_filter()?;
             for read_from in script_discovery::discover_all(
                 &opts.paths,
@@ -320,6 +335,7 @@ pub fn main() -> Result<()> {
                     script.sql,
                     &opts.ignored_hints(),
                     opts.skip_summary,
+                    &skip,
                 )
                 .map_err(|err| anyhow!("Error checking {}: {err}", script.name.as_str()))?;
                 failed = failed
@@ -349,6 +365,12 @@ pub fn main() -> Result<()> {
             let mut client_source: GetClient = (&trace_opts).try_into()?;
 
             let mut failed = false;
+            let skip = trace_opts
+                .opts
+                .skip
+                .iter()
+                .map(|s| Ok(Regex::new(s.as_str())?))
+                .collect::<Result<Vec<_>>>()?;
             let placeholders = trace_opts.opts.placeholders()?;
 
             let script_source = script_discovery::discover_all(
@@ -367,7 +389,7 @@ pub fn main() -> Result<()> {
             for read_from in script_source {
                 let script = read_script(&read_from, &placeholders)?;
                 let name = script.name.as_str();
-                let trace = perform_trace(&script, &mut client_source, &ignored, commit)
+                let trace = perform_trace(&script, &mut client_source, &ignored, commit, &skip)
                     .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 if filter.allows(name) {
                     let full_trace = output::full_trace_data(

@@ -1,10 +1,9 @@
-## Eugene 🔒 trace report of `examples/E6/bad/1.sql`
+## ✅ Eugene trace report
+
+Script name: `examples/E6/bad/1.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 1.sql
@@ -24,14 +23,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ❌ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E6/bad/2.sql`
+Script name: `examples/E6/bad/2.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 2.sql
@@ -47,10 +44,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ❌ Statement number 2 for 10ms
 
 ```sql
 create index
@@ -67,12 +61,8 @@ No locks held at the start of this statement.
 |--------|--------|------|---------|-----|------|--------------------|
 | `public` | `authors` | `ShareLock` | Table | 1 | ❌ | 10 |
 
-#### Hints
+#### Triggered rules
 
-##### [Creating a new index on an existing table](https://kaveland.no/eugene/hints/E6/)
-ID: `E6`
-
-A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
+##### `E6`: [Creating a new index on an existing table](https://kaveland.no/eugene/hints/E6/)
 
 A new index was created on the table `public.authors`. The index `public.authors_name_idx` was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
-

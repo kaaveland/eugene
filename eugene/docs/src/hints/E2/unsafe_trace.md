@@ -1,10 +1,9 @@
-## Eugene 🔒 trace report of `examples/E2/bad/1.sql`
+## ✅ Eugene trace report
+
+Script name: `examples/E2/bad/1.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 1.sql
@@ -24,14 +23,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ❌ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E2/bad/2.sql`
+Script name: `examples/E2/bad/2.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 2.sql
@@ -47,10 +44,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ❌ Statement number 2 for 10ms
 
 ```sql
 alter table authors
@@ -67,17 +61,13 @@ No locks held at the start of this statement.
 |--------|--------|------|---------|-----|------|--------------------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
-#### Hints
+#### Triggered rules
 
-##### [Validating table with a new `NOT NULL` column](https://kaveland.no/eugene/hints/E2/)
-ID: `E2`
-
-A column was changed from `NULL` to `NOT NULL`. This blocks all table access until all rows are validated. A safer way is: Add a `CHECK` constraint as `NOT VALID`, validate it later, then make the column `NOT NULL`.
+##### `E2`: [Validating table with a new `NOT NULL` column](https://kaveland.no/eugene/hints/E2/)
 
 The column `name` in the table `public.authors` was changed to `NOT NULL`. If there is a `CHECK (name IS NOT NULL)` constraint on `public.authors`, this is safe. Splitting this kind of change into 3 steps can make it safe:
 
 1. Add a `CHECK (name IS NOT NULL) NOT VALID;` constraint on `public.authors`.
 2. Validate the constraint in a later transaction, with `ALTER TABLE public.authors VALIDATE CONSTRAINT ...`.
 3. Make the column `NOT NULL`
-
 

@@ -1,10 +1,9 @@
-## Eugene 🔒 trace report of `examples/E6/good/1.sql`
+## ✅ Eugene trace report
+
+Script name: `examples/E6/good/1.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 1.sql
@@ -24,14 +23,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ✅ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E6/good/2.sql`
+Script name: `examples/E6/good/2.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 2.sql
@@ -46,5 +43,4 @@ No locks held at the start of this statement.
 #### New locks taken
 
 No new locks taken by this statement.
-
 

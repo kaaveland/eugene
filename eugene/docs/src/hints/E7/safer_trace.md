@@ -1,10 +1,9 @@
-## Eugene 🔒 trace report of `examples/E7/good/1.sql`
+## ✅ Eugene trace report
+
+Script name: `examples/E7/good/1.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 1.sql
@@ -24,14 +23,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ✅ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E7/good/2.sql`
+Script name: `examples/E7/good/2.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 2.sql
@@ -48,14 +45,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ✅ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E7/good/3.sql`
+Script name: `examples/E7/good/3.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 3.sql
@@ -71,10 +66,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ✅ Statement number 2 for 10ms
 
 ```sql
 alter table authors
@@ -91,5 +83,4 @@ No locks held at the start of this statement.
 | Schema | Object | Mode | Relkind | OID | Safe | Duration held (ms) |
 |--------|--------|------|---------|-----|------|--------------------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
-
 

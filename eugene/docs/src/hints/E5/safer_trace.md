@@ -1,10 +1,9 @@
-## Eugene 🔒 trace report of `examples/E5/good/1.sql`
+## ✅ Eugene trace report
+
+Script name: `examples/E5/good/1.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 1.sql
@@ -24,14 +23,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ✅ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E5/good/2.sql`
+Script name: `examples/E5/good/2.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 2.sql
@@ -47,10 +44,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ✅ Statement number 2 for 10ms
 
 ```sql
 alter table prices
@@ -68,14 +62,12 @@ No locks held at the start of this statement.
 | `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 
+## ✅ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E5/good/3.sql`
+Script name: `examples/E5/good/3.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 3.sql
@@ -91,10 +83,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ✅ Statement number 2 for 10ms
 
 ```sql
 set local lock_timeout = '2s'
@@ -109,10 +98,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 3 for 10ms
-
-#### SQL
+### ✅ Statement number 3 for 10ms
 
 ```sql
 alter table prices
@@ -131,14 +117,12 @@ No locks held at the start of this statement.
 | `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 
+## ✅ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E5/good/4.sql`
+Script name: `examples/E5/good/4.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 4.sql
@@ -154,10 +138,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ✅ Statement number 2 for 10ms
 
 ```sql
 alter table prices
@@ -176,10 +157,7 @@ No locks held at the start of this statement.
 | `public` | `prices` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
 
-
-### Statement number 3 for 10ms
-
-#### SQL
+### ✅ Statement number 3 for 10ms
 
 ```sql
 -- eugene: ignore E4
@@ -197,5 +175,4 @@ alter table prices
 #### New locks taken
 
 No new locks taken by this statement.
-
 

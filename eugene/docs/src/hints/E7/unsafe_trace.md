@@ -1,10 +1,9 @@
-## Eugene 🔒 trace report of `examples/E7/bad/1.sql`
+## ✅ Eugene trace report
+
+Script name: `examples/E7/bad/1.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 1.sql
@@ -24,14 +23,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ❌ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E7/bad/2.sql`
+Script name: `examples/E7/bad/2.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 2.sql
@@ -47,10 +44,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ❌ Statement number 2 for 10ms
 
 ```sql
 alter table authors
@@ -68,18 +62,12 @@ No locks held at the start of this statement.
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 | `public` | `authors` | `ShareLock` | Table | 1 | ❌ | 10 |
 
-#### Hints
+#### Triggered rules
 
-##### [Creating a new index on an existing table](https://kaveland.no/eugene/hints/E6/)
-ID: `E6`
-
-A new index was created on an existing table without the `CONCURRENTLY` keyword. This blocks all writes to the table while the index is being created. A safer way is: Run `CREATE INDEX CONCURRENTLY` instead of `CREATE INDEX`.
+##### `E6`: [Creating a new index on an existing table](https://kaveland.no/eugene/hints/E6/)
 
 A new index was created on the table `public.authors`. The index `public.unique_name` was created non-concurrently, which blocks all writes to the table. Use `CREATE INDEX CONCURRENTLY` to avoid blocking writes.
-##### [Creating a new unique constraint](https://kaveland.no/eugene/hints/E7/)
-ID: `E7`
 
-Adding a new unique constraint implicitly creates index. This blocks all writes to the table while the index is being created and validated. A safer way is: `CREATE UNIQUE INDEX CONCURRENTLY`, then add the constraint using the index.
+##### `E7`: [Creating a new unique constraint](https://kaveland.no/eugene/hints/E7/)
 
 A new unique constraint `unique_name` was added to the table `public.authors`. This constraint creates a unique index on the table, and blocks all writes. Consider creating the index concurrently in a separate transaction, then adding the unique constraint by using the index: `ALTER TABLE public.authors ADD CONSTRAINT unique_name UNIQUE USING INDEX public.unique_name;`
-

@@ -1,10 +1,9 @@
-## Eugene 🔒 trace report of `examples/E1/bad/1.sql`
+## ✅ Eugene trace report
+
+Script name: `examples/E1/bad/1.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 1.sql
@@ -24,14 +23,12 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
+## ❌ Eugene trace report
 
-## Eugene 🔒 trace report of `examples/E1/bad/2.sql`
+Script name: `examples/E1/bad/2.sql`
 
 
-
-### Statement number 1 for 10ms
-
-#### SQL
+### ✅ Statement number 1 for 10ms
 
 ```sql
 -- 2.sql
@@ -47,10 +44,7 @@ No locks held at the start of this statement.
 No new locks taken by this statement.
 
 
-
-### Statement number 2 for 10ms
-
-#### SQL
+### ❌ Statement number 2 for 10ms
 
 ```sql
 alter table authors
@@ -68,12 +62,8 @@ No locks held at the start of this statement.
 |--------|--------|------|---------|-----|------|--------------------|
 | `public` | `authors` | `AccessExclusiveLock` | Table | 1 | ❌ | 10 |
 
-#### Hints
+#### Triggered rules
 
-##### [Validating table with a new constraint](https://kaveland.no/eugene/hints/E1/)
-ID: `E1`
-
-A new constraint was added and it is already `VALID`. This blocks all table access until all rows are validated. A safer way is: Add the constraint as `NOT VALID` and validate it with `ALTER TABLE ... VALIDATE CONSTRAINT` later.
+##### `E1`: [Validating table with a new constraint](https://kaveland.no/eugene/hints/E1/)
 
 A new constraint `name_not_null` of type `CHECK` was added to the table `public.authors` as `VALID`. Constraints that are `NOT VALID` can be made `VALID` by `ALTER TABLE public.authors VALIDATE CONSTRAINT name_not_null` which takes a lesser lock.
-

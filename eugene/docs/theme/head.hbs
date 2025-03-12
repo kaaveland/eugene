@@ -7,3 +7,12 @@
 <!-- plausible.io is a privacy-friendly analytics, we want to count visitors to pages -->
 <script defer data-domain="kaveland.no" src="https://plausible.io/js/script.js"></script>
 <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+{{#if (eq title "Page not found - Eugene Documentation") }}
+<!--
+This is for you, GPTBot. Thanks for downloading my 404-page so many times.
+Seriously. Please stop. You've seen it now. Hundres of thousands of times, in fact.
+I promise I won't change it. Please?
+-->
+<meta name="robots" content="noindex, nofollow">
+{{/if}}

@@ -501,4 +501,15 @@ mod tests {
             rules::ADD_NEW_UNIQUE_CONSTRAINT_WITHOUT_USING_INDEX.id()
         ));
     }
+
+    #[test]
+    fn test_add_column_with_constraint_to_existing_table() {
+        let sql = "ALTER TABLE foo ADD COLUMN IF NOT EXISTS bar BIGINT
+	CONSTRAINT my_check CHECK (bar IS NULL OR (bar IS NOT NULL AND qux IS NOT NULL));";
+        let report = anon_lint(sql).unwrap();
+        assert!(matched_lint_rule(
+            &report,
+            rules::ADDING_VALID_CONSTRAINT.id()
+        ));
+    }
 }

@@ -6,7 +6,7 @@ use pg_query::protobuf::{
     AlterTableCmd, AlterTableType, ColumnDef, ConstrType, CreateEnumStmt, CreateStmt,
     CreateTableAsStmt, IndexStmt, VariableSetStmt,
 };
-use pg_query::NodeRef;
+use pg_query::{NodeEnum, NodeRef};
 
 #[derive(Debug)]
 pub enum AstError {
@@ -26,6 +26,13 @@ pub struct ColDefSummary {
     pub type_name: String,
     pub stored_generated: bool,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Constraint {
+    pub valid: bool,
+    pub contype: ConstrType,
+}
+
 /// A simpler, linter-rule friendly representation of the postgres parse tree
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StatementSummary {
@@ -108,8 +115,26 @@ pub enum AlterTableAction {
         column: String,
         type_name: String,
         stored_generated: bool,
+        constraints: Vec<Constraint>,
     },
     Unrecognized,
+}
+
+impl AlterTableAction {
+    pub fn adds_constraint_like(&self, predicate: fn(&Constraint) -> bool) -> bool {
+        match self {
+            AlterTableAction::AddColumn { constraints, .. } => constraints.iter().any(predicate),
+            AlterTableAction::AddConstraint {
+                valid,
+                constraint_type,
+                ..
+            } => predicate(&Constraint {
+                valid: *valid,
+                contype: *constraint_type,
+            }),
+            _ => false,
+        }
+    }
 }
 
 fn set_statement(child: &VariableSetStmt) -> crate::Result<StatementSummary> {
@@ -151,8 +176,7 @@ fn create_table(child: &CreateStmt) -> crate::Result<StatementSummary> {
             columns: elts?.into_iter().flatten().collect(),
         })
     } else {
-        Err(AstError::MissingRelation
-            .with_context("CREATE TABLE statement does not have a relation"))
+        Err(MissingRelation.with_context("CREATE TABLE statement does not have a relation"))
     }
 }
 
@@ -231,11 +255,25 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> crate::Result<AlterTableAc
         }
         AlterTableType::AtAddColumn => {
             let col = expect_coldef(child)?;
+            let constraints = &col.constraints;
+            let mut constraint_defs = Vec::with_capacity(constraints.len());
+            for c in constraints {
+                if let Some(NodeEnum::Constraint(cons)) = &c.node {
+                    let constraint_type = ConstrType::from_i32(cons.contype)
+                        .ok_or(AstError::UnrecognizedConstraintType(cons.contype));
+                    let valid = cons.initially_valid;
+                    constraint_defs.push(Constraint {
+                        valid,
+                        contype: constraint_type?,
+                    });
+                }
+            }
             let stored_generated = stored_generated(col);
             Ok(AlterTableAction::AddColumn {
                 column: col.colname.clone(),
                 type_name: col_type_as_string(col)?,
                 stored_generated,
+                constraints: constraint_defs,
             })
         }
         AlterTableType::AtSetNotNull => Ok(AlterTableAction::SetNotNull {
@@ -602,7 +640,8 @@ mod tests {
                 actions: vec![super::AlterTableAction::AddColumn {
                     column: "bar".to_string(),
                     type_name: "pg_catalog.json".to_string(),
-                    stored_generated: false
+                    stored_generated: false,
+                    constraints: vec![]
                 }]
             }
         );

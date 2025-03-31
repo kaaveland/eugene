@@ -156,25 +156,22 @@ fn adding_exclusion_constraint(stmt: LintContext) -> Option<String> {
             ..
         } if stmt.is_visible(schema, name) => {
             let new_constraint = actions.iter().find(|cmd| {
-                matches!(
-                    cmd,
-                    AlterTableAction::AddConstraint {
-                        constraint_type: ConstrType::ConstrExclusion,
-                        ..
-                    }
-                )
+                cmd.adds_constraint_like(|cons| cons.contype == ConstrType::ConstrExclusion)
             });
             let table = name;
-            if let Some(AlterTableAction::AddConstraint {
-                name,
-                constraint_type: _,
-                ..
-            }) = new_constraint
-            {
-                let schema = if schema.is_empty() { "public" } else { schema };
-                Some(format!("Statement takes `AccessExclusiveLock` on `{schema}.{table}`, blocking reads and writes until constraint `{name}` is validated and has created index"))
-            } else {
-                None
+            let schema = if schema.is_empty() { "public" } else { schema };
+            match new_constraint {
+                Some(AlterTableAction::AddConstraint {
+                         name,
+                         constraint_type: _,
+                         ..
+                     }) => {
+                    Some(format!("Statement takes `AccessExclusiveLock` on `{schema}.{table}`, blocking reads and writes until constraint `{name}` is validated and has created index"))
+                }
+                Some(AlterTableAction::AddColumn { column, .. }) => {
+                    Some(format!("Statement takes `AccessExclusiveLock` on `{schema}.{table}`, blocking reads and writes until exclusion constraint on column `{column}` is validated and has created index"))
+                }
+                _ => None,
             }
         }
         _ => None,
@@ -197,6 +194,7 @@ fn add_new_unique_constraint_without_using_index(stmt: LintContext) -> Option<St
         } if stmt.is_visible(schema, name) => {
             let schema = if schema.is_empty() { "public" } else { schema };
             let table = name;
+
             if let Some(AlterTableAction::AddConstraint {
                 name,
                 use_index: false,

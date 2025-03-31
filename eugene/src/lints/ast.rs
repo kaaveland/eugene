@@ -176,8 +176,7 @@ fn create_table(child: &CreateStmt) -> crate::Result<StatementSummary> {
             columns: elts?.into_iter().flatten().collect(),
         })
     } else {
-        Err(AstError::MissingRelation
-            .with_context("CREATE TABLE statement does not have a relation"))
+        Err(MissingRelation.with_context("CREATE TABLE statement does not have a relation"))
     }
 }
 

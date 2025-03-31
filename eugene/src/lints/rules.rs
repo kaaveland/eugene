@@ -2,7 +2,7 @@ use itertools::Itertools;
 use pg_query::protobuf::ConstrType;
 
 use crate::hint_data::{hint_url, HintId, StaticHintData};
-use crate::lints::ast::AlterTableAction;
+use crate::lints::ast::{AlterTableAction, Constraint};
 use crate::lints::{LintContext, StatementSummary};
 use crate::output::output_format::Hint;
 
@@ -94,16 +94,17 @@ pub const CREATE_INDEX_NONCONCURRENTLY: LintRule = LintRule {
 
 fn adding_valid_constraint(stmt: LintContext) -> Option<String> {
     fn is_valid_constraint(alter_table_cmd: &AlterTableAction) -> bool {
-        matches!(
-            alter_table_cmd,
-            AlterTableAction::AddConstraint {
-                valid: true,
-                constraint_type: ConstrType::ConstrCheck
-                    | ConstrType::ConstrNotnull
-                    | ConstrType::ConstrForeign,
-                ..
-            }
-        )
+        alter_table_cmd.adds_constraint_like(|cons| {
+            matches!(
+                cons,
+                Constraint {
+                    valid: true,
+                    contype: ConstrType::ConstrCheck
+                        | ConstrType::ConstrNotnull
+                        | ConstrType::ConstrForeign
+                }
+            )
+        })
     }
     match stmt.statement {
         StatementSummary::AlterTable {
@@ -115,23 +116,26 @@ fn adding_valid_constraint(stmt: LintContext) -> Option<String> {
             let schema = if schema.is_empty() { "public" } else { schema };
             let new_constraint = actions.iter().find(|cmd| is_valid_constraint(cmd));
             let table = name;
-            if let Some(AlterTableAction::AddConstraint {
-                name,
-                constraint_type: _,
-                ..
-            }) = new_constraint
-            {
-                let name = if name.is_empty() {
-                    String::new()
-                } else {
-                    format!("`{name}` ")
-                };
-                Some(format!(
-                    "Statement takes `AccessExclusiveLock` on `{schema}.{table}`, \
+            match new_constraint {
+                Some(AlterTableAction::AddConstraint {
+                    name,
+                    constraint_type: _,
+                    ..
+                }) => {
+                    let name = if name.is_empty() {
+                        String::new()
+                    } else {
+                        format!("`{name}` ")
+                    };
+
+                    Some(format!(
+                        "Statement takes `AccessExclusiveLock` on `{schema}.{table}`, \
                 blocking reads until constraint {name}is validated"
-                ))
-            } else {
-                None
+                    ))
+                }
+                Some(AlterTableAction::AddColumn { column, .. }) =>
+                    Some(format!("Statement takes `AccessExclusiveLock` on `{schema}.{table}` until new constraint on column `{column}` is validated.")),
+                _ => None,
             }
         }
         _ => None,
@@ -361,6 +365,7 @@ pub fn added_serial_column(stmt: LintContext) -> Option<String> {
                         type_name,
                         column,
                         stored_generated: generated_always,
+                        ..
                     } if *generated_always || serials.contains(&type_name.as_str()) => Some(column),
                     _ => None,
                 })

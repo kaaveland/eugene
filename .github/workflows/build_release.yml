@@ -1,0 +1,78 @@
+name: Upload release to GitHub v2
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+    branches:
+      - new-release-workflow
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build_release:
+    runs-on: ${{ matrix.target.runs-on }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - toolchain: x86_64-unknown-linux-musl
+            runs-on: ubuntu-latest
+            cargo: cross
+            suffix: ""
+          - toolchain: aarch64-unknown-linux-musl
+            runs-on: ubuntu-latest
+            cargo: cross
+            suffix: ""
+          - toolchain: x86_64-apple-darwin
+            runs-on: macos-latest
+            cargo: cargo
+            suffix: ""
+          - toolchain: aarch64-apple-darwin
+            runs-on: macos-latest
+            cargo: cargo
+            suffix: ""
+          - toolchain: x86_64-pc-windows-gnu
+            runs-on: windows-latest
+            cargo: cargo
+            suffix: ".exe"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust toolchain for ${{ matrix.target.toolchain }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target.toolchain }}
+      - uses: cargo-bins/cargo-binstall@main
+        if: ${{ matrix.target.cargo == 'cross' }}
+      - name: Install cross
+        if: ${{ matrix.target.cargo == 'cross' }}
+        run: cargo binstall -y --force cross
+      - name: build release
+        run: ${{ matrix.target.cargo }} build --release --target "${{ matrix.target.toolchain }}"
+      - name: rename release
+        shell: bash
+        run: |
+          version="$(cargo read-manifest --manifest-path=eugene/Cargo.toml | jq -r .version)"
+          bin_name=eugene-${{ matrix.target.toolchain }}${{ matrix.target.suffix }}
+          mv target/${{ matrix.target.toolchain }}/release/eugene${{ matrix.target.suffix }} $bin_name
+          if [[ "${{ matrix.target.runs-on }}" == "macos-latest" ]]; then
+            shasum -a 256 $bin_name > $bin_name.sha256
+          elif [[ "${{ matrix.target.runs-on }}" == "windows-latest" ]]; then
+            hash=$(certutil -hashfile $bin_name SHA256 | awk 'NR==2')
+            echo "$hash  $bin_name" > $bin_name.sha256          
+          else
+            sha256sum $bin_name > $bin_name.sha256
+          fi
+          echo "BIN_NAME=$bin_name" >> $GITHUB_ENV
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BIN_NAME }}-artifact
+          path: |
+            ${{ env.BIN_NAME }}
+            ${{ env.BIN_NAME }}.sha256

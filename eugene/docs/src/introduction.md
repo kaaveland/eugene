@@ -95,7 +95,13 @@ which can pick up more issues, some of which `eugene lint` can't detect.
 
 ## Installing eugene
 
-You can install `eugene` using cargo, but this requires you to have rust 
+You can use [mise](https://mise.jdx.dev/) with the `ubi` backend to install `eugene`:
+
+```shell
+mise use ubi:kaaveland/eugene@latest
+```
+
+You can also install `eugene` using cargo, but this requires you to have rust
 and some other build tools installed. To install rust, you can use 
 [rustup](https://rustup.rs/).
 

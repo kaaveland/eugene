@@ -25,9 +25,15 @@ Links:
 The tool documentation at [kaveland.no/eugene](https://kaveland.no/eugene) is the 
 best place to get usage documentation, such as installation instructions and examples.
 
-Some of those instructions are repeated here for convenience:
+Some of those instructions are repeated here for convenience.
 
-In addition to rust, you need:
+The fastest way to install `eugene` is with [mise](https://mise.jdx.dev/) using the `ubi` backend:
+
+```shell
+mise use ubi:kaaveland/eugene@latest
+```
+
+You can install `eugene` with the rust cargo and the rust toolchain. In addition to rust, you need:
 
 - `gcc` and `g++` *or* `clang` and `clang++`
    + on macos, you get these with `xcode-select --install`
@@ -50,7 +56,8 @@ You can use the docker image `ghcr.io/kaaveland/eugene`. For example:
 ```
 
 Releases are published to github as a binary with no dependencies, so you can
-also download the binary from the [release page](https://github.com/kaaveland/eugene/releases)
+also download the binary from the [release page](https://github.com/kaaveland/eugene/releases). This is what the `mise`
+command does.
 
 The binary isn't signed and notarized, so on macos it'll give you a warning. If you
 want to proceed anyway, you can use `xattr -d com.apple.quarantine eugene` to remove it.

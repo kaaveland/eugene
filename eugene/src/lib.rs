@@ -187,6 +187,7 @@ pub fn perform_trace<'a, T: WithClient>(
     ignored_hints: &'a [&'a str],
     commit: bool,
     skip: &[Regex],
+    is_final: bool,
 ) -> Result<TxLockTracer<'a>> {
     let sql_statements = sql_statements_with_line_no(script.sql.as_str())?;
     let all_concurrently = sql_statements
@@ -217,6 +218,7 @@ pub fn perform_trace<'a, T: WithClient>(
                 sql_statements.iter().copied(),
                 ignored_hints,
                 skip,
+                is_final,
             )
         })
     }

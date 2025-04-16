@@ -18,7 +18,7 @@ in the text area below. When you click the "Check" button, Eugene
 will analyze the scripts and let you know if it found any issues.
 
 <div class="demo-area">
-<form hx-post="/eugene/app/lint.html" 
+<form hx-post="https://blog.kaveland.no/eugene/app/lint.html" 
       hx-target="#output"
       hx-on-htmx-response-error="check_for_413(event);">
 <input type="hidden" name="sql" id="sql-input" value="">
@@ -73,7 +73,7 @@ function check_for_413(event) {
 <script>
 function fetch_new_example(event) {
     event.preventDefault();
-    fetch('/eugene/app/random.sql')
+    fetch('https://blog.kaveland.no/eugene/app/random.sql')
         .then(response => response.text())
         .then(data => {
               editor.setValue(data); 

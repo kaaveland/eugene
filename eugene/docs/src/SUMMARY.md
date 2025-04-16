@@ -22,6 +22,7 @@
   - [W12 Multiple `ALTER TABLE` statements where one will do](./hints/W12/index.md)
   - [W13 Creating an enum](./hints/W13/index.md)
   - [W14 Adding a primary key using an index](./hints/W14/index.md)
+  - [E15 Missing index](./hints/E15/index.md)
 ---------
 - [Example Reports](./hints/examples.md)
   - [E1 lint problematic](./hints/E1/unsafe_lint.md)
@@ -76,3 +77,7 @@
   - [W14 lint safer](./hints/W14/safer_lint.md)
   - [W14 trace problematic](./hints/W14/unsafe_trace.md)
   - [W14 trace safer](./hints/W14/safer_trace.md)
+  - [E15 lint problematic](./hints/E15/unsafe_lint.md)
+  - [E15 lint safer](./hints/E15/safer_lint.md)
+  - [E15 trace problematic](./hints/E15/unsafe_trace.md)
+  - [E15 trace safer](./hints/E15/safer_trace.md)

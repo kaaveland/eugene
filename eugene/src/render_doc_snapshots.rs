@@ -103,13 +103,27 @@ fn snapshot_trace(
         5432,
         "postgres".to_string(),
     );
+    let scripts = break_into_files(script)?;
+    let last = scripts.len() - 1;
+    let ignored = if id != "E15" {
+        ["E15"].as_slice()
+    } else {
+        [].as_slice()
+    };
 
-    for (name, script) in break_into_files(script)? {
+    for (ix, (name, script)) in scripts.into_iter().enumerate() {
         let path = format!("examples/{}/{kind}/{}", id, name.unwrap());
         let sql = script.into();
         let sql_script = SqlScript { name: path, sql };
 
-        let trace = perform_trace(&sql_script, &mut connection_settings, &[], true, &[])?;
+        let trace = perform_trace(
+            &sql_script,
+            &mut connection_settings,
+            ignored,
+            true,
+            &[],
+            ix == last,
+        )?;
         let mut report = full_trace_data(&trace, *output_settings);
 
         // Try to make the report deterministic

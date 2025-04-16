@@ -13,7 +13,9 @@ use crate::hints;
 use crate::output::output_format::Hint;
 use crate::pg_types::locks::{Lock, LockableTarget};
 use crate::tracing::queries;
-use crate::tracing::queries::{ColumnIdentifier, ColumnMetadata, Constraint, RelfileId};
+use crate::tracing::queries::{
+    ColumnIdentifier, ColumnMetadata, Constraint, ForeignKeyReference, RelfileId,
+};
 
 /// A trace of a single SQL statement, including the locks taken and the duration of the statement.
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -43,6 +45,9 @@ pub struct SqlStatementTrace {
     pub(crate) rewritten_objects: Vec<RelfileId>,
     /// Line number in file
     pub(crate) line_no: usize,
+
+    /// Foreign keys that had no index at the end of the statement
+    pub(crate) fks_missing_index: Vec<ForeignKeyReference>,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -141,6 +146,7 @@ impl<'a> TxLockTracer<'a> {
         tx: &mut Transaction,
         sql: (usize, &str),
         skip_this: bool,
+        final_checks: bool,
     ) -> crate::Result<()> {
         // TODO: This is too big and should be refactored into more manageable pieces
         let start_time = Instant::now();
@@ -226,6 +232,11 @@ impl<'a> TxLockTracer<'a> {
             lock_timeout_millis: lock_timeout,
             rewritten_objects: changed_ids,
             line_no: sql.0,
+            fks_missing_index: if final_checks {
+                queries::fks_missing_index(tx)?
+            } else {
+                Vec::new()
+            },
         };
         let ctx = StatementCtx {
             sql_statement_trace: &statement,
@@ -309,6 +320,7 @@ impl<'a> TxLockTracer<'a> {
                     lock_timeout_millis: 0,
                     rewritten_objects: vec![],
                     line_no: line,
+                    fks_missing_index: Vec::new(),
                 })
                 .collect(),
             all_locks: HashSet::default(),

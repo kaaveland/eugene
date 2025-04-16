@@ -384,13 +384,21 @@ pub fn main() -> Result<()> {
                     script_source.len()
                 ));
             }
+            let last_script = script_source.len() - 1;
             let ignored = trace_opts.opts.ignored_hints();
             let filter = trace_opts.opts.git_filter()?;
-            for read_from in script_source {
+            for (ix, read_from) in script_source.into_iter().enumerate() {
                 let script = read_script(&read_from, &placeholders)?;
                 let name = script.name.as_str();
-                let trace = perform_trace(&script, &mut client_source, &ignored, commit, &skip)
-                    .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
+                let trace = perform_trace(
+                    &script,
+                    &mut client_source,
+                    &ignored,
+                    commit,
+                    &skip,
+                    ix == last_script,
+                )
+                .map_err(|e| anyhow!("Error tracing {name}: {e}"))?;
                 if filter.allows(name) {
                     let full_trace = output::full_trace_data(
                         &trace,

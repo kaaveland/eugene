@@ -153,6 +153,15 @@ pub const ADD_PRIMARY_KEY_USING_INDEX: StaticHintData = StaticHintData {
     bad_example: include_str!("../examples/W14/bad.sql"),
     good_example: Some(include_str!("../examples/W14/good.sql")),
 };
+pub const FOREIGN_KEY_NOT_BACKED_BY_INDEX: StaticHintData = StaticHintData {
+    id: "E15",
+    name: "Missing index",
+    condition: "A foreign key is missing a complete index on the referencing side",
+    effect: "Updates and deletes on the referenced table may cause table scan on referencing table",
+    workaround: "Create the missing index",
+    bad_example: include_str!("../examples/E15/bad.sql"),
+    good_example: Some(include_str!("../examples/E15/good.sql")),
+};
 
 pub const ALL: &[&StaticHintData] = &[
     &VALIDATE_CONSTRAINT_WITH_LOCK,
@@ -169,6 +178,7 @@ pub const ALL: &[&StaticHintData] = &[
     &MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO,
     &CREATING_ENUM,
     &ADD_PRIMARY_KEY_USING_INDEX,
+    &FOREIGN_KEY_NOT_BACKED_BY_INDEX,
 ];
 
 pub fn data_by_id<S: AsRef<str>>(id: S) -> Option<&'static StaticHintData> {

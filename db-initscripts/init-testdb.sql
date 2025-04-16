@@ -17,6 +17,9 @@ CREATE TABLE for_checking_modified_constraints (
     book_id integer references books(id)
 );
 
+CREATE INDEX for_checking_modified_constraints_book_id_idx ON
+    for_checking_modified_constraints (book_id);
+
 \c "example-db"
 
 CREATE TABLE books

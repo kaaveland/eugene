@@ -7,6 +7,7 @@ use std::cmp::Reverse;
 use crate::pg_types::contype::Contype;
 use crate::pg_types::lock_modes::LockMode;
 use crate::pg_types::relkinds::RelKind;
+use crate::tracing::queries::ForeignKeyReference;
 use crate::tracing::tracer::StatementCtx;
 
 type HintFn = fn(&StatementCtx) -> Option<String>;
@@ -283,6 +284,23 @@ fn rewrote_table_or_index(ctx: &StatementCtx) -> Option<String> {
     Some(help)
 }
 
+fn foreign_key_missing_index(ctx: &StatementCtx) -> Option<String> {
+    let missing = ctx.sql_statement_trace.fks_missing_index.iter().map(|fk| {
+        let ForeignKeyReference {
+            constraint_name, schema_name, table_name, columns
+        } = fk;
+        let coldef = columns.iter().join(", ");
+        let create = format!("create index concurrently \"{constraint_name}_idx\" on \"{schema_name}\".\"{table_name}\"({coldef});");
+        format!("Missing index for `{constraint_name}` detected, create it with:\n```sql\n{create}\n```\n")
+    }).join("\n\n");
+
+    if missing.trim().is_empty() {
+        None
+    } else {
+        Some(missing)
+    }
+}
+
 /// All the hints eugene can check statement traces against
 pub fn all_hints() -> &'static [HintInfo] {
     HINTS
@@ -332,6 +350,10 @@ pub const REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK: HintInfo = HintInfo {
     meta: &hint_data::REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK,
     render_help: rewrote_table_or_index,
 };
+pub const FK_MISSING_BACKIND_INDEX: HintInfo = HintInfo {
+    meta: &hint_data::FOREIGN_KEY_NOT_BACKED_BY_INDEX,
+    render_help: foreign_key_missing_index,
+};
 
 /// All the hints eugene can check statement traces against
 const HINTS: &[HintInfo] = &[
@@ -345,6 +367,7 @@ const HINTS: &[HintInfo] = &[
     NEW_EXCLUSION_CONSTRAINT_FOUND,
     TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT,
     REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK,
+    FK_MISSING_BACKIND_INDEX,
 ];
 
 #[cfg(test)]

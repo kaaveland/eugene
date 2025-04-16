@@ -32,7 +32,7 @@ pub struct Constraint {
     pub(crate) expression: Option<String>,
     pub(crate) valid: bool,
     pub(crate) target: Oid,
-    pub(crate) fk_target: Option<Oid>
+    pub(crate) fk_target: Option<Oid>,
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -305,3 +305,83 @@ pub fn get_lock_timeout(tx: &mut Transaction) -> crate::Result<u64> {
     }
 }
 
+/// Fetch all foreign keys lacking an index on the referencing side
+pub fn fks_missing_index(tx: &mut Transaction) -> crate::Result<Vec<ForeignKeyReference>> {
+    let sql = "with fks as (
+    select conname, conrelid, conkey :: smallint[]
+    from pg_constraint
+    where contype = 'f'
+), indexes as (
+    select indrelid, indkey :: smallint[]
+    from pg_index
+    where indpred is null and indisvalid
+), fks_without_index as (
+    select fks.conname, fks.conrelid, fks.conkey
+    from fks
+    left join indexes on
+        fks.conrelid = indexes.indrelid and
+        -- foreign key must be prefix of index and both arrays are 0-indexed
+        fks.conkey = indexes.indkey[0:array_length(fks.conkey, 1) - 1]
+    where indexes.indrelid is null -- no index found
+)
+select
+    pg_namespace.nspname as schema_name,
+    pg_class.relname as table_name,
+    fk.conname as fk,
+    array_agg(
+      pg_attribute.attname
+      -- order the column names by their position in the foreign key
+      order by array_position(fk.conkey, pg_attribute.attnum)
+    ) as columns
+from fks_without_index fk
+    join pg_class on fk.conrelid = pg_class.oid
+    join pg_namespace on pg_class.relnamespace = pg_namespace.oid
+    join pg_attribute on fk.conrelid = pg_attribute.attrelid
+        and pg_attribute.attnum = any(fk.conkey)
+group by schema_name, table_name, fk;
+";
+    let rows = tx
+        .query(sql, &[])
+        .with_context("Failed to fetch foreign keys missing index")?;
+    rows.into_iter()
+        .map(|row| {
+            let schema_name = row.try_get(0)?;
+            let table_name = row.try_get(1)?;
+            let constraint_name = row.try_get(2)?;
+            let columns = row.try_get(3)?;
+
+            Ok(ForeignKeyReference {
+                schema_name,
+                table_name,
+                constraint_name,
+                columns,
+            })
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::generate_new_test_db;
+    use postgres::{Client, NoTls};
+
+    #[test]
+    fn test_fks_missing_index() {
+        let test_db = generate_new_test_db();
+        let mut client = Client::connect(
+            format!("host=localhost dbname={test_db} password=postgres user=postgres").as_str(),
+            NoTls,
+        )
+        .unwrap();
+        let script = include_str!("../../examples/E15/bad.sql");
+        client.batch_execute(script).unwrap();
+        let fks = fks_missing_index(&mut client.transaction().unwrap()).unwrap();
+        assert!(!fks.is_empty());
+        assert!(fks
+            .iter()
+            .any(|fk| fk.constraint_name == "purchase_item_fkey"
+                && fk.columns == vec!["item".to_string()]
+                && fk.table_name.as_str() == "purchase"))
+    }
+}

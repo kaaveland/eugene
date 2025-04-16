@@ -13,6 +13,7 @@ pub fn trace_transaction<'a, S: AsRef<str>>(
     sql_statements: impl Iterator<Item = (usize, S)>,
     ignored_hints: &'a [&'a str],
     skip: &[Regex],
+    is_final: bool,
 ) -> crate::Result<TxLockTracer<'a>> {
     let initial_objects: HashSet<_> = queries::fetch_lockable_objects(tx, &[])?
         .into_iter()
@@ -33,9 +34,16 @@ pub fn trace_transaction<'a, S: AsRef<str>>(
         relfile_ids,
         ignored_hints,
     );
-    for (line, sql) in sql_statements {
+    let mut peekable = sql_statements.peekable();
+    while let Some((line, sql)) = peekable.next() {
+        let is_empty = peekable.peek().is_none();
         let skip_this = skip.iter().any(|r| r.is_match(sql.as_ref()));
-        trace.trace_sql_statement(tx, (line, sql.as_ref().trim()), skip_this)?;
+        trace.trace_sql_statement(
+            tx,
+            (line, sql.as_ref().trim()),
+            skip_this,
+            is_final && is_empty,
+        )?;
     }
     Ok(trace)
 }
@@ -72,6 +80,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -94,6 +103,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let constraint = &trace.statements[0].added_constraints[0];
@@ -116,7 +126,8 @@ mod tests {
                 "alter table books add constraint fk_author foreign key (author_id) references authors(id)",
             ].into_iter().enumerate(),
             &[],
-            &[]
+            &[],
+            false
         ).unwrap();
         let constraint = &trace.statements[2].added_constraints[0];
         assert_eq!(constraint.constraint_type, Contype::ForeignKey);
@@ -145,6 +156,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let constraint = &trace.statements[0].added_constraints[0];
@@ -167,6 +179,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -186,6 +199,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -210,6 +224,7 @@ mod tests {
             vec!["select * from books"].into_iter().enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let lock = &trace.statements[0].locks_taken[0];
@@ -234,6 +249,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let lock = trace
@@ -257,6 +273,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let lock = trace
@@ -279,6 +296,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
 
@@ -309,6 +327,7 @@ mod tests {
             .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         assert!(trace.triggered_hints[0].is_empty());
@@ -331,6 +350,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         assert!(trace.statements[0].created_objects.is_empty());
@@ -354,6 +374,7 @@ mod tests {
             .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         assert_eq!(trace.statements[1].lock_timeout_millis, 1000);
@@ -373,6 +394,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let modification = &trace.statements[0].added_columns[0].1;
@@ -398,6 +420,7 @@ mod tests {
             .enumerate(),
             &[],
             &[regex],
+            false,
         )
         .unwrap();
         assert_eq!(trace.statements.len(), 2);
@@ -423,6 +446,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         let modification = &trace.statements[0].modified_columns[0].1;
@@ -444,6 +468,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         assert!(trace.statements[0]
@@ -467,6 +492,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         assert!(trace.statements[0].rewritten_objects.is_empty());
@@ -484,6 +510,7 @@ mod tests {
                 .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         assert!(trace.triggered_hints[0].is_empty());
@@ -504,6 +531,7 @@ mod tests {
             .enumerate(),
             &[],
             &[],
+            false,
         )
         .unwrap();
         assert!(!trace.triggered_hints[0]

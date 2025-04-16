@@ -1,7 +1,7 @@
 version: "2"
 services:
   postgres:
-    image: postgres:16
+    image: postgres:17
     restart: unless-stopped
     command: postgres -c shared_preload_libraries=pg_stat_statements,auto_explain
     ports:

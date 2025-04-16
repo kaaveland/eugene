@@ -1,6 +1,6 @@
+use fxhash::FxHashSet as HashSet;
 use postgres::Transaction;
 use regex::Regex;
-use std::collections::HashSet;
 pub use tracer::{SqlStatementTrace, TxLockTracer};
 pub mod queries;
 /// Implementation details of the lock tracer.

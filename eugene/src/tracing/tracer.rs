@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use std::time::{Duration, Instant};
 
 use crate::comments::{filter_rules, find_comment_action};
@@ -267,7 +267,7 @@ impl<'a> TxLockTracer<'a> {
             name,
             initial_objects: trace_targets,
             statements: vec![],
-            all_locks: HashSet::new(),
+            all_locks: HashSet::default(),
             trace_start: Utc::now(),
             columns,
             constraints,
@@ -294,7 +294,7 @@ impl<'a> TxLockTracer<'a> {
     ) -> Self {
         let mut out = Self {
             name,
-            initial_objects: HashSet::new(),
+            initial_objects: HashSet::default(),
             statements: statements
                 .map(|(line, s)| SqlStatementTrace {
                     sql: s.as_ref().to_string(),
@@ -311,10 +311,10 @@ impl<'a> TxLockTracer<'a> {
                     line_no: line,
                 })
                 .collect(),
-            all_locks: HashSet::new(),
+            all_locks: HashSet::default(),
             trace_start: Utc::now(),
-            columns: HashMap::new(),
-            constraints: HashMap::new(),
+            columns: HashMap::default(),
+            constraints: HashMap::default(),
             concurrent: true,
             created_objects: Default::default(),
             triggered_hints: vec![],

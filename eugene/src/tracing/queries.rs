@@ -1,6 +1,5 @@
-use std::collections::{HashMap, HashSet};
-
 use crate::error::{ContextualResult, InnerError};
+use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use postgres::types::Oid;
 use postgres::Transaction;
 
@@ -33,7 +32,7 @@ pub struct Constraint {
     pub(crate) expression: Option<String>,
     pub(crate) valid: bool,
     pub(crate) target: Oid,
-    pub(crate) fk_target: Option<Oid>,
+    pub(crate) fk_target: Option<Oid>
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]
@@ -43,6 +42,14 @@ pub struct RelfileId {
     pub(crate) relfilenode: u32,
     pub(crate) rel_kind: RelKind,
     pub(crate) oid: Oid,
+}
+
+#[derive(Eq, PartialEq, Debug, Clone)]
+pub struct ForeignKeyReference {
+    pub(crate) constraint_name: String,
+    pub(crate) schema_name: String,
+    pub(crate) table_name: String,
+    pub(crate) columns: Vec<String>,
 }
 
 /// Enumerate all locks owned by the current transaction.
@@ -297,3 +304,4 @@ pub fn get_lock_timeout(tx: &mut Transaction) -> crate::Result<u64> {
         _ => Err(InnerError::InvalidUnit(unit).into()),
     }
 }
+

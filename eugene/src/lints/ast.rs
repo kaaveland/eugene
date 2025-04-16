@@ -184,7 +184,7 @@ fn stored_generated(coldef: &ColumnDef) -> bool {
     coldef.constraints.iter().any(|c| match c.node.as_ref() {
         Some(Node::Constraint(cons)) => {
             &cons.generated_when == "a"
-                && ConstrType::from_i32(cons.contype) == Some(ConstrType::ConstrGenerated)
+                && ConstrType::try_from(cons.contype).ok() == Some(ConstrType::ConstrGenerated)
         }
         _ => false,
     })
@@ -241,8 +241,8 @@ fn col_type_as_string(coldef: &ColumnDef) -> crate::Result<String> {
 }
 
 fn parse_alter_table_action(child: &AlterTableCmd) -> crate::Result<AlterTableAction> {
-    let subtype = AlterTableType::from_i32(child.subtype)
-        .ok_or(AstError::UnrecognizedAltCmdSubType(child.subtype))?;
+    let subtype = AlterTableType::try_from(child.subtype)
+        .map_err(|_| AstError::UnrecognizedAltCmdSubType(child.subtype))?;
 
     trace!("parse_alter_table_action: {:?} {:?}", subtype, child);
     match subtype {
@@ -259,8 +259,8 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> crate::Result<AlterTableAc
             let mut constraint_defs = Vec::with_capacity(constraints.len());
             for c in constraints {
                 if let Some(NodeEnum::Constraint(cons)) = &c.node {
-                    let constraint_type = ConstrType::from_i32(cons.contype)
-                        .ok_or(AstError::UnrecognizedConstraintType(cons.contype));
+                    let constraint_type = ConstrType::try_from(cons.contype)
+                        .map_err(|_| AstError::UnrecognizedConstraintType(cons.contype));
                     let valid = cons.initially_valid;
                     constraint_defs.push(Constraint {
                         valid,
@@ -284,8 +284,8 @@ fn parse_alter_table_action(child: &AlterTableCmd) -> crate::Result<AlterTableAc
             let name = def.conname.clone();
 
             let constraint_type = def.contype;
-            let constraint_type = ConstrType::from_i32(constraint_type)
-                .ok_or(AstError::UnrecognizedConstraintType(constraint_type))?;
+            let constraint_type = ConstrType::try_from(constraint_type)
+                .map_err(|_| AstError::UnrecognizedConstraintType(constraint_type))?;
 
             let use_index = !def.indexname.is_empty();
             let valid = !def.skip_validation;

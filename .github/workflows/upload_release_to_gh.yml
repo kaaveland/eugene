@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   packages: write
+
 jobs:
   create_release:
     runs-on: ubuntu-latest
@@ -52,31 +53,27 @@ jobs:
       fail-fast: false
       matrix:
         target:
-#   A `libclang` function was called that is not supported by the loaded `libclang` instance.-
-#          - toolchain: x86_64-unknown-linux-gnu
-#            platform: linux/amd64
-#            runs-on: ubuntu-latest
-#            cargo: cargo
-#   A `libclang` function was called that is not supported by the loaded `libclang` instance.
-#          - toolchain: aarch64-unknown-linux-gnu
-#            platform: linux/arm64
-#            runs-on: ubuntu-latest
           - toolchain: x86_64-unknown-linux-musl
-            platform: linux/amd64
             runs-on: ubuntu-latest
             cargo: cross
+            suffix: ""
           - toolchain: aarch64-unknown-linux-musl
-            platform: linux/arm64
             runs-on: ubuntu-latest
             cargo: cross
+            suffix: ""
           - toolchain: x86_64-apple-darwin
-            platform: darwin/amd64
             runs-on: macos-latest
-            cargo: cross
+            cargo: cargo
+            suffix: ""
           - toolchain: aarch64-apple-darwin
-            platform: darwin/arm64
             runs-on: macos-latest
-            cargo: cross
+            cargo: cargo
+            suffix: ""
+          - toolchain: x86_64-pc-windows-gnu
+            runs-on: windows-latest
+            cargo: cargo
+            suffix: ".exe"
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Rust toolchain for ${{ matrix.target.toolchain }}
@@ -84,21 +81,27 @@ jobs:
         with:
           targets: ${{ matrix.target.toolchain }}
       - uses: cargo-bins/cargo-binstall@main
+        if: ${{ matrix.target.cargo == 'cross' }}
       - name: Install cross
+        if: ${{ matrix.target.cargo == 'cross' }}
         run: cargo binstall -y --force cross
       - name: build release
-        run: cross build --release --target "${{ matrix.target.toolchain }}"
+        run: ${{ matrix.target.cargo }} build --release --target "${{ matrix.target.toolchain }}"
       - name: rename release
         shell: bash
         run: |
           version="$(cargo read-manifest --manifest-path=eugene/Cargo.toml | jq -r .version)"
-          mv target/${{ matrix.target.toolchain }}/release/eugene eugene-${{ matrix.target.toolchain }}
+          bin_name=eugene-${{ matrix.target.toolchain }}${{ matrix.target.suffix }}
+          mv target/${{ matrix.target.toolchain }}/release/eugene${{ matrix.target.suffix }} $bin_name
           if [[ "${{ matrix.target.runs-on }}" == "macos-latest" ]]; then
-            shasum -a 256 eugene-${{ matrix.target.toolchain }} > eugene-${{ matrix.target.toolchain }}.sha256
+            shasum -a 256 $bin_name > $bin_name.sha256
+          elif [[ "${{ matrix.target.runs-on }}" == "windows-latest" ]]; then
+            hash=$(certutil -hashfile $bin_name SHA256 | awk 'NR==2')
+            echo "$hash  $bin_name" > $bin_name.sha256
           else
-            sha256sum eugene-${{ matrix.target.toolchain }} > eugene-${{ matrix.target.toolchain }}.sha256
+            sha256sum $bin_name > $bin_name.sha256
           fi
-          gh release upload "$version" eugene-${{ matrix.target.toolchain }} eugene-${{ matrix.target.toolchain }}.sha256
+          gh release upload "$version" $bin_name $bin_name.sha256
 
   publish_release:
     runs-on: ubuntu-latest

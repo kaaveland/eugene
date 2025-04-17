@@ -7,6 +7,12 @@ resolver = "2"
 version = "0.8.1"
 edition = "2021"
 description = "Careful with That Lock, Eugene"
+categories = [
+    "development-tools"
+]
+keywords = [
+    "postgres", "postgresql", "migrations", "locking", "devtools"
+]
 
 license = "MIT"
 authors = ["Robin Kåveland <kaaveland@gmail.com>"]

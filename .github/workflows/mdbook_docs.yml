@@ -39,7 +39,14 @@ jobs:
           git config core.autocrlf false
           git commit -m 'Build mdbook docs'
           git push --force origin doc-pages
-
+      - name: sync docs
+        run: bunnysync sync docs/book kaveland --path eugene --verbose
+        env:
+          BUNNYSYNC_KEY: ${{ secrets.BUNNYSYNC_KEY }}
+      - name: purge
+        run: bunnysync purge-zone 3644443
+        env:
+          BUNNYSYNC_API_KEY: ${{ secrets.BUNNYSYNC_API_KEY }}
       - name: Upload docs
         uses: actions/upload-pages-artifact@v3
         with:

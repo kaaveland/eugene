@@ -1,5 +1,6 @@
 [tools]
 "cargo:mdbook" = "0.4.45"
+"ubi:kaaveland/bunnysync" = "latest"
 
 [tasks.doc-build]
 description = "Build eugene docs"
@@ -12,5 +13,5 @@ run = "rm -rf eugene/docs/book"
 [tasks.doc-deploy]
 description = "Deploy the eugene docs"
 depends = ["doc-clean", "doc-build"]
-run = "rsync --delete -avz eugene/docs/book/ blog@ardbeg:eugene"
+run = "bunnysync sync eugene/docs/book kaveland --path eugene"
 

@@ -1,6 +1,6 @@
 [tools]
 "cargo:mdbook" = "0.4.45"
-"ubi:kaaveland/bunnysync" = "latest"
+"ubi:kaaveland/thumper" = "latest"
 
 [tasks.doc-build]
 description = "Build eugene docs"
@@ -13,5 +13,5 @@ run = "rm -rf eugene/docs/book"
 [tasks.doc-deploy]
 description = "Deploy the eugene docs"
 depends = ["doc-clean", "doc-build"]
-run = "bunnysync sync eugene/docs/book kaveland --path eugene"
+run = "thumper sync eugene/docs/book kaveland --path eugene"
 

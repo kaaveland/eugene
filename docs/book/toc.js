@@ -1,0 +1,70 @@
+// Populate the sidebar
+//
+// This is a script, and not included directly in the page, to control the total size of the book.
+// The TOC contains an entry for each page, so if each page includes a copy of the TOC,
+// the total size of the page becomes O(n**2).
+class MDBookSidebarScrollbox extends HTMLElement {
+    constructor() {
+        super();
+    }
+    connectedCallback() {
+        this.innerHTML = '<ol class="chapter"><li class="chapter-item expanded "><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="lint.html"><strong aria-hidden="true">2.</strong> eugene lint</a></li><li class="chapter-item expanded "><a href="trace.html"><strong aria-hidden="true">3.</strong> eugene trace</a></li><li class="chapter-item expanded "><a href="ignores.html"><strong aria-hidden="true">4.</strong> Ignoring hints</a></li><li class="chapter-item expanded "><a href="web.html"><strong aria-hidden="true">5.</strong> eugene web</a></li><li class="chapter-item expanded "><a href="actions.html"><strong aria-hidden="true">6.</strong> Running in GitHub Actions</a></li><li class="chapter-item expanded "><a href="gitlab.html"><strong aria-hidden="true">7.</strong> Running in GitLab CI</a></li><li class="chapter-item expanded "><a href="hints.html"><strong aria-hidden="true">8.</strong> Hint reference</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="hints/E1/index.html"><strong aria-hidden="true">8.1.</strong> E1 Validating table with a new constraint</a></li><li class="chapter-item "><a href="hints/E2/index.html"><strong aria-hidden="true">8.2.</strong> E2 Validating table with a new NOT NULL column</a></li><li class="chapter-item "><a href="hints/E3/index.html"><strong aria-hidden="true">8.3.</strong> E3 Add a new JSON column</a></li><li class="chapter-item "><a href="hints/E4/index.html"><strong aria-hidden="true">8.4.</strong> E4 Running more statements after taking AccessExclusiveLock</a></li><li class="chapter-item "><a href="hints/E5/index.html"><strong aria-hidden="true">8.5.</strong> E5 Type change requiring table rewrite</a></li><li class="chapter-item "><a href="hints/E6/index.html"><strong aria-hidden="true">8.6.</strong> E6 Creating a new index on an existing table</a></li><li class="chapter-item "><a href="hints/E7/index.html"><strong aria-hidden="true">8.7.</strong> E7 Creating a new unique constraint</a></li><li class="chapter-item "><a href="hints/E8/index.html"><strong aria-hidden="true">8.8.</strong> E8 Creating a new exclusion constraint</a></li><li class="chapter-item "><a href="hints/E9/index.html"><strong aria-hidden="true">8.9.</strong> E9 Taking dangerous lock without timeout</a></li><li class="chapter-item "><a href="hints/E10/index.html"><strong aria-hidden="true">8.10.</strong> E10 Rewrote table or index while holding dangerous lock</a></li><li class="chapter-item "><a href="hints/E11/index.html"><strong aria-hidden="true">8.11.</strong> E11 Adding a SERIAL or GENERATED ... STORED column</a></li><li class="chapter-item "><a href="hints/W12/index.html"><strong aria-hidden="true">8.12.</strong> W12 Multiple ALTER TABLE statements where one will do</a></li><li class="chapter-item "><a href="hints/W13/index.html"><strong aria-hidden="true">8.13.</strong> W13 Creating an enum</a></li><li class="chapter-item "><a href="hints/W14/index.html"><strong aria-hidden="true">8.14.</strong> W14 Adding a primary key using an index</a></li><li class="chapter-item "><a href="hints/E15/index.html"><strong aria-hidden="true">8.15.</strong> E15 Missing index</a></li></ol></li><li class="chapter-item expanded "><li class="spacer"></li><li class="chapter-item expanded "><a href="hints/examples.html"><strong aria-hidden="true">9.</strong> Example Reports</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="hints/E1/unsafe_lint.html"><strong aria-hidden="true">9.1.</strong> E1 lint problematic</a></li><li class="chapter-item "><a href="hints/E1/safer_lint.html"><strong aria-hidden="true">9.2.</strong> E1 lint safer</a></li><li class="chapter-item "><a href="hints/E1/unsafe_trace.html"><strong aria-hidden="true">9.3.</strong> E1 trace problematic</a></li><li class="chapter-item "><a href="hints/E1/safer_trace.html"><strong aria-hidden="true">9.4.</strong> E1 trace safer</a></li><li class="chapter-item "><a href="hints/E2/unsafe_lint.html"><strong aria-hidden="true">9.5.</strong> E2 lint problematic</a></li><li class="chapter-item "><a href="hints/E2/safer_lint.html"><strong aria-hidden="true">9.6.</strong> E2 lint safer</a></li><li class="chapter-item "><a href="hints/E2/unsafe_trace.html"><strong aria-hidden="true">9.7.</strong> E2 trace problematic</a></li><li class="chapter-item "><a href="hints/E2/safer_trace.html"><strong aria-hidden="true">9.8.</strong> E2 trace safer</a></li><li class="chapter-item "><a href="hints/E3/unsafe_lint.html"><strong aria-hidden="true">9.9.</strong> E3 lint problematic</a></li><li class="chapter-item "><a href="hints/E3/safer_lint.html"><strong aria-hidden="true">9.10.</strong> E3 lint safer</a></li><li class="chapter-item "><a href="hints/E3/unsafe_trace.html"><strong aria-hidden="true">9.11.</strong> E3 trace problematic</a></li><li class="chapter-item "><a href="hints/E3/safer_trace.html"><strong aria-hidden="true">9.12.</strong> E3 trace safer</a></li><li class="chapter-item "><a href="hints/E4/unsafe_lint.html"><strong aria-hidden="true">9.13.</strong> E4 lint problematic</a></li><li class="chapter-item "><a href="hints/E4/safer_lint.html"><strong aria-hidden="true">9.14.</strong> E4 lint safer</a></li><li class="chapter-item "><a href="hints/E4/unsafe_trace.html"><strong aria-hidden="true">9.15.</strong> E4 trace problematic</a></li><li class="chapter-item "><a href="hints/E4/safer_trace.html"><strong aria-hidden="true">9.16.</strong> E4 trace safer</a></li><li class="chapter-item "><a href="hints/E5/unsafe_lint.html"><strong aria-hidden="true">9.17.</strong> E5 lint problematic</a></li><li class="chapter-item "><a href="hints/E5/safer_lint.html"><strong aria-hidden="true">9.18.</strong> E5 lint safer</a></li><li class="chapter-item "><a href="hints/E5/unsafe_trace.html"><strong aria-hidden="true">9.19.</strong> E5 trace problematic</a></li><li class="chapter-item "><a href="hints/E5/safer_trace.html"><strong aria-hidden="true">9.20.</strong> E5 trace safer</a></li><li class="chapter-item "><a href="hints/E6/unsafe_lint.html"><strong aria-hidden="true">9.21.</strong> E6 lint problematic</a></li><li class="chapter-item "><a href="hints/E6/safer_lint.html"><strong aria-hidden="true">9.22.</strong> E6 lint safer</a></li><li class="chapter-item "><a href="hints/E6/unsafe_trace.html"><strong aria-hidden="true">9.23.</strong> E6 trace problematic</a></li><li class="chapter-item "><a href="hints/E6/safer_trace.html"><strong aria-hidden="true">9.24.</strong> E6 trace safer</a></li><li class="chapter-item "><a href="hints/E7/unsafe_lint.html"><strong aria-hidden="true">9.25.</strong> E7 lint problematic</a></li><li class="chapter-item "><a href="hints/E7/safer_lint.html"><strong aria-hidden="true">9.26.</strong> E7 lint safer</a></li><li class="chapter-item "><a href="hints/E7/unsafe_trace.html"><strong aria-hidden="true">9.27.</strong> E7 trace problematic</a></li><li class="chapter-item "><a href="hints/E7/safer_trace.html"><strong aria-hidden="true">9.28.</strong> E7 trace safer</a></li><li class="chapter-item "><a href="hints/E8/unsafe_lint.html"><strong aria-hidden="true">9.29.</strong> E8 lint problematic</a></li><li class="chapter-item "><a href="hints/E8/unsafe_trace.html"><strong aria-hidden="true">9.30.</strong> E8 trace problematic</a></li><li class="chapter-item "><a href="hints/E9/unsafe_lint.html"><strong aria-hidden="true">9.31.</strong> E9 lint problematic</a></li><li class="chapter-item "><a href="hints/E9/safer_lint.html"><strong aria-hidden="true">9.32.</strong> E9 lint safer</a></li><li class="chapter-item "><a href="hints/E9/unsafe_trace.html"><strong aria-hidden="true">9.33.</strong> E9 trace problematic</a></li><li class="chapter-item "><a href="hints/E9/safer_trace.html"><strong aria-hidden="true">9.34.</strong> E9 trace safer</a></li><li class="chapter-item "><a href="hints/E10/unsafe_lint.html"><strong aria-hidden="true">9.35.</strong> E10 lint problematic</a></li><li class="chapter-item "><a href="hints/E10/safer_lint.html"><strong aria-hidden="true">9.36.</strong> E10 lint safer</a></li><li class="chapter-item "><a href="hints/E10/unsafe_trace.html"><strong aria-hidden="true">9.37.</strong> E10 trace problematic</a></li><li class="chapter-item "><a href="hints/E10/safer_trace.html"><strong aria-hidden="true">9.38.</strong> E10 trace safer</a></li><li class="chapter-item "><a href="hints/E11/unsafe_lint.html"><strong aria-hidden="true">9.39.</strong> E11 lint problematic</a></li><li class="chapter-item "><a href="hints/E11/unsafe_trace.html"><strong aria-hidden="true">9.40.</strong> E11 trace problematic</a></li><li class="chapter-item "><a href="hints/W12/unsafe_lint.html"><strong aria-hidden="true">9.41.</strong> W12 lint problematic</a></li><li class="chapter-item "><a href="hints/W12/safer_lint.html"><strong aria-hidden="true">9.42.</strong> W12 lint safer</a></li><li class="chapter-item "><a href="hints/W12/unsafe_trace.html"><strong aria-hidden="true">9.43.</strong> W12 trace problematic</a></li><li class="chapter-item "><a href="hints/W12/safer_trace.html"><strong aria-hidden="true">9.44.</strong> W12 trace safer</a></li><li class="chapter-item "><a href="hints/W13/unsafe_lint.html"><strong aria-hidden="true">9.45.</strong> W13 lint problematic</a></li><li class="chapter-item "><a href="hints/W13/safer_lint.html"><strong aria-hidden="true">9.46.</strong> W13 lint safer</a></li><li class="chapter-item "><a href="hints/W13/unsafe_trace.html"><strong aria-hidden="true">9.47.</strong> W13 trace problematic</a></li><li class="chapter-item "><a href="hints/W13/safer_trace.html"><strong aria-hidden="true">9.48.</strong> W13 trace safer</a></li><li class="chapter-item "><a href="hints/W14/unsafe_lint.html"><strong aria-hidden="true">9.49.</strong> W14 lint problematic</a></li><li class="chapter-item "><a href="hints/W14/safer_lint.html"><strong aria-hidden="true">9.50.</strong> W14 lint safer</a></li><li class="chapter-item "><a href="hints/W14/unsafe_trace.html"><strong aria-hidden="true">9.51.</strong> W14 trace problematic</a></li><li class="chapter-item "><a href="hints/W14/safer_trace.html"><strong aria-hidden="true">9.52.</strong> W14 trace safer</a></li><li class="chapter-item "><a href="hints/E15/unsafe_lint.html"><strong aria-hidden="true">9.53.</strong> E15 lint problematic</a></li><li class="chapter-item "><a href="hints/E15/safer_lint.html"><strong aria-hidden="true">9.54.</strong> E15 lint safer</a></li><li class="chapter-item "><a href="hints/E15/unsafe_trace.html"><strong aria-hidden="true">9.55.</strong> E15 trace problematic</a></li><li class="chapter-item "><a href="hints/E15/safer_trace.html"><strong aria-hidden="true">9.56.</strong> E15 trace safer</a></li></ol></li></ol>';
+        // Set the current, active page, and reveal it if it's hidden
+        let current_page = document.location.href.toString().split("#")[0];
+        if (current_page.endsWith("/")) {
+            current_page += "index.html";
+        }
+        var links = Array.prototype.slice.call(this.querySelectorAll("a"));
+        var l = links.length;
+        for (var i = 0; i < l; ++i) {
+            var link = links[i];
+            var href = link.getAttribute("href");
+            if (href && !href.startsWith("#") && !/^(?:[a-z+]+:)?\/\//.test(href)) {
+                link.href = path_to_root + href;
+            }
+            // The "index" page is supposed to alias the first chapter in the book.
+            if (link.href === current_page || (i === 0 && path_to_root === "" && current_page.endsWith("/index.html"))) {
+                link.classList.add("active");
+                var parent = link.parentElement;
+                if (parent && parent.classList.contains("chapter-item")) {
+                    parent.classList.add("expanded");
+                }
+                while (parent) {
+                    if (parent.tagName === "LI" && parent.previousElementSibling) {
+                        if (parent.previousElementSibling.classList.contains("chapter-item")) {
+                            parent.previousElementSibling.classList.add("expanded");
+                        }
+                    }
+                    parent = parent.parentElement;
+                }
+            }
+        }
+        // Track and set sidebar scroll position
+        this.addEventListener('click', function(e) {
+            if (e.target.tagName === 'A') {
+                sessionStorage.setItem('sidebar-scroll', this.scrollTop);
+            }
+        }, { passive: true });
+        var sidebarScrollTop = sessionStorage.getItem('sidebar-scroll');
+        sessionStorage.removeItem('sidebar-scroll');
+        if (sidebarScrollTop) {
+            // preserve sidebar scroll position when navigating via links within sidebar
+            this.scrollTop = sidebarScrollTop;
+        } else {
+            // scroll sidebar to current active section when navigating via "next/previous chapter" buttons
+            var activeSection = document.querySelector('#sidebar .active');
+            if (activeSection) {
+                activeSection.scrollIntoView({ block: 'center' });
+            }
+        }
+        // Toggle buttons
+        var sidebarAnchorToggles = document.querySelectorAll('#sidebar a.toggle');
+        function toggleSection(ev) {
+            ev.currentTarget.parentElement.classList.toggle('expanded');
+        }
+        Array.from(sidebarAnchorToggles).forEach(function (el) {
+            el.addEventListener('click', toggleSection);
+        });
+    }
+}
+window.customElements.define("mdbook-sidebar-scrollbox", MDBookSidebarScrollbox);

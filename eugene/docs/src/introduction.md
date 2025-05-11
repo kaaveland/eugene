@@ -18,7 +18,7 @@ in the text area below. When you click the "Check" button, Eugene
 will analyze the scripts and let you know if it found any issues.
 
 <div class="demo-area">
-<form hx-post="https://blog.kaveland.no/eugene/app/lint.html" 
+<form hx-post="https://api.kaveland.no/eugene/app/lint.html" 
       hx-target="#output"
       hx-on-htmx-response-error="check_for_413(event);">
 <input type="hidden" name="sql" id="sql-input" value="">

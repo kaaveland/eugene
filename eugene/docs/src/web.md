@@ -11,7 +11,7 @@ crate in the eugene repository.
 
 ## Endpoints
 
-All the endpoints are relative to `https://kaveland.no/eugene/app` or
+All the endpoints are relative to `https://api.kaveland.no/eugene/app` or
 `http://localhost:3000/eugene/app` if you're running it locally.
 
 ### `POST /lint.html`
@@ -28,7 +28,7 @@ response. It's suitable for use with `curl` from the terminal, you can check a
 file named `dmo.sql` like this:
 
 ```shell
-curl -XPOST -d @dmo.sql https://kaveland.no/eugene/app/lint.raw
+curl -XPOST -d @dmo.sql https://api.kaveland.no/eugene/app/lint.raw
 unnamed:1 E2 Validating table with a new `NOT NULL` column https://kaveland.no/eugene/hints/E2/
 unnamed:1 E9 Taking dangerous lock without timeout https://kaveland.no/eugene/hints/E9/
 unnamed:2 E2 Validating table with a new `NOT NULL` column https://kaveland.no/eugene/hints/E2/

@@ -21,6 +21,6 @@ alter table books alter column title set not null;
 You can ignore specific rule IDs for a single statement:
 
 ```sql
--- eugene: ignore: E2, E3
+-- eugene: ignore E2, E3
 alter table books alter column title set not null;
 ```

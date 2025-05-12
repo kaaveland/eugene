@@ -31,7 +31,10 @@ pub fn find_comment_action(sql: &str) -> crate::Result<LintAction> {
                     rem.split(',').map(|id| id.trim()).collect(),
                 ))
             }
-            _ => Err(BadCommentInstruction(format!("expected: 'ignore <id>[,<id>]', found: '{cap}'")).into()),
+            _ => Err(BadCommentInstruction(format!(
+                "expected: 'ignore <id>[,<id>]', found: '{cap}'"
+            ))
+            .into()),
         }
     } else {
         Ok(LintAction::Continue)

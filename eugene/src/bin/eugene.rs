@@ -53,7 +53,7 @@ struct TraceAndLintOptions {
     ///
     /// Or comment your SQL statement like this:
     ///
-    /// `-- eugene-ignore: E3, E4`
+    /// `-- eugene ignore E3, E4`
     ///
     /// alter table foo add column bar json;
     ///
@@ -83,7 +83,7 @@ struct TraceAndLintOptions {
     /// Skip the summary section for markdown output
     #[arg(short = 's', long = "skip-summary", default_value_t = false)]
     skip_summary: bool,
-    /// Filter out discovered scripts that are have not been changed since this git ref
+    /// Filter out discovered scripts that have not been changed since this git ref
     ///
     /// Pass a git ref, like a commit hash, tag, or branch name.
     #[arg(short = 'g', long = "git-diff")]

@@ -64,4 +64,4 @@ alter table authors
 
 ##### `W14`: [Adding a primary key using an index](https://kaveland.no/eugene/hints/W14/)
 
-New primary key constraint using index on `public.authors`, may cause postgres to `SET NOT NULL` on columns in the index. This lint may be a false positive if the columns are already `NOT NULL`, ignore it by commenting the statement with `-- eugene: ignore: W14`.
+New primary key constraint using index on `public.authors`, may cause postgres to `SET NOT NULL` on columns in the index. This lint may be a false positive if the columns are already `NOT NULL`, ignore it by commenting the statement with `-- eugene: ignore W14`.

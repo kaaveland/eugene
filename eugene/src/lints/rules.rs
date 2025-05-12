@@ -440,7 +440,7 @@ fn add_primary_key_constraint_using_index(ctx: LintContext) -> Option<String> {
                         "New primary key constraint using index on `{schema}.{table}`, \
                     may cause postgres to `SET NOT NULL` on columns in the index. \
                     This lint may be a false positive if the columns are already `NOT NULL`, ignore it \
-                    by commenting the statement with `-- eugene: ignore: {}`", ADD_PRIMARY_KEY_USING_INDEX.id()
+                    by commenting the statement with `-- eugene: ignore {}`", ADD_PRIMARY_KEY_USING_INDEX.id()
                     ))
                 } else {
                     None

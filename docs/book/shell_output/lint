@@ -1,0 +1,73 @@
+Lint SQL migration script by analyzing syntax tree
+
+`eugene lint` exits with failure if any lint is detected.
+
+Usage: eugene lint [OPTIONS] [paths]...
+
+Arguments:
+  [paths]...
+          Path to SQL migration scripts, directories, or '-' to read from stdin
+
+Options:
+  -v, --var <PLACEHOLDERS>
+          Provide name=value for replacing ${name} with value in the SQL script
+          
+          Can be used multiple times to provide more placeholders.
+
+  -i, --ignore <IGNORED_HINTS>
+          Ignore the hints with these IDs, use `eugene hints` to see available hints
+          
+          Can be used multiple times: `-i E3 -i E4`
+          
+          Or comment your SQL statement like this:
+          
+          `-- eugene-ignore: E3, E4`
+          
+          alter table foo add column bar json;
+          
+          This will ignore hints E3 and E4 for this statement only.
+
+  -f, --format <FORMAT>
+          Output format, plain, json or markdown
+          
+          [default: plain]
+          [possible values: json, markdown, md, plain]
+
+  -a, --accept-failures
+          Exit successfully even if problems are detected.
+          
+          Will still fail for syntax errors in the SQL script.
+
+      --sort-mode <SORT_MODE>
+          Sort mode for script discovery, auto, name or none
+          
+          This is used to order scripts when a path is a directory, or many paths are provided.
+          
+          `auto` will sort by versions or sequence numbers.
+          
+          `auto` requires all files to have the same naming scheme, either flyway-style or leading sequence numbers.
+          
+          `name` will sort lexically by name.
+          
+          [default: auto]
+          [possible values: auto, name, none]
+
+  -s, --skip-summary
+          Skip the summary section for markdown output
+
+  -g, --git-diff <GIT_DIFF>
+          Filter out discovered scripts that are have not been changed since this git ref
+          
+          Pass a git ref, like a commit hash, tag, or branch name.
+
+      --skip <SKIP>
+          Skip SQL statements matching this regex (do not execute or lint them)
+          
+          For example:
+          
+          eugene trace --skip '.*flyway.*' --skip '.*moreToSkip.*'
+          
+          See https://docs.rs/regex/latest/regex/#syntax
+
+  -h, --help
+          Print help (see a summary with '-h')

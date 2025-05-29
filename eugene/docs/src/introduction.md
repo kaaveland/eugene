@@ -73,7 +73,7 @@ function check_for_413(event) {
 <script>
 function fetch_new_example(event) {
     event.preventDefault();
-    fetch('https://blog.kaveland.no/eugene/app/random.sql')
+    fetch('https://api.kaveland.no/eugene/app/random.sql')
         .then(response => response.text())
         .then(data => {
               editor.setValue(data); 

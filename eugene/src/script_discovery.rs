@@ -46,7 +46,7 @@ fn parse_sql_file_name_til_eof(name: &str) -> IResult<&str, &str> {
     Ok((rem, &name[..name.len() - suffix.len()]))
 }
 
-fn parse_versioned_name_r(name: &str) -> IResult<&str, VersionedName> {
+fn parse_versioned_name_r(name: &str) -> IResult<&str, VersionedName<'_>> {
     let whole_name = name;
     let (name, script_type) =
         map(terminated(char('R'), tag("__")), |_| ScriptType::Repeatable)(name)?;
@@ -62,7 +62,7 @@ fn parse_versioned_name_r(name: &str) -> IResult<&str, VersionedName> {
     ))
 }
 
-fn parse_versioned_name_uv(name: &str) -> IResult<&str, VersionedName> {
+fn parse_versioned_name_uv(name: &str) -> IResult<&str, VersionedName<'_>> {
     let whole_name = name;
     let (name, script_type) = alt((
         char('V').map(|_| ScriptType::Forward),
@@ -90,7 +90,7 @@ fn parse_versioned_name_uv(name: &str) -> IResult<&str, VersionedName> {
 ///   The name should begin with R, followed by __ and then a name.
 ///
 /// The version number is a list of numbers separated by dots or underscores.
-pub fn parse_versioned_name(name: &str) -> IResult<&str, VersionedName> {
+pub fn parse_versioned_name(name: &str) -> IResult<&str, VersionedName<'_>> {
     alt((parse_versioned_name_r, parse_versioned_name_uv))(name)
 }
 
@@ -102,7 +102,7 @@ pub struct SequenceNumberName<'a> {
     name: &'a str,
 }
 
-fn parse_sequence_number_name(name: &str) -> IResult<&str, SequenceNumberName> {
+fn parse_sequence_number_name(name: &str) -> IResult<&str, SequenceNumberName<'_>> {
     let whole_name = name;
     let (name, sequence_number) = map_res(digit1, |s: &str| s.parse::<u32>())(name)?;
     let (name, _) = many0(char('_'))(name)?;
@@ -124,7 +124,7 @@ pub struct SqlName<'a> {
     name: &'a str,
 }
 
-fn parse_sql_name(name: &str) -> IResult<&str, SqlName> {
+fn parse_sql_name(name: &str) -> IResult<&str, SqlName<'_>> {
     let whole_name = name;
     let (rem, name) = parse_sql_file_name_til_eof(name)?;
     Ok((rem, SqlName { whole_name, name }))
@@ -195,7 +195,7 @@ impl SqlScript<'_> {
     }
 }
 
-fn parse_sql_script(name: &str) -> IResult<&str, SqlScript> {
+fn parse_sql_script(name: &str) -> IResult<&str, SqlScript<'_>> {
     alt((
         map(parse_versioned_name, SqlScript::Versioned),
         map(parse_sequence_number_name, SqlScript::SequenceNumber),
@@ -204,7 +204,7 @@ fn parse_sql_script(name: &str) -> IResult<&str, SqlScript> {
 }
 
 /// Discover the most likely naming scheme of a script and parse it into a [SqlScript]
-pub fn parse(path: &Path) -> crate::Result<SqlScript> {
+pub fn parse(path: &Path) -> crate::Result<SqlScript<'_>> {
     let name = path
         .file_name()
         .ok_or_else(|| NotFound.with_context(format!("{path:?}")))?

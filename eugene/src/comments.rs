@@ -17,7 +17,7 @@ pub enum LintAction<'a> {
 static EUGENE_COMMENT_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"-- eugene: ([^\n]+)").expect("Failed to compile regex"));
 /// Detect `sql` containing a comment with an instruction for eugene
-pub fn find_comment_action(sql: &str) -> crate::Result<LintAction> {
+pub fn find_comment_action(sql: &str) -> crate::Result<LintAction<'_>> {
     if let Some(captures) = EUGENE_COMMENT_REGEX.captures(sql.as_ref()) {
         let cap = captures.get(1).map(|m| m.as_str()).ok_or_else(|| {
             InnerError::MissingCaptureError

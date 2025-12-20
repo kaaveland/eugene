@@ -239,6 +239,19 @@ pub const RUNNING_STATEMENT_WHILE_HOLDING_ACCESS_EXCLUSIVE: LintRule = LintRule 
     check: run_more_statements_after_taking_access_exclusive,
 };
 
+fn run_more_statements_after_taking_dangerous_lock(stmt: LintContext) -> Option<String> {
+    if stmt.holding_dangerous_lock() && !stmt.holding_access_exclusive() {
+        Some("Running more statements after taking dangerous lock".to_string())
+    } else {
+        None
+    }
+}
+
+pub const RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK: LintRule = LintRule {
+    meta: &crate::hint_data::RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK,
+    check: run_more_statements_after_taking_dangerous_lock,
+};
+
 fn sets_column_to_not_null(stmt: LintContext) -> Option<String> {
     match stmt.statement {
         StatementSummary::AlterTable {
@@ -468,6 +481,7 @@ const RULES: &[LintRule] = &[
     MULTIPLE_ALTER_TABLES_WHERE_ONE_WILL_DO,
     CREATING_ENUM,
     ADD_PRIMARY_KEY_USING_INDEX,
+    RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK,
 ];
 
 /// Get all available lint rules

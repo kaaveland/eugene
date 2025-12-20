@@ -12,6 +12,7 @@ create table purchase
 
 -- 2.sql
 set local lock_timeout = '2s';
+
 -- eugene: ignore E6
 create index purchase_item_idx on purchase (item)
     -- this is a partial index, not good enough for enforcing referential integrity

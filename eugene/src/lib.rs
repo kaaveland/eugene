@@ -310,4 +310,24 @@ CREATE UNIQUE INDEX
         assert_eq!(report.statements[0].line_number, 1);
         assert_eq!(report.statements[1].line_number, 6);
     }
+
+    #[test]
+    fn test_dangerous_lock_warning_e16() {
+        let script = "CREATE INDEX idx_test ON existing_table (name);
+SELECT count(*) FROM existing_table;";
+        let report = super::lints::anon_lint(script).unwrap();
+
+        // Should detect E16 on the SELECT statement (statement 2)
+        let select_statement = &report.statements[1];
+        assert!(
+            !select_statement.triggered_rules.is_empty(),
+            "Expected E16 warning on SELECT after CREATE INDEX"
+        );
+
+        let e16_rule = select_statement
+            .triggered_rules
+            .iter()
+            .find(|rule| rule.id == "E16");
+        assert!(e16_rule.is_some(), "Expected E16 rule to be triggered");
+    }
 }

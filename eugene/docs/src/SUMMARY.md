@@ -23,6 +23,7 @@
   - [W13 Creating an enum](./hints/W13/index.md)
   - [W14 Adding a primary key using an index](./hints/W14/index.md)
   - [E15 Missing index](./hints/E15/index.md)
+  - [E16 Running more statements after taking dangerous lock](./hints/E16/index.md)
 ---------
 - [Example Reports](./hints/examples.md)
   - [E1 lint problematic](./hints/E1/unsafe_lint.md)
@@ -81,3 +82,7 @@
   - [E15 lint safer](./hints/E15/safer_lint.md)
   - [E15 trace problematic](./hints/E15/unsafe_trace.md)
   - [E15 trace safer](./hints/E15/safer_trace.md)
+  - [E16 lint problematic](./hints/E16/unsafe_lint.md)
+  - [E16 lint safer](./hints/E16/safer_lint.md)
+  - [E16 trace problematic](./hints/E16/unsafe_trace.md)
+  - [E16 trace safer](./hints/E16/safer_trace.md)

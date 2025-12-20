@@ -148,6 +148,31 @@ fn running_statement_while_holding_access_exclusive(
     Some(help)
 }
 
+fn running_statement_while_holding_dangerous_lock(
+    sql_statement_trace: &StatementCtx,
+) -> Option<String> {
+    let dangerous_lock = sql_statement_trace
+        .locks_at_start()
+        .find(|lock| lock.mode.dangerous() && !matches!(lock.mode, LockMode::AccessExclusive))?;
+
+    let blocked_queries: Vec<_> = dangerous_lock
+        .mode
+        .blocked_queries()
+        .iter()
+        .map(|op| format!("`{op}`"))
+        .collect();
+    let help = format!(
+        "The statement is running while holding a `{}` lock on the {} `{}.{}`, \
+                blocking concurrent {} for the duration of this statement.",
+        dangerous_lock.mode,
+        dangerous_lock.target.rel_kind,
+        dangerous_lock.target.schema,
+        dangerous_lock.target.object_name,
+        blocked_queries.join(", "),
+    );
+    Some(help)
+}
+
 fn type_change_requires_table_rewrite(sql_statement_trace: &StatementCtx) -> Option<String> {
     let (_, column) = sql_statement_trace
         .altered_columns()
@@ -354,6 +379,10 @@ pub const FK_MISSING_BACKIND_INDEX: HintInfo = HintInfo {
     meta: &hint_data::FOREIGN_KEY_NOT_BACKED_BY_INDEX,
     render_help: foreign_key_missing_index,
 };
+pub const RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK: HintInfo = HintInfo {
+    meta: &hint_data::RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK,
+    render_help: running_statement_while_holding_dangerous_lock,
+};
 
 /// All the hints eugene can check statement traces against
 const HINTS: &[HintInfo] = &[
@@ -368,6 +397,7 @@ const HINTS: &[HintInfo] = &[
     TOOK_DANGEROUS_LOCK_WITHOUT_TIMEOUT,
     REWROTE_TABLE_WHILE_HOLDING_DANGEROUS_LOCK,
     FK_MISSING_BACKIND_INDEX,
+    RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK,
 ];
 
 #[cfg(test)]

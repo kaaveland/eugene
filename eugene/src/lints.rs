@@ -22,6 +22,7 @@ pub struct TransactionState {
     created_objects: Vec<(String, String)>,
     altered_tables: Vec<(String, String)>,
     has_access_exclusive: bool,
+    has_dangerous_lock: bool,
 }
 
 impl TransactionState {
@@ -49,6 +50,16 @@ impl TransactionState {
                 if !self.has_created_object(schema, name) =>
             {
                 self.has_access_exclusive = true;
+                self.has_dangerous_lock = true;
+            }
+            StatementSummary::CreateIndex {
+                concurrently: false,
+                schema,
+                target,
+                ..
+            } if !self.has_created_object(schema, target) => {
+                // Non-concurrent CREATE INDEX takes ShareLock, which is dangerous
+                self.has_dangerous_lock = true;
             }
             _ => {}
         }
@@ -98,6 +109,9 @@ impl<'a> LintContext<'a> {
     }
     pub fn holding_access_exclusive(&self) -> bool {
         self.ctx.has_access_exclusive
+    }
+    pub fn holding_dangerous_lock(&self) -> bool {
+        self.ctx.has_dangerous_lock
     }
     /// True if the transaction has previously altered this table
     pub fn has_altered_table(&self, schema: &str, name: &str) -> bool {

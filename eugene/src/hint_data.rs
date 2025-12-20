@@ -162,6 +162,15 @@ pub const FOREIGN_KEY_NOT_BACKED_BY_INDEX: StaticHintData = StaticHintData {
     bad_example: include_str!("../examples/E15/bad.sql"),
     good_example: Some(include_str!("../examples/E15/good.sql")),
 };
+pub const RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK: StaticHintData = StaticHintData {
+    id: "E16",
+    name: "Running more statements after taking dangerous lock",
+    condition: "A transaction that holds a dangerous lock started a new statement",
+    workaround: "Run this statement in a new transaction, or minimize the time spent holding dangerous locks",
+    effect: "This blocks concurrent queries for the duration of this statement",
+    bad_example: include_str!("../examples/E16/bad.sql"),
+    good_example: Some(include_str!("../examples/E16/good.sql")),
+};
 
 pub const ALL: &[&StaticHintData] = &[
     &VALIDATE_CONSTRAINT_WITH_LOCK,
@@ -179,6 +188,7 @@ pub const ALL: &[&StaticHintData] = &[
     &CREATING_ENUM,
     &ADD_PRIMARY_KEY_USING_INDEX,
     &FOREIGN_KEY_NOT_BACKED_BY_INDEX,
+    &RUNNING_STATEMENT_WHILE_HOLDING_DANGEROUS_LOCK,
 ];
 
 pub fn data_by_id<S: AsRef<str>>(id: S) -> Option<&'static StaticHintData> {

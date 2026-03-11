@@ -24,6 +24,7 @@ jobs:
           - "15"
           - "16"
           - "17"
+          - "18"
     env:
       PGPASS: postgres
     services:

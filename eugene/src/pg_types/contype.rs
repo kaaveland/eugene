@@ -8,6 +8,7 @@ pub enum Contype {
     Unique,
     Exclusion,
     ConstraintTrigger,
+    NotNull,
 }
 
 impl std::fmt::Display for Contype {
@@ -25,6 +26,7 @@ impl Contype {
             'u' => Ok(Contype::Unique),
             'x' => Ok(Contype::Exclusion),
             't' => Ok(Contype::ConstraintTrigger),
+            'n' => Ok(Contype::NotNull),
             _ => Err(InnerError::InvalidContype(c).into()),
         }
     }
@@ -36,6 +38,7 @@ impl Contype {
             Contype::Unique => "UNIQUE",
             Contype::Exclusion => "EXCLUSION",
             Contype::ConstraintTrigger => "CONSTRAINT TRIGGER",
+            Contype::NotNull => "NOT NULL",
         }
     }
 }

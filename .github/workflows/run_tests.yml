@@ -24,6 +24,7 @@ jobs:
           - "15"
           - "16"
           - "17"
+          - "18"
     env:
       PGPASS: postgres
     services:
@@ -94,7 +95,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-build-
       - name: Install psql and postgres
-        run: brew install postgresql
+        run: |
+          brew install postgresql
+          brew link --force postgresql@18
       - name: Init postgres db
         env:
           TZ: UTC

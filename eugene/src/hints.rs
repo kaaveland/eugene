@@ -61,7 +61,7 @@ fn add_new_valid_constraint_help(sql_statement_trace: &StatementCtx) -> Option<S
         constraint.valid
             && !matches!(
                 constraint.constraint_type,
-                Contype::Unique | Contype::Exclusion
+                Contype::Unique | Contype::Exclusion | Contype::NotNull
             )
     })?;
 

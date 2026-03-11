@@ -1,13 +1,12 @@
-version: "2"
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     restart: unless-stopped
     command: postgres -c shared_preload_libraries=pg_stat_statements,auto_explain
     ports:
       - '127.0.0.1:5432:5432'
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql
       - ./db-initscripts:/docker-entrypoint-initdb.d
     environment:
       - POSTGRES_USER=postgres
